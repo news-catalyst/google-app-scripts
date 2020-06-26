@@ -43,9 +43,17 @@ function getCurrentDocContents() {
   
   var paragraphs = getBody();
   Logger.log("getCurrentDocContents paragraph count: ", paragraphs.length);
-  postToWebiny(title, paragraphs);
   
-  return body;
+  var webinyResponse = postToWebiny(title, paragraphs);
+  
+  var webinyResponseCode = webinyResponse.getResponseCode();
+  var responseText;
+  if (webinyResponseCode === 200) {
+    responseText = "Successfully created article in webiny.";
+  } else {
+    responseText = "Webiny responded with code " + webinyResponseCode;
+  }
+  return responseText;
 }
 
 /**
@@ -103,12 +111,11 @@ function getBody() {
   Logger.log("Total paragraphs found: ", paragraphs.length);
   return paragraphs;
 }
+
 /**
 . * Posts document contents to graphql
 . */
-function postToWebiny(title, paragraphs) {
-  Logger.log("postToWebiny title: ", title);
-  
+function postToWebiny(title, paragraphs) {  
   var formattedParagraphs = [];
   for (var i=0; i<paragraphs.length; i++) {
     formattedParagraphs.push({
@@ -120,9 +127,7 @@ function postToWebiny(title, paragraphs) {
                 ]
               });
   }
-  
-  Logger.log("Formatted paragraphs: ", formattedParagraphs);
-  
+    
   var formData = {
     "query":"mutation CreateBasicArticle($data: BasicArticleInput!) {\n  content: createBasicArticle(data: $data) {\n    data {\n      id\n      headline {\n        values {\n          value\n          locale\n        }\n      }\n      body {\n        values {\n          value\n          locale\n        }\n      }\n      byline {\n        values {\n          value {\n            id\n          }\n          locale\n        }\n      }\n    }\n    error {\n      message\n      code\n      data\n    }\n  }\n}",
       "variables":{
@@ -166,8 +171,45 @@ function postToWebiny(title, paragraphs) {
   
   Logger.log(options);
           
-          var response = UrlFetchApp.fetch('https://dqntvb0f42uh4.cloudfront.net/cms/manage/production', options);
-          Logger.log(response.getAllHeaders());
-          Logger.log(response.getContentText());
+  var response = UrlFetchApp.fetch('https://dqntvb0f42uh4.cloudfront.net/cms/manage/production', options);
+  Logger.log(response.getAllHeaders());
+  Logger.log(response.getContentText());
+  Logger.log(response.getResponseCode());
+  return response;
 
+}
+
+function getLocales() {
+  Logger.log("getLocales called");
+  query =  `query listI18NLocales() {
+    i18n {
+      i18NLocales: listI18NLocales() {
+        data {
+          id
+          code
+          default
+          createdOn
+        }
+       hasNextPage
+       hasPreviousPage
+       totalCount
+      }
+    }`;
+          
+    var options = {
+      'method' : 'post',
+      'contentType': 'application/json',
+      'headers': {
+        'authorization': '36e16738a7c9207536cee611455f0f5edce360f8a9efe727'
+       },             
+       'payload' : JSON.stringify(query)
+    };
+  
+    Logger.log(options);
+          
+    var response = UrlFetchApp.fetch('https://dqntvb0f42uh4.cloudfront.net/cms/manage/production', options);
+    Logger.log(response.getAllHeaders());
+    Logger.log(response.getContentText());
+
+  
 }
