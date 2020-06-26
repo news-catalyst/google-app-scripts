@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <script>
+      function onSuccess(contents) {
+        var div = document.getElementById('output');
+        div.innerHTML = contents;
+      }
+      function handleClick() {
+         google.script.run.withSuccessHandler(onSuccess).getCurrentDocContents();
+      }
+      
+
+
+    </script>
+  </head>
+  <body>
+    <h1 class="title">Webiny Integration</h1>
+
+    <div id="output"></div>
+    
+    <button class="button" onclick="handleClick()">Create Article</button>
+  </body>
+</html>
+
+
