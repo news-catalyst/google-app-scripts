@@ -7,6 +7,11 @@
         var div = document.getElementById('output');
         div.innerHTML = contents;
       }
+      
+      function handleArticleIDClick() {
+         google.script.run.withSuccessHandler(onSuccess).getArticleID();
+      }
+
       function handleClick() {
          google.script.run.withSuccessHandler(onSuccess).getCurrentDocContents();
       }
@@ -23,7 +28,8 @@
 
     <div id="output"></div>
     
-    <button class="button" onclick="handleClick()">Create Article</button>
+    <button class="button" onclick="handleArticleIDClick()">Check for ID</button>
+    <button class="button" onclick="handleClick()">Save Article</button>
     
     <!-- <button class="button" onclick="handleLocalesClick()">Get Locales</button> -->
 

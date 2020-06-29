@@ -30,26 +30,46 @@ function showSidebar() {
       .showSidebar(html);
 }
 
+function getArticleID() {
+  var documentProperties = PropertiesService.getDocumentProperties();
+  var storedArticleID = documentProperties.getProperty('ARTICLE_ID');
+  return storedArticleID;
+}
+
+function storeArticleID(articleID) {
+  var documentProperties = PropertiesService.getDocumentProperties();
+  documentProperties.setProperty('ARTICLE_ID', articleID);
+  Logger.log("stored article ID");
+}
+
 /**
 . * Gets the current document's contents
 . */
 function getCurrentDocContents() {
-  Logger.log("getCurrentDocContents called");
   var body = DocumentApp.getActiveDocument().getBody().getText();
-  Logger.log(body);
-  
+    
   var title = getHeadline();
-  Logger.log("getCurrentDocContents title: ", title);
-  
   var paragraphs = getBody();
-  Logger.log("getCurrentDocContents paragraph count: ", paragraphs.length);
   
-  var webinyResponse = postToWebiny(title, paragraphs);
+  var articleID = getArticleID();
+  
+  var webinyResponse;
+  if ( articleID !== null ) {
+    webinyResponse = updateArticle(articleID, title, paragraphs);
+  } else {
+    webinyResponse = createArticle(title, paragraphs);
+  }
+  
+  var responseText = webinyResponse.getContentText();
+  var responseData = JSON.parse(responseText);
+  var articleID = responseData.data.content.data.id;
+  storeArticleID(articleID);
+  Logger.log("new article ID: ", articleID);
   
   var webinyResponseCode = webinyResponse.getResponseCode();
   var responseText;
   if (webinyResponseCode === 200) {
-    responseText = "Successfully created article in webiny.";
+    responseText = "Successfully stored article in webiny.";
   } else {
     responseText = "Webiny responded with code " + webinyResponseCode;
   }
@@ -112,11 +132,8 @@ function getBody() {
   return paragraphs;
 }
 
-/**
-. * Posts document contents to graphql
-. */
-function postToWebiny(title, paragraphs) {  
-  var formattedParagraphs = [];
+function formatParagraphs(paragraphs) {
+    var formattedParagraphs = [];
   for (var i=0; i<paragraphs.length; i++) {
     formattedParagraphs.push({
                 "type":"paragraph",
@@ -127,6 +144,14 @@ function postToWebiny(title, paragraphs) {
                 ]
               });
   }
+  return formattedParagraphs;
+}
+
+/**
+. * Posts document contents to graphql
+. */
+function createArticle(title, paragraphs) {  
+  var formattedParagraphs = formatParagraphs(paragraphs);
     
   var formData = {
     "query":"mutation CreateBasicArticle($data: BasicArticleInput!) {\n  content: createBasicArticle(data: $data) {\n    data {\n      id\n      headline {\n        values {\n          value\n          locale\n        }\n      }\n      body {\n        values {\n          value\n          locale\n        }\n      }\n      byline {\n        values {\n          value {\n            id\n          }\n          locale\n        }\n      }\n    }\n    error {\n      message\n      code\n      data\n    }\n  }\n}",
@@ -159,7 +184,6 @@ function postToWebiny(title, paragraphs) {
     }
   }
           };
-  Logger.log(formData);
           var options = {
            'method' : 'post',
            'contentType': 'application/json',
@@ -172,12 +196,101 @@ function postToWebiny(title, paragraphs) {
   Logger.log(options);
           
   var response = UrlFetchApp.fetch('https://dqntvb0f42uh4.cloudfront.net/cms/manage/production', options);
-  Logger.log(response.getAllHeaders());
   Logger.log(response.getContentText());
-  Logger.log(response.getResponseCode());
   return response;
-
 }
+
+/*
+ * Updates an article in webiny
+ */
+function updateArticle(id, title, paragraphs) {  
+  var formattedParagraphs = formatParagraphs(paragraphs);
+    
+  var formData = {
+    "query": `mutation UpdateBasicArticle($id: ID!, $data: BasicArticleInput!) {
+      content: updateBasicArticle(where: { id: $id }, data: $data) {
+       data {
+        id
+        headline {
+          values {
+            value
+            locale
+          }
+        }
+        body {
+          values {
+            value
+            locale
+          }
+        }
+        byline {
+          values {
+            value {
+              id
+              meta {
+                title {
+                  value
+                }
+              }
+            }
+            locale
+          }
+        }
+        savedOn
+      }
+      error {
+        message
+        code
+        data
+      }
+    }
+  }`,
+  "variables":{
+      "id": id,
+      "data":{
+          "headline":{
+            "values":[
+              {
+               "locale":"5ef27bfe217f170008aa3e1a",
+               "value": title
+              }
+            ]
+      },
+      "body":{
+        "values":[
+          {
+            "locale":"5ef27bfe217f170008aa3e1a",
+            "value": formattedParagraphs
+          }
+        ]
+      },
+        "byline":{
+          "values":[
+            {
+              "locale":"5ef27bfe217f170008aa3e1a",
+              "value":"5ef2803d2137510007a4cce9"
+            }
+          ]
+        }
+      }
+    }
+  };
+  var options = {
+    'method' : 'post',
+    'contentType': 'application/json',
+    'headers': {
+      'authorization': '36e16738a7c9207536cee611455f0f5edce360f8a9efe727'
+    },             
+    'payload' : JSON.stringify(formData)
+  };
+  
+  Logger.log(options);
+          
+  var response = UrlFetchApp.fetch('https://dqntvb0f42uh4.cloudfront.net/cms/manage/production', options);
+  Logger.log(response.getContentText());
+  return response;
+}
+
 
 function getLocales() {
   Logger.log("getLocales called");
