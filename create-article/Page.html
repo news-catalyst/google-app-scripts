@@ -8,6 +8,7 @@
         div.innerHTML = contents;
       }
       
+      
       function handleArticleIDClick() {
          google.script.run.withSuccessHandler(onSuccess).getArticleID();
       }
@@ -16,9 +17,9 @@
          google.script.run.withSuccessHandler(onSuccess).getCurrentDocContents();
       }
       
-//      function handleLocalesClick() {
-//         google.script.run.withSuccessHandler(onSuccess).getLocales();
-//      }
+      function handleLocalesClick() {
+         google.script.run.withSuccessHandler(onSuccess).getLocales();
+      }
 
 
     </script>
@@ -31,7 +32,7 @@
     <button class="button" onclick="handleArticleIDClick()">Check for ID</button>
     <button class="button" onclick="handleClick()">Save Article</button>
     
-    <!-- <button class="button" onclick="handleLocalesClick()">Get Locales</button> -->
+    <button class="button" onclick="handleLocalesClick()">Get Locales</button>
 
   </body>
 </html>
