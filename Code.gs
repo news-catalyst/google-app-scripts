@@ -39,7 +39,6 @@ function getArticleID() {
 function storeArticleID(articleID) {
   var documentProperties = PropertiesService.getDocumentProperties();
   documentProperties.setProperty('ARTICLE_ID', articleID);
-  Logger.log("stored article ID");
 }
 
 function getLocaleID() {
@@ -51,7 +50,6 @@ function getLocaleID() {
 function storeLocaleID(localeID) {
   var documentProperties = PropertiesService.getDocumentProperties();
   documentProperties.setProperty('LOCALE_ID', localeID);
-  Logger.log("stored locale ID");
 }
 
 /**
@@ -62,14 +60,15 @@ function getCurrentDocContents() {
     
   var title = getHeadline();
   var paragraphs = getBody();
+  var images = getImages();
   
   var articleID = getArticleID();
   
   var webinyResponse;
   if ( articleID !== null ) {
-    webinyResponse = updateArticle(articleID, title, paragraphs);
+    webinyResponse = updateArticle(articleID, title, paragraphs, images);
   } else {
-    webinyResponse = createArticle(title, paragraphs);
+    webinyResponse = createArticle(title, paragraphs, images);
   }
   
   var responseText = webinyResponse.getContentText();
@@ -115,6 +114,27 @@ function getHeadline() {
   return title;
 }
 
+function getImages() {
+  var documentID = DocumentApp.getActiveDocument().getId();
+  Logger.log("documentID: ", documentID);
+  var document = Docs.Documents.get(documentID);
+  var bodyElements = document.body.content;
+  var inlineElements = document.inlineObjects;
+  
+  var inlineObjects = Object.keys(document.inlineObjects).reduce(function(ar, e, i) {
+    var o = document.inlineObjects[e].inlineObjectProperties.embeddedObject;
+    if (o.hasOwnProperty("imageProperties")) {
+      Logger.log("Image URL: ", o.imageProperties.contentUri);
+      ar.push(o.imageProperties.contentUri);
+    }
+    return ar;
+  }, []);
+
+  return inlineObjects;
+}
+
+
+
 /**
   * Gets the body (regular paragraphs) of the article
   */
@@ -131,27 +151,28 @@ function getBody() {
   
   // Search until all regular paragraphs are found.
   while (searchResult = body.findElement(searchType, searchResult)) {
-    var par = searchResult.getElement().asParagraph();
+    var ele = searchResult.getElement();
+    var par = ele.asParagraph();
+
     if (par.getHeading() == searchHeading) {
       // Found a paragraph, append to the list
       var paragraphText = par.getText();
-      Logger.log("Found paragraph: ", paragraphText);
       paragraphs.push(paragraphText);
-      Logger.log("in loop paragraphs: ", paragraphs);
     }
   }
-  Logger.log("Total paragraphs found: ", paragraphs.length);
   return paragraphs;
 }
 
 function formatParagraphs(paragraphs) {
     var formattedParagraphs = [];
   for (var i=0; i<paragraphs.length; i++) {
+    var p = paragraphs[i];
+    Logger.log("now formatting paragraph: ", p);
     formattedParagraphs.push({
                 "type":"paragraph",
                 "children":[
                   {
-                    "text": paragraphs[i]
+                    "text": p
                   }
                 ]
               });
@@ -162,9 +183,14 @@ function formatParagraphs(paragraphs) {
 /**
 . * Posts document contents to graphql
 . */
-function createArticle(title, paragraphs) {  
-  var formattedParagraphs = formatParagraphs(paragraphs);
-
+function createArticle(title, paragraphs, images) {  
+  for (var i=0; i<images.length; i++) {
+    var imageTag = "<img src='" + images[i] + "'/>";
+    imageTags.push(imageTag);
+  }
+  var imagesAndParagraphs = imageTags.concat(paragraphs);
+  Logger.log("Images and paragraphs: ", imagesAndParagraphs.length);
+  var formattedParagraphs = formatParagraphs(imagesAndParagraphs);
   var localeID = getLocaleID();
   if (localeID === null) {
     var locales = getLocales();
@@ -223,8 +249,15 @@ function createArticle(title, paragraphs) {
 /*
  * Updates an article in webiny
  */
-function updateArticle(id, title, paragraphs) {  
-  var formattedParagraphs = formatParagraphs(paragraphs);
+function updateArticle(id, title, paragraphs, images) {  
+  var imageTags = [];
+  for (var i=0; i<images.length; i++) {
+    var imageTag = "<img src='" + images[i] + "'/>";
+    imageTags.push(imageTag);
+  }
+  var imagesAndParagraphs = imageTags.concat(paragraphs);
+  Logger.log("Images and paragraphs: ", imagesAndParagraphs.length);
+  var formattedParagraphs = formatParagraphs(imagesAndParagraphs);
   
   var localeID = getLocaleID();
   if (localeID === null) {

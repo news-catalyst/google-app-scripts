@@ -8,6 +8,9 @@
         div.innerHTML = contents;
       }
       
+      function handleImagesClick() {
+         google.script.run.withSuccessHandler(onSuccess).getImages();
+      }
       
       function handleArticleIDClick() {
          google.script.run.withSuccessHandler(onSuccess).getArticleID();
@@ -29,10 +32,12 @@
 
     <div id="output"></div>
     
+    <!-- 
     <button class="button" onclick="handleArticleIDClick()">Check for ID</button>
+    <button class="button" onclick="handleLocalesClick()">Get Locales</button> 
+    -->
+    <button class="button" onclick="handleImagesClick()">Get Images</button>
     <button class="button" onclick="handleClick()">Save Article</button>
-    
-    <button class="button" onclick="handleLocalesClick()">Get Locales</button>
 
   </body>
 </html>
