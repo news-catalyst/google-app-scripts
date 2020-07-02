@@ -2,6 +2,8 @@
 <html>
   <head>
     <base target="_top">
+    <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
+
     <script>
       function onSuccess(contents) {
         var div = document.getElementById('output');
@@ -28,17 +30,31 @@
     </script>
   </head>
   <body>
-    <h1 class="title">Webiny Integration</h1>
+    <div class="sidebar branding-below">
+      <div class="block form-group">
+      </div>
+      <div class="block">
+        <h1 class="title">Publishing Tools</h1>
+        <p class="secondary">
+          When you're ready, save the article in Webiny CMS as a <b>draft</b>. Going live requires additional review!
+        </p>
 
-    <div id="output"></div>
+        <div id="output"></div>
+
+        <button class="create" onclick="handleClick()">Save Article</button>
+
+      </div>
+
     
-    <!-- 
-    <button class="button" onclick="handleArticleIDClick()">Check for ID</button>
-    <button class="button" onclick="handleLocalesClick()">Get Locales</button> 
-    -->
-    <button class="button" onclick="handleImagesClick()">Get Images</button>
-    <button class="button" onclick="handleClick()">Save Article</button>
-
+      <!-- 
+      <button class="button" onclick="handleArticleIDClick()">Check for ID</button>
+      <button class="button" onclick="handleLocalesClick()">Get Locales</button> 
+      <button class="button" onclick="handleImagesClick()">Get Images</button>
+      -->
+    </div>
+    <div class="sidebar bottom">
+      <span class="gray">Publishing by News Catalyst</span>
+    </div>
   </body>
 </html>
 
