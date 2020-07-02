@@ -144,7 +144,7 @@ function getImages() {
     var o = document.inlineObjects[e].inlineObjectProperties.embeddedObject;
     var imgProps = {};
     Logger.log("title: ", o.title, " and description: ", o.description);
-    imgProps.alt = o.title + " " + o.description;
+    imgProps.alt = o.title;
     if (o.hasOwnProperty('imageProperties')) {
       imgProps.url = o.imageProperties.contentUri;
     }
@@ -198,11 +198,7 @@ function formatImages(images) {
     formattedImages.push({
       type: 'image',
       url: img.url,
-      children: [
-        {
-          text: img.alt,
-        },
-      ],
+      alt: img.alt
     });
   }
   return formattedImages;
