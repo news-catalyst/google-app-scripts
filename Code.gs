@@ -133,7 +133,6 @@ function getHeadline() {
 
 function getImages() {
   var documentID = DocumentApp.getActiveDocument().getId();
-  Logger.log('documentID: ', documentID);
   var document = Docs.Documents.get(documentID);
 
   var inlineObjects = Object.keys(document.inlineObjects).reduce(function (
@@ -157,6 +156,47 @@ function getImages() {
   return inlineObjects;
 }
 
+function getElements() {
+  var documentID = DocumentApp.getActiveDocument().getId();
+  var document = Docs.Documents.get(documentID);
+  var elements = document.body.content;
+  var inlineObjects = document.inlineObjects;
+
+  var orderedElements = [];
+  elements.forEach(element => {
+    Logger.log(element);
+    if (element.paragraph && element.paragraph.elements) {
+      var eleData = {
+        content: null,
+        imageId: null,
+        index: element.endIndex
+      };
+      element.paragraph.elements.forEach(subElement => {
+        // found text content
+        if (subElement.textRun && subElement.textRun.content && subElement.textRun.content.trim().length > 0) {
+          eleData.content = subElement.textRun.content;
+        }
+        if ( subElement.inlineObjectElement && subElement.inlineObjectElement.inlineObjectId) {
+          eleData.imageId = subElement.inlineObjectElement.inlineObjectId;
+          var fullImageData = inlineObjects[eleData.imageId];
+          if (fullImageData) {
+            eleData.imageUrl = fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri;
+            eleData.imageAlt = fullImageData.inlineObjectProperties.embeddedObject.title;
+          }
+        }
+      })
+      // skip any blank elements
+      if (eleData.content !== null || eleData.imageId !== null) {
+        orderedElements.push(eleData);
+      }
+    }
+  });
+
+  Logger.log(orderedElements);
+  return orderedElements;
+
+}
+
 /**
  * Gets the body (regular paragraphs) of the article
  */
@@ -177,9 +217,12 @@ function getBody() {
     var par = ele.asParagraph();
 
     if (par.getHeading() == searchHeading) {
+      Logger.log("Found a normal paragraph: ", par);
       // Found a paragraph, append to the list
       var paragraphText = par.getText();
       paragraphs.push(paragraphText);
+    } else {
+      Logger.log("Found a not normal paragraph: ", par);
     }
   }
   return paragraphs;

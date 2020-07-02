@@ -4,12 +4,12 @@
     <base target="_top">
     <script>
       function onSuccess(contents) {
-        var div = document.getElementById('output');
-        div.innerHTML = contents;
+        var div = document.getElementById('elements');
+        div.innerHTML = JSON.stringify(contents);
       }
       
       function handleImagesClick() {
-         google.script.run.withSuccessHandler(onSuccess).getImages();
+         google.script.run.withSuccessHandler(onSuccess).getElements();
       }
       
       function handleArticleIDClick() {
@@ -30,13 +30,14 @@
   <body>
     <h1 class="title">Webiny Integration</h1>
 
+    <pre id="elements"></pre>
     <div id="output"></div>
     
     <!-- 
     <button class="button" onclick="handleArticleIDClick()">Check for ID</button>
     <button class="button" onclick="handleLocalesClick()">Get Locales</button> 
     -->
-    <button class="button" onclick="handleImagesClick()">Get Images</button>
+    <button class="button" onclick="handleImagesClick()">Get Elements</button>
     <button class="button" onclick="handleClick()">Save Article</button>
 
   </body>
