@@ -142,14 +142,18 @@ function getImages() {
     i
   ) {
     var o = document.inlineObjects[e].inlineObjectProperties.embeddedObject;
+    var imgProps = {};
+    Logger.log("title: ", o.title, " and description: ", o.description);
+    imgProps.alt = o.title + " " + o.description;
     if (o.hasOwnProperty('imageProperties')) {
-      Logger.log('Image URL: ', o.imageProperties.contentUri);
-      ar.push(o.imageProperties.contentUri);
+      imgProps.url = o.imageProperties.contentUri;
     }
+    ar.push(imgProps);
     return ar;
   },
   []);
 
+  Logger.log(inlineObjects)
   return inlineObjects;
 }
 
@@ -193,10 +197,10 @@ function formatImages(images) {
     var img = images[i];
     formattedImages.push({
       type: 'image',
-      url: img,
+      url: img.url,
       children: [
         {
-          text: '',
+          text: img.alt,
         },
       ],
     });
