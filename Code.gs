@@ -189,14 +189,17 @@ function getElements() {
           var imageID = subElement.inlineObjectElement.inlineObjectId;
           Logger.log("imageId: ", imageID);
           var fullImageData = inlineObjects[imageID];
+          Logger.log("fullImageData: ", fullImageData);
           if (fullImageData) {
             var childImage = {
               index: subElement.endIndex,
+              height: fullImageData.inlineObjectProperties.embeddedObject.size.height.magnitude,
+              width: fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude,
               imageId: subElement.inlineObjectElement.inlineObjectId,
               imageUrl: fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri,
               imageAlt: fullImageData.inlineObjectProperties.embeddedObject.title
             };
-            Logger.log("fullImageData: ", childImage)
+            Logger.log("fullImageData: ", childImage);
             eleData.children.push(childImage);
           }
         }
