@@ -76,16 +76,15 @@ function storeLocaleID(localeID) {
 . */
 function getCurrentDocContents() {
   var title = getHeadline();
-  var paragraphs = getBody();
-  var images = getImages();
+  var formattedElements = formatElements();
 
   var articleID = getArticleID();
 
   var webinyResponse;
   if (articleID !== null) {
-    webinyResponse = updateArticle(articleID, title, paragraphs, images);
+    webinyResponse = updateArticle(articleID, title, formattedElements);
   } else {
-    webinyResponse = createArticle(title, paragraphs, images);
+    webinyResponse = createArticle(title, formattedElements);
   }
 
   var responseText = webinyResponse.getContentText();
@@ -309,12 +308,7 @@ function formatParagraphs(paragraphs) {
 /**
 . * Posts document contents to graphql, creating a new article
 . */
-function createArticle(title, paragraphs, images) {
-
-  var imageJSON = formatImages(images);
-  var paragraphJSON = formatParagraphs(paragraphs);
-  var imagesAndParagraphs = imageJSON.concat(paragraphJSON);
-  Logger.log('Images and paragraphs: ', imagesAndParagraphs.length);
+function createArticle(title, elements) {
 
   var localeID = getLocaleID();
   if (localeID === null) {
@@ -343,7 +337,7 @@ function createArticle(title, paragraphs, images) {
           values: [
             {
               locale: localeID,
-              value: imagesAndParagraphs,
+              value: elements,
             },
           ],
         },
@@ -379,12 +373,7 @@ function createArticle(title, paragraphs, images) {
 /*
  * Updates an article in webiny
  */
-function updateArticle(id, title, paragraphs, images) {
-
-  var imageJSON = formatImages(images);
-  var paragraphJSON = formatParagraphs(paragraphs);
-  var imagesAndParagraphs = imageJSON.concat(paragraphJSON);
-  Logger.log('Images and paragraphs: ', imagesAndParagraphs.length);
+function updateArticle(id, title, elements) {
 
   var localeID = getLocaleID();
   if (localeID === null) {
@@ -443,7 +432,7 @@ function updateArticle(id, title, paragraphs, images) {
           values: [
             {
               locale: localeID,
-              value: imagesAndParagraphs,
+              value: elements,
             },
           ],
         },
