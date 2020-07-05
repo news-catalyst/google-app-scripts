@@ -8,8 +8,17 @@
         div.innerHTML = JSON.stringify(contents);
       }
       
-      function handleImagesClick() {
+      function onSuccessFE(contents) {
+        var div = document.getElementById('formattedElements');
+        div.innerHTML = JSON.stringify(contents);
+      }
+
+      function handleElementsClick() {
          google.script.run.withSuccessHandler(onSuccess).getElements();
+      }
+      
+      function handleFormatElementsClick() {
+         google.script.run.withSuccessHandler(onSuccessFE).formatElements();
       }
       
       function handleArticleIDClick() {
@@ -31,13 +40,15 @@
     <h1 class="title">Webiny Integration</h1>
 
     <pre id="elements"></pre>
+    <pre id="formattedElements"></pre>
     <div id="output"></div>
     
     <!-- 
     <button class="button" onclick="handleArticleIDClick()">Check for ID</button>
     <button class="button" onclick="handleLocalesClick()">Get Locales</button> 
     -->
-    <button class="button" onclick="handleImagesClick()">Get Elements</button>
+    <button class="button" onclick="handleElementsClick()">Get Elements</button>
+    <button class="button" onclick="handleFormatElementsClick()">Format Elements</button>
     <button class="button" onclick="handleClick()">Save Article</button>
 
   </body>

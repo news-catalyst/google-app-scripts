@@ -167,26 +167,43 @@ function getElements() {
     Logger.log(element);
     if (element.paragraph && element.paragraph.elements) {
       var eleData = {
-        content: null,
-        imageId: null,
+        children: [],
+        type: null,
         index: element.endIndex
       };
       element.paragraph.elements.forEach(subElement => {
-        // found text content
+        // found a paragraph of text
         if (subElement.textRun && subElement.textRun.content && subElement.textRun.content.trim().length > 0) {
-          eleData.content = subElement.textRun.content;
+          if (element.paragraph.paragraphStyle.namedStyleType) {
+            eleData.style = element.paragraph.paragraphStyle.namedStyleType;
+          }
+          eleData.type = "text";
+          eleData.children.push({
+            index: subElement.endIndex,
+            content: subElement.textRun.content,
+            style: subElement.textRun.textStyle // { bold: true }
+          });
         }
+        // found an image
         if ( subElement.inlineObjectElement && subElement.inlineObjectElement.inlineObjectId) {
-          eleData.imageId = subElement.inlineObjectElement.inlineObjectId;
-          var fullImageData = inlineObjects[eleData.imageId];
+          eleData.type = "image";
+          var imageID = subElement.inlineObjectElement.inlineObjectId;
+          Logger.log("imageId: ", imageID);
+          var fullImageData = inlineObjects[imageID];
           if (fullImageData) {
-            eleData.imageUrl = fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri;
-            eleData.imageAlt = fullImageData.inlineObjectProperties.embeddedObject.title;
+            var childImage = {
+              index: subElement.endIndex,
+              imageId: subElement.inlineObjectElement.inlineObjectId,
+              imageUrl: fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri,
+              imageAlt: fullImageData.inlineObjectProperties.embeddedObject.title
+            };
+            Logger.log("fullImageData: ", childImage)
+            eleData.children.push(childImage);
           }
         }
       })
       // skip any blank elements
-      if (eleData.content !== null || eleData.imageId !== null) {
+      if (eleData.type !== null) {
         orderedElements.push(eleData);
       }
     }
@@ -195,6 +212,26 @@ function getElements() {
   Logger.log(orderedElements);
   return orderedElements;
 
+}
+
+function formatElements() {
+  var elements = getElements();
+
+  var formattedElements = [];
+  elements.sort(function (a, b) {
+    if (a.index > b.index) {
+      return 1;
+    } else {
+      return -1;
+    }
+  }).forEach(element => {
+    var formattedElement = {
+      type: element.type
+    };
+    formattedElement.children = element.children;
+    formattedElements.push(formattedElement);
+  })
+  return formattedElements;
 }
 
 /**
