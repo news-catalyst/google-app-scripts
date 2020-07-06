@@ -173,7 +173,8 @@ function getElements() {
 
       // handle list items
       if (element.paragraph.bullet) {
-        eleData.type = "list"
+        eleData.type = "list";
+        eleData.index = element.endIndex;
         // Find existing element with the same list ID
         var listID = element.paragraph.bullet.listId;
         Logger.log("Found a list with id: ", listID);
