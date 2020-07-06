@@ -173,15 +173,28 @@ function getElements() {
       element.paragraph.elements.forEach(subElement => {
         // found a paragraph of text
         if (subElement.textRun && subElement.textRun.content && subElement.textRun.content.trim().length > 0) {
+          eleData.type = "text";
+
           if (element.paragraph.paragraphStyle.namedStyleType) {
             eleData.style = element.paragraph.paragraphStyle.namedStyleType;
           }
-          eleData.type = "text";
-          eleData.children.push({
+          var childElement = {
             index: subElement.endIndex,
-            content: subElement.textRun.content,
-            style: subElement.textRun.textStyle // { bold: true }
-          });
+          }
+          var style = subElement.textRun.textStyle;
+          var cleanedStyle = {
+            underline: style.underline,
+            bold: style.bold,
+            italic: style.italic
+          }
+          childElement.style = cleanedStyle;
+
+          if (style && style.link) {
+            childElement.link = style.link.url;
+          }
+          childElement.content = subElement.textRun.content;
+
+          eleData.children.push(childElement);
         }
         // found an image
         if ( subElement.inlineObjectElement && subElement.inlineObjectElement.inlineObjectId) {
