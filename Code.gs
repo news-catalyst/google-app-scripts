@@ -107,27 +107,8 @@ function getCurrentDocContents() {
  * Gets the title of the article
  */
 function getHeadline() {
-  // Get the body section of the active document.
-  var body = DocumentApp.getActiveDocument().getBody();
-
-  // Define the search parameters.
-  var searchType = DocumentApp.ElementType.PARAGRAPH;
-  var searchHeading = DocumentApp.ParagraphHeading.TITLE;
-  var searchResult = null;
-
-  var title = null;
-
-  // Search until the title is found.
-  while ((searchResult = body.findElement(searchType, searchResult))) {
-    var par = searchResult.getElement().asParagraph();
-    if (par.getHeading() == searchHeading) {
-      // Found one, update and stop.
-      title = par.getText();
-      Logger.log('Found title: ', title);
-      return title;
-    }
-  }
-  return title;
+  var headline = DocumentApp.getActiveDocument().getName();
+  return headline;
 }
 
 function getImages() {
@@ -175,9 +156,12 @@ function getElements() {
       if (element.paragraph.bullet) {
         eleData.type = "list";
         eleData.index = element.endIndex;
+        var nestingLevel = element.paragraph.bullet.nestingLevel;
+        if (nestingLevel === null || typeof nestingLevel === "undefined") {
+          nestingLevel = 0;
+        }
         // Find existing element with the same list ID
         var listID = element.paragraph.bullet.listId;
-        Logger.log("Found a list with id: ", listID);
 
         var findListElement = (element) => element.type === "list" && element.listId === listID
         var listElementIndex = orderedElements.findIndex(findListElement);
@@ -185,12 +169,12 @@ function getElements() {
         // just append this element's text to the exist list's children
         if (listElementIndex > 0) {
           var listElement = orderedElements[listElementIndex];
-          Logger.log("Found existing list with the same ID: ", listElement)
           element.paragraph.elements.forEach(subElement => {
             // append list items to the main list element's children
             listElement.children.push({
               content: subElement.textRun.content,
-              index: subElement.endIndex
+              index: subElement.endIndex,
+              nestingLevel: nestingLevel
             })
           });
           orderedElements[listElementIndex] = listElement;
@@ -251,7 +235,6 @@ function getElements() {
                 imageUrl: fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri,
                 imageAlt: fullImageData.inlineObjectProperties.embeddedObject.title
               };
-              Logger.log("fullImageData: ", childImage);
               eleData.children.push(childImage);
             }
           }
@@ -264,9 +247,7 @@ function getElements() {
     }
   });
 
-  Logger.log(orderedElements);
   return orderedElements;
-
 }
 
 function formatElements() {
