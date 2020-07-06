@@ -170,55 +170,94 @@ function getElements() {
         type: null,
         index: element.endIndex
       };
-      element.paragraph.elements.forEach(subElement => {
-        // found a paragraph of text
-        if (subElement.textRun && subElement.textRun.content && subElement.textRun.content.trim().length > 0) {
-          eleData.type = "text";
 
-          if (element.paragraph.paragraphStyle.namedStyleType) {
-            eleData.style = element.paragraph.paragraphStyle.namedStyleType;
-          }
-          var childElement = {
-            index: subElement.endIndex,
-          }
-          var style = subElement.textRun.textStyle;
-          var cleanedStyle = {
-            underline: style.underline,
-            bold: style.bold,
-            italic: style.italic
-          }
-          childElement.style = cleanedStyle;
+      // handle list items
+      if (element.paragraph.bullet) {
+        eleData.type = "list"
+        // Find existing element with the same list ID
+        var listID = element.paragraph.bullet.listId;
+        Logger.log("Found a list with id: ", listID);
 
-          if (style && style.link) {
-            childElement.link = style.link.url;
-          }
-          childElement.content = subElement.textRun.content;
-
-          eleData.children.push(childElement);
+        var findListElement = (element) => element.type === "list" && element.listId === listID
+        var listElementIndex = orderedElements.findIndex(findListElement);
+        // don't create a new element for an existing list
+        // just append this element's text to the exist list's children
+        if (listElementIndex > 0) {
+          var listElement = orderedElements[listElementIndex];
+          Logger.log("Found existing list with the same ID: ", listElement)
+          element.paragraph.elements.forEach(subElement => {
+            // append list items to the main list element's children
+            listElement.children.push({
+              content: subElement.textRun.content,
+              index: subElement.endIndex
+            })
+          });
+          orderedElements[listElementIndex] = listElement;
+        } else {
+          // make a new list element
+          eleData.type = "list";
+          eleData.listId = listID;
+          element.paragraph.elements.forEach(subElement => {
+            // append list items to the main list element's children
+            eleData.children.push({
+              content: subElement.textRun.content,
+              index: subElement.endIndex
+            })
+          });
+          orderedElements.push(eleData);
         }
-        // found an image
-        if ( subElement.inlineObjectElement && subElement.inlineObjectElement.inlineObjectId) {
-          eleData.type = "image";
-          var imageID = subElement.inlineObjectElement.inlineObjectId;
-          Logger.log("imageId: ", imageID);
-          var fullImageData = inlineObjects[imageID];
-          Logger.log("fullImageData: ", fullImageData);
-          if (fullImageData) {
-            var childImage = {
+      }
+
+      element.paragraph.elements.forEach(subElement => {
+        if (eleData.type !== "list") {
+          // found a paragraph of text
+          if (subElement.textRun && subElement.textRun.content && subElement.textRun.content.trim().length > 0) {
+            eleData.type = "text";
+
+            if (element.paragraph.paragraphStyle.namedStyleType) {
+              eleData.style = element.paragraph.paragraphStyle.namedStyleType;
+            }
+            var childElement = {
               index: subElement.endIndex,
-              height: fullImageData.inlineObjectProperties.embeddedObject.size.height.magnitude,
-              width: fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude,
-              imageId: subElement.inlineObjectElement.inlineObjectId,
-              imageUrl: fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri,
-              imageAlt: fullImageData.inlineObjectProperties.embeddedObject.title
-            };
-            Logger.log("fullImageData: ", childImage);
-            eleData.children.push(childImage);
+            }
+            var style = subElement.textRun.textStyle;
+            var cleanedStyle = {
+              underline: style.underline,
+              bold: style.bold,
+              italic: style.italic
+            }
+            childElement.style = cleanedStyle;
+
+            if (style && style.link) {
+              childElement.link = style.link.url;
+            }
+            childElement.content = subElement.textRun.content;
+
+            eleData.children.push(childElement);
+          }
+
+          // found an image
+          if ( subElement.inlineObjectElement && subElement.inlineObjectElement.inlineObjectId) {
+            eleData.type = "image";
+            var imageID = subElement.inlineObjectElement.inlineObjectId;
+            var fullImageData = inlineObjects[imageID];
+            if (fullImageData) {
+              var childImage = {
+                index: subElement.endIndex,
+                height: fullImageData.inlineObjectProperties.embeddedObject.size.height.magnitude,
+                width: fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude,
+                imageId: subElement.inlineObjectElement.inlineObjectId,
+                imageUrl: fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri,
+                imageAlt: fullImageData.inlineObjectProperties.embeddedObject.title
+              };
+              Logger.log("fullImageData: ", childImage);
+              eleData.children.push(childImage);
+            }
           }
         }
       })
-      // skip any blank elements
-      if (eleData.type !== null) {
+      // skip any blank elements and lists because they've already been handled above
+      if (eleData.type !== null && eleData.type !== "list") {
         orderedElements.push(eleData);
       }
     }
