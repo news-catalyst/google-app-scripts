@@ -91,7 +91,7 @@ function getCurrentDocContents() {
   var responseData = JSON.parse(responseText);
   var articleID = responseData.data.content.data.id;
   storeArticleID(articleID);
-  Logger.log('new article ID: ', articleID);
+  Logger.log('stored article ID: ', articleID);
 
   var webinyResponseCode = webinyResponse.getResponseCode();
   var responseText;
@@ -122,7 +122,6 @@ function getImages() {
   ) {
     var o = document.inlineObjects[e].inlineObjectProperties.embeddedObject;
     var imgProps = {};
-    Logger.log("title: ", o.title, " and description: ", o.description);
     imgProps.alt = o.title;
     if (o.hasOwnProperty('imageProperties')) {
       imgProps.url = o.imageProperties.contentUri;
@@ -132,7 +131,6 @@ function getImages() {
   },
   []);
 
-  Logger.log(inlineObjects)
   return inlineObjects;
 }
 
@@ -141,6 +139,14 @@ function getElements() {
   var document = Docs.Documents.get(documentID);
   var elements = document.body.content;
   var inlineObjects = document.inlineObjects;
+
+  var listInfo = {};
+  var listItems = DocumentApp.getActiveDocument().getListItems();
+  listItems.forEach(li => {
+    var id = li.getListId();
+    var glyphType = li.getGlyphType();
+    listInfo[id] = glyphType;
+  })
 
   var orderedElements = [];
   elements.forEach(element => {
@@ -180,6 +186,11 @@ function getElements() {
           orderedElements[listElementIndex] = listElement;
         } else {
           // make a new list element
+          if (listInfo[listID]) {
+            eleData.listType = listInfo[listID];
+          } else {
+            eleData.listType = "BULLET";
+          }
           eleData.type = "list";
           eleData.listId = listID;
           element.paragraph.elements.forEach(subElement => {
@@ -262,7 +273,8 @@ function formatElements() {
     }
   }).forEach(element => {
     var formattedElement = {
-      type: element.type
+      type: element.type,
+      listType: element.listType
     };
     formattedElement.children = element.children;
     formattedElements.push(formattedElement);
@@ -290,12 +302,9 @@ function getBody() {
     var par = ele.asParagraph();
 
     if (par.getHeading() == searchHeading) {
-      Logger.log("Found a normal paragraph: ", par);
       // Found a paragraph, append to the list
       var paragraphText = par.getText();
       paragraphs.push(paragraphText);
-    } else {
-      Logger.log("Found a not normal paragraph: ", par);
     }
   }
   return paragraphs;
@@ -329,7 +338,6 @@ function formatParagraphs(paragraphs) {
   var formattedParagraphs = [];
   for (var i = 0; i < paragraphs.length; i++) {
     var p = paragraphs[i];
-    Logger.log('now formatting paragraph: ', p);
     formattedParagraphs.push({
       type: 'paragraph',
       children: [
