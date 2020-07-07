@@ -5,11 +5,7 @@
     <script>
       function onSuccess(contents) {
         var div = document.getElementById('output');
-        div.innerHTML = contents;
-      }
-      
-      function handleImagesClick() {
-         google.script.run.withSuccessHandler(onSuccess).getImages();
+        div.innerHTML = JSON.stringify(contents);
       }
       
       function handleArticleIDClick() {
@@ -36,7 +32,6 @@
     <button class="button" onclick="handleArticleIDClick()">Check for ID</button>
     <button class="button" onclick="handleLocalesClick()">Get Locales</button> 
     -->
-    <button class="button" onclick="handleImagesClick()">Get Images</button>
     <button class="button" onclick="handleClick()">Save Article</button>
 
   </body>
