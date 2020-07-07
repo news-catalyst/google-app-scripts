@@ -8,6 +8,14 @@
         div.innerHTML = JSON.stringify(contents);
       }
       
+      function onSuccessPublish(contents) {
+        var div = document.getElementById('publish-output');
+        div.innerHTML = JSON.stringify(contents);
+      }
+      function handlePublishClick() {
+         google.script.run.withSuccessHandler(onSuccessPublish).publishArticle();
+      }
+
       function handleArticleIDClick() {
          google.script.run.withSuccessHandler(onSuccess).getArticleID();
       }
@@ -27,12 +35,14 @@
     <h1 class="title">Webiny Integration</h1>
 
     <div id="output"></div>
+    <pre id="publish-output"></pre>
     
     <!-- 
     <button class="button" onclick="handleArticleIDClick()">Check for ID</button>
     <button class="button" onclick="handleLocalesClick()">Get Locales</button> 
     -->
     <button class="button" onclick="handleClick()">Save Article</button>
+    <button class="button" onclick="handlePublishClick()">Publish Article</button>
 
   </body>
 </html>
