@@ -29,7 +29,7 @@ function onOpen() {
  * Displays a sidebar with Webiny integration stuff TBD
  */
 function showSidebar() {
-  var metadata = getArticleMeta();
+  var metadata = setArticleMeta();
   Logger.log("Showing sidebar after requesting article metadata");
   var html = HtmlService.createHtmlOutputFromFile('Page')
     .setTitle('Webiny Integration')
@@ -55,15 +55,24 @@ function storeArticleID(articleID) {
   documentProperties.setProperty('ARTICLE_ID', articleID);
 }
 
-function getLatestVersionID() {
+function storeLatestVersionPublished(isLatestVersionPublished) {
   var documentProperties = PropertiesService.getDocumentProperties();
-  var storedVersionID = documentProperties.getProperty('LATEST_VERSION_ID');
-  return storedVersionID;
+  documentProperties.setProperty('LATEST_VERSION_PUBLISHED', isLatestVersionPublished);
 }
 
-function storeLatestVersionID(versionID) {
+function getLatestVersionPublished() {
   var documentProperties = PropertiesService.getDocumentProperties();
-  documentProperties.setProperty('LATEST_VERSION_ID', versionID);
+  var isLatestVersionPublished = documentProperties.getProperty('LATEST_VERSION_PUBLISHED');
+  return isLatestVersionPublished;
+}
+
+function getArticleMeta() {
+  var articleID = getArticleID();
+  var isLatestVersionPublished = getLatestVersionPublished();
+  return {
+    articleID: articleID,
+    isPublished: isLatestVersionPublished
+  }
 }
 
 /**
@@ -92,14 +101,13 @@ function getCurrentDocContents() {
   var formattedElements = formatElements();
 
   var articleID = getArticleID();
-  var latestVersionID = getLatestVersionID();
 
-
+  // first save the latest article content - either create a new article, or create a new revision on an existing article
   var webinyResponse;
   // if we already have an articleID and latest version info, we need to create a new version of the article
-  if (articleID !== null && latestVersionID !== null) {
+  if (articleID !== null) {
     // webinyResponse = updateArticle(articleID, title, formattedElements);
-    webinyResponse = createArticleFrom(latestVersionID, title, formattedElements);
+    webinyResponse = createArticleFrom(articleID, title, formattedElements);
   // otherwise, we create a new article
   } else {
     webinyResponse = createArticle(title, formattedElements);
@@ -118,6 +126,15 @@ function getCurrentDocContents() {
   } else {
     responseText = 'Webiny responded with code ' + webinyResponseCode;
   }
+  // publish
+  var publishResponse = publishArticle();
+  Logger.log("response from publishArticle: ", publishResponse);
+
+  responseText += "<br>" + publishResponse;
+
+  // update published flag and latest version ID
+  setArticleMeta();
+
   return responseText;
 }
 
@@ -460,8 +477,8 @@ function createArticleFrom(versionID, title, elements) {
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
   var latestVersionID = responseData.data.content.data.id;
-  Logger.log("Storing latest version ID: ", latestVersionID);
-  storeLatestVersionID(latestVersionID);
+  Logger.log("Storing latest version of articleID: ", latestVersionID);
+  storeArticleID(latestVersionID);
   return response;
 }
 /**
@@ -628,8 +645,8 @@ function updateArticle(id, title, elements) {
 /**
  * Publishes the article
  */
-function publishArticle(versionID, title, elements) {
-  var versionID = getLatestVersionID();
+function publishArticle() {
+  var versionID = getArticleID();
   Logger.log("publishing article versionID: ", versionID);
 
   var formData = {
@@ -684,6 +701,10 @@ function publishArticle(versionID, title, elements) {
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
+  Logger.log(responseData);
+
+  // TODO update latestVersionPublished flag
+
   if (responseData && responseData.data.content.data !== null) {
     return "Published article at revision " + versionID;
   } else {
@@ -749,7 +770,7 @@ function cleanStyle(incomingStyle) {
   return cleanedStyle;
 }
 
-function getArticleMeta() {
+function setArticleMeta() {
   var articleID = getArticleID();
   var formData = {
     query: `query getBasicArticle($id: ID!) {
@@ -815,9 +836,11 @@ function getArticleMeta() {
     }
   })
 
+  // the ID of the most recent revision of the article should now be treated as its articleID
+  // save this in the document properties store
   if (latestVersionID !== null) {
-    storeLatestVersionID(latestVersionID);
-    // storeLatestVersionPublished(latestVersionPublished);
+    storeArticleID(latestVersionID);
+    storeLatestVersionPublished(latestVersionPublished);
   }
 
   return responseData;
