@@ -180,7 +180,8 @@ function getElements() {
             listElement.children.push({
               content: subElement.textRun.content,
               index: subElement.endIndex,
-              nestingLevel: nestingLevel
+              nestingLevel: nestingLevel,
+              style: cleanStyle(subElement.textRun.textStyle)
             })
           });
           orderedElements[listElementIndex] = listElement;
@@ -197,7 +198,9 @@ function getElements() {
             // append list items to the main list element's children
             eleData.children.push({
               content: subElement.textRun.content,
-              index: subElement.endIndex
+              index: subElement.endIndex,
+              nestingLevel: nestingLevel,
+              style: cleanStyle(subElement.textRun.textStyle)
             })
           });
           orderedElements.push(eleData);
@@ -216,16 +219,10 @@ function getElements() {
             var childElement = {
               index: subElement.endIndex,
             }
-            var style = subElement.textRun.textStyle;
-            var cleanedStyle = {
-              underline: style.underline,
-              bold: style.bold,
-              italic: style.italic
-            }
-            childElement.style = cleanedStyle;
+            childElement.style = cleanStyle(subElement.textRun.textStyle);
 
-            if (style && style.link) {
-              childElement.link = style.link.url;
+            if (subElement.textRun.textStyle && subElement.textRun.textStyle.link) {
+              childElement.link = subElement.textRun.textStyle.link.url;
             }
             childElement.content = subElement.textRun.content;
 
@@ -558,4 +555,13 @@ function setDefaultLocale(locales) {
     storeLocaleID(localeID);
   }
   return 'Stored localeID as ' + localeID;
+}
+
+function cleanStyle(incomingStyle) {
+  var cleanedStyle = {
+    underline: incomingStyle.underline,
+    bold: incomingStyle.bold,
+    italic: incomingStyle.italic
+  }
+  return cleanedStyle;
 }
