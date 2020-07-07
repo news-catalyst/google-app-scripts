@@ -7,11 +7,7 @@
     <script>
       function onSuccess(contents) {
         var div = document.getElementById('output');
-        div.innerHTML = contents;
-      }
-      
-      function handleImagesClick() {
-         google.script.run.withSuccessHandler(onSuccess).getImages();
+        div.innerHTML = JSON.stringify(contents);
       }
       
       function handleArticleIDClick() {
@@ -39,9 +35,13 @@
           When you're ready, save the article in Webiny CMS as a <b>draft</b>. Going live requires additional review!
         </p>
 
-        <div id="output"></div>
-
-        <button class="create" onclick="handleClick()">Save Article</button>
+    <div id="output"></div>
+    
+    <!-- 
+    <button class="button" onclick="handleArticleIDClick()">Check for ID</button>
+    <button class="button" onclick="handleLocalesClick()">Get Locales</button> 
+    -->
+    <button class="button" onclick="handleClick()">Save Article</button>
 
       </div>
 

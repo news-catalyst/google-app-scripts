@@ -76,16 +76,15 @@ function storeLocaleID(localeID) {
 . */
 function getCurrentDocContents() {
   var title = getHeadline();
-  var paragraphs = getBody();
-  var images = getImages();
+  var formattedElements = formatElements();
 
   var articleID = getArticleID();
 
   var webinyResponse;
   if (articleID !== null) {
-    webinyResponse = updateArticle(articleID, title, paragraphs, images);
+    webinyResponse = updateArticle(articleID, title, formattedElements);
   } else {
-    webinyResponse = createArticle(title, paragraphs, images);
+    webinyResponse = createArticle(title, formattedElements);
   }
 
   var responseText = webinyResponse.getContentText();
@@ -133,7 +132,6 @@ function getHeadline() {
 
 function getImages() {
   var documentID = DocumentApp.getActiveDocument().getId();
-  Logger.log('documentID: ', documentID);
   var document = Docs.Documents.get(documentID);
 
   var inlineObjects = Object.keys(document.inlineObjects).reduce(function (
@@ -157,6 +155,87 @@ function getImages() {
   return inlineObjects;
 }
 
+function getElements() {
+  var documentID = DocumentApp.getActiveDocument().getId();
+  var document = Docs.Documents.get(documentID);
+  var elements = document.body.content;
+  var inlineObjects = document.inlineObjects;
+
+  var orderedElements = [];
+  elements.forEach(element => {
+    Logger.log(element);
+    if (element.paragraph && element.paragraph.elements) {
+      var eleData = {
+        children: [],
+        type: null,
+        index: element.endIndex
+      };
+      element.paragraph.elements.forEach(subElement => {
+        // found a paragraph of text
+        if (subElement.textRun && subElement.textRun.content && subElement.textRun.content.trim().length > 0) {
+          if (element.paragraph.paragraphStyle.namedStyleType) {
+            eleData.style = element.paragraph.paragraphStyle.namedStyleType;
+          }
+          eleData.type = "text";
+          eleData.children.push({
+            index: subElement.endIndex,
+            content: subElement.textRun.content,
+            style: subElement.textRun.textStyle // { bold: true }
+          });
+        }
+        // found an image
+        if ( subElement.inlineObjectElement && subElement.inlineObjectElement.inlineObjectId) {
+          eleData.type = "image";
+          var imageID = subElement.inlineObjectElement.inlineObjectId;
+          Logger.log("imageId: ", imageID);
+          var fullImageData = inlineObjects[imageID];
+          Logger.log("fullImageData: ", fullImageData);
+          if (fullImageData) {
+            var childImage = {
+              index: subElement.endIndex,
+              height: fullImageData.inlineObjectProperties.embeddedObject.size.height.magnitude,
+              width: fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude,
+              imageId: subElement.inlineObjectElement.inlineObjectId,
+              imageUrl: fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri,
+              imageAlt: fullImageData.inlineObjectProperties.embeddedObject.title
+            };
+            Logger.log("fullImageData: ", childImage);
+            eleData.children.push(childImage);
+          }
+        }
+      })
+      // skip any blank elements
+      if (eleData.type !== null) {
+        orderedElements.push(eleData);
+      }
+    }
+  });
+
+  Logger.log(orderedElements);
+  return orderedElements;
+
+}
+
+function formatElements() {
+  var elements = getElements();
+
+  var formattedElements = [];
+  elements.sort(function (a, b) {
+    if (a.index > b.index) {
+      return 1;
+    } else {
+      return -1;
+    }
+  }).forEach(element => {
+    var formattedElement = {
+      type: element.type
+    };
+    formattedElement.children = element.children;
+    formattedElements.push(formattedElement);
+  })
+  return formattedElements;
+}
+
 /**
  * Gets the body (regular paragraphs) of the article
  */
@@ -177,9 +256,12 @@ function getBody() {
     var par = ele.asParagraph();
 
     if (par.getHeading() == searchHeading) {
+      Logger.log("Found a normal paragraph: ", par);
       // Found a paragraph, append to the list
       var paragraphText = par.getText();
       paragraphs.push(paragraphText);
+    } else {
+      Logger.log("Found a not normal paragraph: ", par);
     }
   }
   return paragraphs;
@@ -229,12 +311,7 @@ function formatParagraphs(paragraphs) {
 /**
 . * Posts document contents to graphql, creating a new article
 . */
-function createArticle(title, paragraphs, images) {
-
-  var imageJSON = formatImages(images);
-  var paragraphJSON = formatParagraphs(paragraphs);
-  var imagesAndParagraphs = imageJSON.concat(paragraphJSON);
-  Logger.log('Images and paragraphs: ', imagesAndParagraphs.length);
+function createArticle(title, elements) {
 
   var localeID = getLocaleID();
   if (localeID === null) {
@@ -263,7 +340,7 @@ function createArticle(title, paragraphs, images) {
           values: [
             {
               locale: localeID,
-              value: imagesAndParagraphs,
+              value: elements,
             },
           ],
         },
@@ -299,12 +376,7 @@ function createArticle(title, paragraphs, images) {
 /*
  * Updates an article in webiny
  */
-function updateArticle(id, title, paragraphs, images) {
-
-  var imageJSON = formatImages(images);
-  var paragraphJSON = formatParagraphs(paragraphs);
-  var imagesAndParagraphs = imageJSON.concat(paragraphJSON);
-  Logger.log('Images and paragraphs: ', imagesAndParagraphs.length);
+function updateArticle(id, title, elements) {
 
   var localeID = getLocaleID();
   if (localeID === null) {
@@ -363,7 +435,7 @@ function updateArticle(id, title, paragraphs, images) {
           values: [
             {
               locale: localeID,
-              value: imagesAndParagraphs,
+              value: elements,
             },
           ],
         },
