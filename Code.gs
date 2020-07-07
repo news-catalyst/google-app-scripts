@@ -91,7 +91,7 @@ function getCurrentDocContents() {
   var responseData = JSON.parse(responseText);
   var articleID = responseData.data.content.data.id;
   storeArticleID(articleID);
-  Logger.log('new article ID: ', articleID);
+  Logger.log('stored article ID: ', articleID);
 
   var webinyResponseCode = webinyResponse.getResponseCode();
   var responseText;
@@ -107,27 +107,8 @@ function getCurrentDocContents() {
  * Gets the title of the article
  */
 function getHeadline() {
-  // Get the body section of the active document.
-  var body = DocumentApp.getActiveDocument().getBody();
-
-  // Define the search parameters.
-  var searchType = DocumentApp.ElementType.PARAGRAPH;
-  var searchHeading = DocumentApp.ParagraphHeading.TITLE;
-  var searchResult = null;
-
-  var title = null;
-
-  // Search until the title is found.
-  while ((searchResult = body.findElement(searchType, searchResult))) {
-    var par = searchResult.getElement().asParagraph();
-    if (par.getHeading() == searchHeading) {
-      // Found one, update and stop.
-      title = par.getText();
-      Logger.log('Found title: ', title);
-      return title;
-    }
-  }
-  return title;
+  var headline = DocumentApp.getActiveDocument().getName();
+  return headline;
 }
 
 function getImages() {
@@ -141,7 +122,6 @@ function getImages() {
   ) {
     var o = document.inlineObjects[e].inlineObjectProperties.embeddedObject;
     var imgProps = {};
-    Logger.log("title: ", o.title, " and description: ", o.description);
     imgProps.alt = o.title;
     if (o.hasOwnProperty('imageProperties')) {
       imgProps.url = o.imageProperties.contentUri;
@@ -151,7 +131,6 @@ function getImages() {
   },
   []);
 
-  Logger.log(inlineObjects)
   return inlineObjects;
 }
 
@@ -160,6 +139,14 @@ function getElements() {
   var document = Docs.Documents.get(documentID);
   var elements = document.body.content;
   var inlineObjects = document.inlineObjects;
+
+  var listInfo = {};
+  var listItems = DocumentApp.getActiveDocument().getListItems();
+  listItems.forEach(li => {
+    var id = li.getListId();
+    var glyphType = li.getGlyphType();
+    listInfo[id] = glyphType;
+  })
 
   var orderedElements = [];
   elements.forEach(element => {
@@ -170,63 +157,105 @@ function getElements() {
         type: null,
         index: element.endIndex
       };
-      element.paragraph.elements.forEach(subElement => {
-        // found a paragraph of text
-        if (subElement.textRun && subElement.textRun.content && subElement.textRun.content.trim().length > 0) {
-          eleData.type = "text";
 
-          if (element.paragraph.paragraphStyle.namedStyleType) {
-            eleData.style = element.paragraph.paragraphStyle.namedStyleType;
-          }
-          var childElement = {
-            index: subElement.endIndex,
-          }
-          var style = subElement.textRun.textStyle;
-          var cleanedStyle = {
-            underline: style.underline,
-            bold: style.bold,
-            italic: style.italic
-          }
-          childElement.style = cleanedStyle;
-
-          if (style && style.link) {
-            childElement.link = style.link.url;
-          }
-          childElement.content = subElement.textRun.content;
-
-          eleData.children.push(childElement);
+      // handle list items
+      if (element.paragraph.bullet) {
+        eleData.type = "list";
+        eleData.index = element.endIndex;
+        var nestingLevel = element.paragraph.bullet.nestingLevel;
+        if (nestingLevel === null || typeof nestingLevel === "undefined") {
+          nestingLevel = 0;
         }
-        // found an image
-        if ( subElement.inlineObjectElement && subElement.inlineObjectElement.inlineObjectId) {
-          eleData.type = "image";
-          var imageID = subElement.inlineObjectElement.inlineObjectId;
-          Logger.log("imageId: ", imageID);
-          var fullImageData = inlineObjects[imageID];
-          Logger.log("fullImageData: ", fullImageData);
-          if (fullImageData) {
-            var childImage = {
+        // Find existing element with the same list ID
+        var listID = element.paragraph.bullet.listId;
+
+        var findListElement = (element) => element.type === "list" && element.listId === listID
+        var listElementIndex = orderedElements.findIndex(findListElement);
+        // don't create a new element for an existing list
+        // just append this element's text to the exist list's children
+        if (listElementIndex > 0) {
+          var listElement = orderedElements[listElementIndex];
+          element.paragraph.elements.forEach(subElement => {
+            // append list items to the main list element's children
+            listElement.children.push({
+              content: subElement.textRun.content,
               index: subElement.endIndex,
-              height: fullImageData.inlineObjectProperties.embeddedObject.size.height.magnitude,
-              width: fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude,
-              imageId: subElement.inlineObjectElement.inlineObjectId,
-              imageUrl: fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri,
-              imageAlt: fullImageData.inlineObjectProperties.embeddedObject.title
-            };
-            Logger.log("fullImageData: ", childImage);
-            eleData.children.push(childImage);
+              nestingLevel: nestingLevel,
+              style: cleanStyle(subElement.textRun.textStyle)
+            })
+          });
+          orderedElements[listElementIndex] = listElement;
+        } else {
+          // make a new list element
+          if (listInfo[listID]) {
+            eleData.listType = listInfo[listID];
+          } else {
+            eleData.listType = "BULLET";
+          }
+          eleData.type = "list";
+          eleData.listId = listID;
+          element.paragraph.elements.forEach(subElement => {
+            // append list items to the main list element's children
+            eleData.children.push({
+              content: subElement.textRun.content,
+              index: subElement.endIndex,
+              nestingLevel: nestingLevel,
+              style: cleanStyle(subElement.textRun.textStyle)
+            })
+          });
+          orderedElements.push(eleData);
+        }
+      }
+
+      element.paragraph.elements.forEach(subElement => {
+        if (eleData.type !== "list") {
+          // found a paragraph of text
+          if (subElement.textRun && subElement.textRun.content && subElement.textRun.content.trim().length > 0) {
+            eleData.type = "text";
+
+            if (element.paragraph.paragraphStyle.namedStyleType) {
+              eleData.style = element.paragraph.paragraphStyle.namedStyleType;
+            }
+            var childElement = {
+              index: subElement.endIndex,
+            }
+            childElement.style = cleanStyle(subElement.textRun.textStyle);
+
+            if (subElement.textRun.textStyle && subElement.textRun.textStyle.link) {
+              childElement.link = subElement.textRun.textStyle.link.url;
+            }
+            childElement.content = subElement.textRun.content;
+
+            eleData.children.push(childElement);
+          }
+
+          // found an image
+          if ( subElement.inlineObjectElement && subElement.inlineObjectElement.inlineObjectId) {
+            eleData.type = "image";
+            var imageID = subElement.inlineObjectElement.inlineObjectId;
+            var fullImageData = inlineObjects[imageID];
+            if (fullImageData) {
+              var childImage = {
+                index: subElement.endIndex,
+                height: fullImageData.inlineObjectProperties.embeddedObject.size.height.magnitude,
+                width: fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude,
+                imageId: subElement.inlineObjectElement.inlineObjectId,
+                imageUrl: fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri,
+                imageAlt: fullImageData.inlineObjectProperties.embeddedObject.title
+              };
+              eleData.children.push(childImage);
+            }
           }
         }
       })
-      // skip any blank elements
-      if (eleData.type !== null) {
+      // skip any blank elements and lists because they've already been handled above
+      if (eleData.type !== null && eleData.type !== "list") {
         orderedElements.push(eleData);
       }
     }
   });
 
-  Logger.log(orderedElements);
   return orderedElements;
-
 }
 
 function formatElements() {
@@ -241,7 +270,8 @@ function formatElements() {
     }
   }).forEach(element => {
     var formattedElement = {
-      type: element.type
+      type: element.type,
+      listType: element.listType
     };
     formattedElement.children = element.children;
     formattedElements.push(formattedElement);
@@ -269,12 +299,9 @@ function getBody() {
     var par = ele.asParagraph();
 
     if (par.getHeading() == searchHeading) {
-      Logger.log("Found a normal paragraph: ", par);
       // Found a paragraph, append to the list
       var paragraphText = par.getText();
       paragraphs.push(paragraphText);
-    } else {
-      Logger.log("Found a not normal paragraph: ", par);
     }
   }
   return paragraphs;
@@ -308,7 +335,6 @@ function formatParagraphs(paragraphs) {
   var formattedParagraphs = [];
   for (var i = 0; i < paragraphs.length; i++) {
     var p = paragraphs[i];
-    Logger.log('now formatting paragraph: ', p);
     formattedParagraphs.push({
       type: 'paragraph',
       children: [
@@ -529,4 +555,13 @@ function setDefaultLocale(locales) {
     storeLocaleID(localeID);
   }
   return 'Stored localeID as ' + localeID;
+}
+
+function cleanStyle(incomingStyle) {
+  var cleanedStyle = {
+    underline: incomingStyle.underline,
+    bold: incomingStyle.bold,
+    italic: incomingStyle.italic
+  }
+  return cleanedStyle;
 }
