@@ -213,7 +213,7 @@ function getElements() {
           element.paragraph.elements.forEach(subElement => {
             // append list items to the main list element's children
             listElement.children.push({
-              content: subElement.textRun.content,
+              content: cleanContent(subElement.textRun.content),
               index: subElement.endIndex,
               nestingLevel: nestingLevel,
               style: cleanStyle(subElement.textRun.textStyle)
@@ -232,7 +232,7 @@ function getElements() {
           element.paragraph.elements.forEach(subElement => {
             // append list items to the main list element's children
             eleData.children.push({
-              content: subElement.textRun.content,
+              content: cleanContent(subElement.textRun.content),
               index: subElement.endIndex,
               nestingLevel: nestingLevel,
               style: cleanStyle(subElement.textRun.textStyle)
@@ -259,7 +259,7 @@ function getElements() {
             if (subElement.textRun.textStyle && subElement.textRun.textStyle.link) {
               childElement.link = subElement.textRun.textStyle.link.url;
             }
-            childElement.content = subElement.textRun.content;
+            childElement.content = cleanContent(subElement.textRun.content);
 
             eleData.children.push(childElement);
           }
@@ -276,7 +276,7 @@ function getElements() {
                 width: fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude,
                 imageId: subElement.inlineObjectElement.inlineObjectId,
                 imageUrl: fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri,
-                imageAlt: fullImageData.inlineObjectProperties.embeddedObject.title
+                imageAlt: cleanContent(fullImageData.inlineObjectProperties.embeddedObject.title)
               };
               eleData.children.push(childImage);
             }
@@ -845,4 +845,8 @@ function setArticleMeta() {
 
   return responseData;
   
+}
+
+function cleanContent(content) {
+  return content.trim();
 }
