@@ -2,37 +2,72 @@
 <html>
   <head>
     <base target="_top">
+    <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
+
     <script>
       function onSuccess(contents) {
         var div = document.getElementById('output');
-        div.innerHTML = JSON.stringify(contents);
+        div.innerHTML = contents;
+        handleMeta();
       }
       
-      function handleArticleIDClick() {
-         google.script.run.withSuccessHandler(onSuccess).getArticleID();
+      function onSuccessMeta(data) {
+        var revisionIdSpan = document.getElementById('revision-id');
+        revisionIdSpan.innerHTML = data.articleID;
+
+        var isPublishedSpan = document.getElementById('is-published');
+        var isPublishedYesNo = "no";
+        if (data.isPublished) {
+          isPublishedYesNo = "yes";
+        }
+        isPublishedSpan.innerHTML = isPublishedYesNo;
+      }
+
+      function handleMeta() {
+         google.script.run.withSuccessHandler(onSuccessMeta).getArticleMeta();
       }
 
       function handleClick() {
          google.script.run.withSuccessHandler(onSuccess).getCurrentDocContents();
       }
       
-      function handleLocalesClick() {
-         google.script.run.withSuccessHandler(onSuccess).getLocales();
-      }
-
+      window.onload = (function(){
+        handleMeta();
+      });
 
     </script>
+    <style>
+      .branding-below {
+        bottom: 56px;
+        top: 0;
+      }
+      </style>
+
   </head>
   <body>
-    <h1 class="title">Webiny Integration</h1>
+    <div class="sidebar branding-below">
+      <h1 class="title">Publishing Info</h1>
 
-    <div id="output"></div>
-    
-    <!-- 
-    <button class="button" onclick="handleArticleIDClick()">Check for ID</button>
-    <button class="button" onclick="handleLocalesClick()">Get Locales</button> 
-    -->
-    <button class="button" onclick="handleClick()">Save Article</button>
+      <div class="block">
+        <p>
+          <b>Revision ID:</b> <span id="revision-id"></span>
+        </p>
+        <p>
+          <b>Published?</b> <span id="is-published"></span>
+        </p>
+      </div>
+
+      <div id="output" class="block"></div>
+      
+      <div class="block">
+        <button class="button blue" onclick="handleClick()">Save Article</button>
+      </div>
+    </div>
+    <div class="sidebar bottom">
+      <span class="gray">
+        Powered by News Catalyst
+      </span>
+    </div>
 
   </body>
 </html>

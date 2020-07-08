@@ -29,6 +29,8 @@ function onOpen() {
  * Displays a sidebar with Webiny integration stuff TBD
  */
 function showSidebar() {
+  var metadata = setArticleMeta();
+  Logger.log("Showing sidebar after requesting article metadata");
   var html = HtmlService.createHtmlOutputFromFile('Page')
     .setTitle('Webiny Integration')
     .setWidth(300);
@@ -51,6 +53,26 @@ function getArticleID() {
 function storeArticleID(articleID) {
   var documentProperties = PropertiesService.getDocumentProperties();
   documentProperties.setProperty('ARTICLE_ID', articleID);
+}
+
+function storeLatestVersionPublished(isLatestVersionPublished) {
+  var documentProperties = PropertiesService.getDocumentProperties();
+  documentProperties.setProperty('LATEST_VERSION_PUBLISHED', isLatestVersionPublished);
+}
+
+function getLatestVersionPublished() {
+  var documentProperties = PropertiesService.getDocumentProperties();
+  var isLatestVersionPublished = documentProperties.getProperty('LATEST_VERSION_PUBLISHED');
+  return isLatestVersionPublished;
+}
+
+function getArticleMeta() {
+  var articleID = getArticleID();
+  var isLatestVersionPublished = getLatestVersionPublished();
+  return {
+    articleID: articleID,
+    isPublished: isLatestVersionPublished
+  }
 }
 
 /**
@@ -80,9 +102,13 @@ function getCurrentDocContents() {
 
   var articleID = getArticleID();
 
+  // first save the latest article content - either create a new article, or create a new revision on an existing article
   var webinyResponse;
+  // if we already have an articleID and latest version info, we need to create a new version of the article
   if (articleID !== null) {
-    webinyResponse = updateArticle(articleID, title, formattedElements);
+    // webinyResponse = updateArticle(articleID, title, formattedElements);
+    webinyResponse = createArticleFrom(articleID, title, formattedElements);
+  // otherwise, we create a new article
   } else {
     webinyResponse = createArticle(title, formattedElements);
   }
@@ -100,6 +126,15 @@ function getCurrentDocContents() {
   } else {
     responseText = 'Webiny responded with code ' + webinyResponseCode;
   }
+  // publish
+  var publishResponse = publishArticle();
+  Logger.log("response from publishArticle: ", publishResponse);
+
+  responseText += "<br>" + publishResponse;
+
+  // update published flag and latest version ID
+  setArticleMeta();
+
   return responseText;
 }
 
@@ -348,6 +383,105 @@ function formatParagraphs(paragraphs) {
 }
 
 /**
+ * Creates a new revision of the article
+ * @param versionID
+ * @param title 
+ * @param elements 
+ */
+function createArticleFrom(versionID, title, elements) {
+  Logger.log("createArticleFrom versionID: ", versionID);
+
+  var localeID = getLocaleID();
+  if (localeID === null) {
+    var locales = getLocales();
+    setDefaultLocale(locales);
+    localeID = getLocaleID();
+    if (localeID === null) {
+      return 'Failed updating article: unable to find a default locale';
+    }
+  }
+
+  var formData = {
+    query: `mutation CreateBasicArticleFrom($revision: ID!, $data: BasicArticleInput) {
+      content: createBasicArticleFrom(revision: $revision, data: $data) {
+        data {
+          id
+          savedOn
+          meta {
+            published
+            latestVersion
+            revisions {
+              id
+              meta {
+                latestVersion
+                published
+              }
+            }
+            version
+            locked
+            parent
+            status
+          }
+        }
+        error {
+          message
+          code
+          data
+        }
+      }
+    }`,
+    variables: {
+      revision: versionID,
+      data: {
+        headline: {
+          values: [
+            {
+              locale: localeID,
+              value: title,
+            },
+          ],
+        },
+        body: {
+          values: [
+            {
+              locale: localeID,
+              value: elements,
+            },
+          ],
+        },
+        byline: {
+          values: [
+            {
+              locale: localeID,
+              value: "Jacqui Lough",
+            },
+          ],
+        },
+      },
+    },
+  };
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  Logger.log(JSON.stringify(formData))
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  var latestVersionID = responseData.data.content.data.id;
+  Logger.log("Storing latest version of articleID: ", latestVersionID);
+  storeArticleID(latestVersionID);
+  return response;
+}
+/**
 . * Posts document contents to graphql, creating a new article
 . */
 function createArticle(title, elements) {
@@ -508,6 +642,76 @@ function updateArticle(id, title, elements) {
   return response;
 }
 
+/**
+ * Publishes the article
+ */
+function publishArticle() {
+  var versionID = getArticleID();
+  Logger.log("publishing article versionID: ", versionID);
+
+  var formData = {
+    query: `mutation PublishBasicArticle($revision: ID!) {
+      content: publishBasicArticle(revision: $revision) {
+        data {
+          id
+          meta {
+            published
+            latestVersion
+            version
+            locked
+            parent
+            status
+            revisions {
+              id
+              meta {
+                latestVersion
+                published
+                version
+                locked
+                parent
+                status
+              }
+            }
+          }
+        }
+        error {
+          message
+          code
+          data
+        }
+      }
+    }`,
+    variables: {
+      revision: versionID,
+    }
+  };
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  Logger.log(JSON.stringify(formData))
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  Logger.log(responseData);
+
+  // TODO update latestVersionPublished flag
+
+  if (responseData && responseData.data.content.data !== null) {
+    return "Published article at revision " + versionID;
+  } else {
+    return responseData.data.content.error;
+  }
+}
+
 function getLocales() {
   query = `{
     i18n {
@@ -564,4 +768,81 @@ function cleanStyle(incomingStyle) {
     italic: incomingStyle.italic
   }
   return cleanedStyle;
+}
+
+function setArticleMeta() {
+  var articleID = getArticleID();
+  var formData = {
+    query: `query getBasicArticle($id: ID!) {
+      content: getBasicArticle(where: {id: $id}) {
+        data {
+          id
+          savedOn
+          meta {
+            published
+            version
+            locked
+            parent
+            status
+            latestVersion
+            revisions {
+              id
+              meta {
+                latestVersion
+                published
+              }
+            }
+          }
+        }
+        error {
+          message
+          code
+          data
+        }
+      }
+    }`,
+    variables: {
+      id: articleID,
+    }
+  };
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  Logger.log(options);
+
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  Logger.log(responseData);
+
+  var articleID = responseData.data.content.data.id;
+  var latestVersionID = null;
+  var latestVersionPublished;
+  var revisions = responseData.data.content.data.meta.revisions;
+  Logger.log("revisions: ", revisions);
+  revisions.forEach(revision => {
+    if (revision.meta.latestVersion) {
+      latestVersionID = revision.id;
+      latestVersionPublished = revision.meta.published;
+    }
+  })
+
+  // the ID of the most recent revision of the article should now be treated as its articleID
+  // save this in the document properties store
+  if (latestVersionID !== null) {
+    storeArticleID(latestVersionID);
+    storeLatestVersionPublished(latestVersionPublished);
+  }
+
+  return responseData;
+  
 }
