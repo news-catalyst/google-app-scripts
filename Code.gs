@@ -242,8 +242,30 @@ function getElements() {
         }
       }
 
+      // filter out blank subelements
+      var subElements = element.paragraph.elements.filter(subElement => subElement.textRun && subElement.textRun.content.trim().length > 0)
+      // try to find an embeddable link: url on its own line matching one of a set of hosts (twitter, youtube, etc)
+      if (subElements.length === 1) {
+        var foundLink = subElements.find(subElement => subElement.textRun.textStyle.hasOwnProperty('link'))
+        if (foundLink) { 
+          Logger.log("found a link: ", foundLink)
+          var embeddableUrl = (/twitter\.com|youtube\.com|youtu\.be|google\.com|imgur.com|twitch\.tv|vimeo\.com|mixcloud\.com|instagram\.com|facebook\.com|dailymotion\.com/i).test(foundLink.url);
+          if (embeddableUrl) {
+            Logger.log("found embeddableUrl: ", foundLink.url);
+          } else {
+            Logger.log("url not embeddable: ", foundLink.url);
+          }
+        } else {
+          Logger.log("failed to find a link in element child", subElements[0])
+        }
+        eleData.type = "embed";
+        eleData.link = foundLink.url;
+        orderedElements.push(eleData);
+      } 
+
       element.paragraph.elements.forEach(subElement => {
-        if (eleData.type !== "list") {
+        // skip lists and embed links - we already processed these above
+        if (eleData.type !== "list" && eleData.type !== "embed") {
           // found a paragraph of text
           if (subElement.textRun && subElement.textRun.content && subElement.textRun.content.trim().length > 0) {
             eleData.type = "text";
@@ -400,6 +422,8 @@ function createArticleFrom(versionID, title, elements) {
       return 'Failed updating article: unable to find a default locale';
     }
   }
+
+  var byline = getByline();
 
   var formData = {
     query: `mutation CreateBasicArticleFrom($revision: ID!, $data: BasicArticleInput) {
