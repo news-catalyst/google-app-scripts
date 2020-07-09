@@ -69,9 +69,14 @@ function getLatestVersionPublished() {
 function getArticleMeta() {
   var articleID = getArticleID();
   var isLatestVersionPublished = getLatestVersionPublished();
+  var headline = getHeadline();
+  var byline = getByline();
+
   return {
     articleID: articleID,
-    isPublished: isLatestVersionPublished
+    isPublished: isLatestVersionPublished,
+    headline: headline,
+    byline: byline
   }
 }
 
@@ -91,6 +96,22 @@ function getLocaleID() {
 function storeLocaleID(localeID) {
   var documentProperties = PropertiesService.getDocumentProperties();
   documentProperties.setProperty('LOCALE_ID', localeID);
+}
+
+function getHeadline() {
+  return getValue('ARTICLE_HEADLINE');
+}
+
+function storeHeadline(headline) {
+  storeValue("ARTICLE_HEADLINE", headline)
+}
+
+function getByline() {
+  return getValue('ARTICLE_BYLINE');
+}
+
+function storeByline(byline) {
+  storeValue("ARTICLE_BYLINE", byline)
 }
 
 /**
@@ -141,7 +162,7 @@ function getCurrentDocContents() {
 /**
  * Gets the title of the article
  */
-function getHeadline() {
+function getDocumentName() {
   var headline = DocumentApp.getActiveDocument().getName();
   return headline;
 }
@@ -189,6 +210,7 @@ function getElements() {
     if (element.paragraph && element.paragraph.elements) {
       var eleData = {
         children: [],
+        link: null,
         type: null,
         index: element.endIndex
       };
@@ -248,19 +270,20 @@ function getElements() {
       if (subElements.length === 1) {
         var foundLink = subElements.find(subElement => subElement.textRun.textStyle.hasOwnProperty('link'))
         if (foundLink) { 
-          Logger.log("found a link: ", foundLink)
-          var embeddableUrl = (/twitter\.com|youtube\.com|youtu\.be|google\.com|imgur.com|twitch\.tv|vimeo\.com|mixcloud\.com|instagram\.com|facebook\.com|dailymotion\.com/i).test(foundLink.url);
+          var linkUrl = foundLink.textRun.textStyle.link.url;
+          Logger.log("found a link: ", linkUrl)
+          var embeddableUrl = (/twitter\.com|youtube\.com|youtu\.be|google\.com|imgur.com|twitch\.tv|vimeo\.com|mixcloud\.com|instagram\.com|facebook\.com|dailymotion\.com/i).test(linkUrl);
           if (embeddableUrl) {
-            Logger.log("found embeddableUrl: ", foundLink.url);
+            Logger.log("found embeddableUrl: ", linkUrl);
+            eleData.type = "embed";
+            eleData.link = linkUrl;
+            orderedElements.push(eleData);
           } else {
-            Logger.log("url not embeddable: ", foundLink.url);
+            Logger.log("url not embeddable: ", linkUrl);
           }
         } else {
           Logger.log("failed to find a link in element child", subElements[0])
         }
-        eleData.type = "embed";
-        eleData.link = foundLink.url;
-        orderedElements.push(eleData);
       } 
 
       element.paragraph.elements.forEach(subElement => {
@@ -305,8 +328,8 @@ function getElements() {
           }
         }
       })
-      // skip any blank elements and lists because they've already been handled above
-      if (eleData.type !== null && eleData.type !== "list") {
+      // skip any blank elements, embeds and lists because they've already been handled above
+      if (eleData.type !== null && eleData.type !== "list" && eleData.type !== "embed") {
         orderedElements.push(eleData);
       }
     }
@@ -328,6 +351,7 @@ function formatElements() {
   }).forEach(element => {
     var formattedElement = {
       type: element.type,
+      link: element.link,
       listType: element.listType
     };
     formattedElement.children = element.children;
@@ -477,7 +501,7 @@ function createArticleFrom(versionID, title, elements) {
           values: [
             {
               locale: localeID,
-              value: "Jacqui Lough",
+              value: byline,
             },
           ],
         },
@@ -585,6 +609,8 @@ function updateArticle(id, title, elements) {
     }
   }
 
+  var byline = getByline();
+
   var formData = {
     query: `mutation UpdateBasicArticle($id: ID!, $data: BasicArticleInput!) {
       content: updateBasicArticle(where: { id: $id }, data: $data) {
@@ -640,7 +666,7 @@ function updateArticle(id, title, elements) {
           values: [
             {
               locale: localeID,
-              value: "Jacqui Lough",
+              value: byline,
             },
           ],
         },
@@ -796,6 +822,14 @@ function cleanStyle(incomingStyle) {
 
 function setArticleMeta() {
   var articleID = getArticleID();
+
+  // prefer custom headline (set in sidebar form) but fallback to document name
+  var headline = getHeadline();
+  if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
+    headline = getDocumentName();
+    storeHeadline(headline);
+  }
+
   var formData = {
     query: `query getBasicArticle($id: ID!) {
       content: getBasicArticle(where: {id: $id}) {
@@ -873,4 +907,27 @@ function setArticleMeta() {
 
 function cleanContent(content) {
   return content.trim();
+}
+
+function getValue(key) {
+  var documentProperties = PropertiesService.getDocumentProperties();
+  var value = documentProperties.getProperty(key);
+  return value;
+}
+
+function storeValue(key, value) {
+  var documentProperties = PropertiesService.getDocumentProperties();
+  documentProperties.setProperty(key, value);
+}
+
+function processForm(formObject) {
+  Logger.log("processForm: ", formObject);
+
+  var headline = formObject["article-headline"];
+  storeHeadline(headline);
+
+  var byline = formObject["article-byline"];
+  storeByline(byline);
+
+  return "Saved article headline and byline."
 }
