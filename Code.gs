@@ -68,9 +68,21 @@ function getLatestVersionPublished() {
 
 function getArticleMeta() {
   var articleID = getArticleID();
+
   var isLatestVersionPublished = getLatestVersionPublished();
   var headline = getHeadline();
   var byline = getByline();
+
+  if (typeof(articleID) === "undefined" || articleID === null) {
+    Logger.log("articleID is undefined, returning new doc state");
+    return {
+      articleID: null,
+      isPublished: false,
+      headline: headline,
+      byline: byline
+    }
+  }
+  Logger.log("articleID is: ", articleID);
 
   return {
     articleID: articleID,
@@ -844,6 +856,10 @@ function setArticleMeta() {
   if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
     headline = getDocumentName();
     storeHeadline(headline);
+  }
+
+  if (typeof(articleID) === "undefined" || articleID === null) {
+    return null;
   }
 
   var formData = {
