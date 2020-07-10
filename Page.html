@@ -11,16 +11,34 @@
         handleMeta();
       }
       
+      function displayFormMessage(text) {
+        // first, switch the "published" text to say "No"
+        // because the headline and/or byline has likely changed.
+        setPublishedFlag(false);
+        var div = document.getElementById('form-output');
+        div.innerHTML = text;
+      }
+
+      function setPublishedFlag(value) {
+        var isPublishedSpan = document.getElementById('is-published');
+        var isPublishedYesNo = "no";
+        if (value) {
+          isPublishedYesNo = "yes";
+        }
+        isPublishedSpan.innerHTML = isPublishedYesNo;
+      }
+
       function onSuccessMeta(data) {
         var revisionIdSpan = document.getElementById('revision-id');
         revisionIdSpan.innerHTML = data.articleID;
 
-        var isPublishedSpan = document.getElementById('is-published');
-        var isPublishedYesNo = "no";
-        if (data.isPublished) {
-          isPublishedYesNo = "yes";
-        }
-        isPublishedSpan.innerHTML = isPublishedYesNo;
+        setPublishedFlag(data.isPublished);
+
+        var articleHeadline = document.getElementById('article-headline');
+        articleHeadline.value = data.headline;
+
+        var articleByline = document.getElementById('article-byline');
+        articleByline.value = data.byline;
       }
 
       function handleMeta() {
@@ -35,6 +53,20 @@
         handleMeta();
       });
 
+      function handleFormSubmit(formObject) {
+        google.script.run.withSuccessHandler(displayFormMessage).processForm(formObject);
+      }
+
+      // Prevent forms from submitting.
+      function preventFormSubmit() {
+        var forms = document.querySelectorAll('form');
+        for (var i = 0; i < forms.length; i++) {
+          forms[i].addEventListener('submit', function(event) {
+            event.preventDefault();
+          });
+        }
+      }
+      window.addEventListener('load', preventFormSubmit);
     </script>
     <style>
       .branding-below {
@@ -47,6 +79,25 @@
   <body>
     <div class="sidebar branding-below">
       <h1 class="title">Publishing Info</h1>
+
+      <form id="articleMeta" onsubmit="handleFormSubmit(this)">
+        <div id="form-output" class="block secondary"></div>
+        <div class="block form-group">
+          <label for="article-headline">
+            <b>Headline</b>
+          </label>
+          <input id="article-headline" name="article-headline" type="text" />
+        </div>
+        <div class="block form-group">
+          <label for="article-byline">
+            <b>Byline</b>
+          </label>
+          <input id="article-byline" name="article-byline" type="text" />
+        </div>
+        <div class="block">
+          <button class="blue">Submit</button>
+        </div>
+      </form>
 
       <div class="block">
         <p>

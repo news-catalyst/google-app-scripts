@@ -69,9 +69,14 @@ function getLatestVersionPublished() {
 function getArticleMeta() {
   var articleID = getArticleID();
   var isLatestVersionPublished = getLatestVersionPublished();
+  var headline = getHeadline();
+  var byline = getByline();
+
   return {
     articleID: articleID,
-    isPublished: isLatestVersionPublished
+    isPublished: isLatestVersionPublished,
+    headline: headline,
+    byline: byline
   }
 }
 
@@ -79,9 +84,7 @@ function getArticleMeta() {
  * Retrieves the ID of the document's locale from local doc storage
  */
 function getLocaleID() {
-  var documentProperties = PropertiesService.getDocumentProperties();
-  var storedLocaleID = documentProperties.getProperty('LOCALE_ID');
-  return storedLocaleID;
+  return getValue('LOCALE_ID');
 }
 
 /**
@@ -89,8 +92,23 @@ function getLocaleID() {
  * @param localeID webiny ID for the doc's locale
  */
 function storeLocaleID(localeID) {
-  var documentProperties = PropertiesService.getDocumentProperties();
-  documentProperties.setProperty('LOCALE_ID', localeID);
+  storeValue("LOCALE_ID", localeID);
+}
+
+function getHeadline() {
+  return getValue('ARTICLE_HEADLINE');
+}
+
+function storeHeadline(headline) {
+  storeValue("ARTICLE_HEADLINE", headline)
+}
+
+function getByline() {
+  return getValue('ARTICLE_BYLINE');
+}
+
+function storeByline(byline) {
+  storeValue("ARTICLE_BYLINE", byline)
 }
 
 /**
@@ -141,7 +159,7 @@ function getCurrentDocContents() {
 /**
  * Gets the title of the article
  */
-function getHeadline() {
+function getDocumentName() {
   var headline = DocumentApp.getActiveDocument().getName();
   return headline;
 }
@@ -453,7 +471,7 @@ function createArticleFrom(versionID, title, elements) {
           values: [
             {
               locale: localeID,
-              value: "Jacqui Lough",
+              value: byline,
             },
           ],
         },
@@ -496,6 +514,8 @@ function createArticle(title, elements) {
     }
   }
 
+  var byline = getByline();
+
   var formData = {
     query:
       'mutation CreateBasicArticle($data: BasicArticleInput!) {\n  content: createBasicArticle(data: $data) {\n    data {\n      id\n      headline {\n        values {\n          value\n          locale\n        }\n      }\n      body {\n        values {\n          value\n          locale\n        }\n      }\n      byline {\n        values {\n          value\n          locale\n        }\n      }\n    }\n    error {\n      message\n      code\n      data\n    }\n  }\n}',
@@ -521,13 +541,14 @@ function createArticle(title, elements) {
           values: [
             {
               locale: localeID,
-              value: "Jacqui Lough",
+              value: byline,
             },
           ],
         },
       },
     },
   };
+
   var options = {
     method: 'post',
     contentType: 'application/json',
@@ -772,6 +793,14 @@ function cleanStyle(incomingStyle) {
 
 function setArticleMeta() {
   var articleID = getArticleID();
+
+  // prefer custom headline (set in sidebar form) but fallback to document name
+  var headline = getHeadline();
+  if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
+    headline = getDocumentName();
+    storeHeadline(headline);
+  }
+
   var formData = {
     query: `query getBasicArticle($id: ID!) {
       content: getBasicArticle(where: {id: $id}) {
@@ -844,9 +873,31 @@ function setArticleMeta() {
   }
 
   return responseData;
-  
 }
 
 function cleanContent(content) {
   return content.trim();
+}
+
+function getValue(key) {
+  var documentProperties = PropertiesService.getDocumentProperties();
+  var value = documentProperties.getProperty(key);
+  return value;
+}
+
+function storeValue(key, value) {
+  var documentProperties = PropertiesService.getDocumentProperties();
+  documentProperties.setProperty(key, value);
+}
+
+function processForm(formObject) {
+  Logger.log("processForm: ", formObject);
+
+  var headline = formObject["article-headline"];
+  storeHeadline(headline);
+
+  var byline = formObject["article-byline"];
+  storeByline(byline);
+
+  return "Saved article headline and byline."
 }
