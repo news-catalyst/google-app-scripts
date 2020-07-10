@@ -111,6 +111,22 @@ function storeByline(byline) {
   storeValue("ARTICLE_BYLINE", byline)
 }
 
+function getHeadline() {
+  return getValue('ARTICLE_HEADLINE');
+}
+
+function storeHeadline(headline) {
+  storeValue("ARTICLE_HEADLINE", headline)
+}
+
+function getByline() {
+  return getValue('ARTICLE_BYLINE');
+}
+
+function storeByline(byline) {
+  storeValue("ARTICLE_BYLINE", byline)
+}
+
 /**
 . * Gets the current document's contents
 . */
@@ -207,6 +223,7 @@ function getElements() {
     if (element.paragraph && element.paragraph.elements) {
       var eleData = {
         children: [],
+        link: null,
         type: null,
         index: element.endIndex
       };
@@ -260,8 +277,31 @@ function getElements() {
         }
       }
 
+      // filter out blank subelements
+      var subElements = element.paragraph.elements.filter(subElement => subElement.textRun && subElement.textRun.content.trim().length > 0)
+      // try to find an embeddable link: url on its own line matching one of a set of hosts (twitter, youtube, etc)
+      if (subElements.length === 1) {
+        var foundLink = subElements.find(subElement => subElement.textRun.textStyle.hasOwnProperty('link'))
+        if (foundLink) { 
+          var linkUrl = foundLink.textRun.textStyle.link.url;
+          Logger.log("found a link: ", linkUrl)
+          var embeddableUrl = (/twitter\.com|youtube\.com|youtu\.be|google\.com|imgur.com|twitch\.tv|vimeo\.com|mixcloud\.com|instagram\.com|facebook\.com|dailymotion\.com/i).test(linkUrl);
+          if (embeddableUrl) {
+            Logger.log("found embeddableUrl: ", linkUrl);
+            eleData.type = "embed";
+            eleData.link = linkUrl;
+            orderedElements.push(eleData);
+          } else {
+            Logger.log("url not embeddable: ", linkUrl);
+          }
+        } else {
+          Logger.log("failed to find a link in element child", subElements[0])
+        }
+      } 
+
       element.paragraph.elements.forEach(subElement => {
-        if (eleData.type !== "list") {
+        // skip lists and embed links - we already processed these above
+        if (eleData.type !== "list" && eleData.type !== "embed") {
           // found a paragraph of text
           if (subElement.textRun && subElement.textRun.content && subElement.textRun.content.trim().length > 0) {
             eleData.type = "text";
@@ -301,8 +341,8 @@ function getElements() {
           }
         }
       })
-      // skip any blank elements and lists because they've already been handled above
-      if (eleData.type !== null && eleData.type !== "list") {
+      // skip any blank elements, embeds and lists because they've already been handled above
+      if (eleData.type !== null && eleData.type !== "list" && eleData.type !== "embed") {
         orderedElements.push(eleData);
       }
     }
@@ -324,6 +364,7 @@ function formatElements() {
   }).forEach(element => {
     var formattedElement = {
       type: element.type,
+      link: element.link,
       listType: element.listType
     };
     formattedElement.children = element.children;
@@ -418,6 +459,8 @@ function createArticleFrom(versionID, title, elements) {
       return 'Failed updating article: unable to find a default locale';
     }
   }
+
+  var byline = getByline();
 
   var formData = {
     query: `mutation CreateBasicArticleFrom($revision: ID!, $data: BasicArticleInput) {
@@ -582,6 +625,8 @@ function updateArticle(id, title, elements) {
     }
   }
 
+  var byline = getByline();
+
   var formData = {
     query: `mutation UpdateBasicArticle($id: ID!, $data: BasicArticleInput!) {
       content: updateBasicArticle(where: { id: $id }, data: $data) {
@@ -637,7 +682,7 @@ function updateArticle(id, title, elements) {
           values: [
             {
               locale: localeID,
-              value: "Jacqui Lough",
+              value: byline,
             },
           ],
         },
