@@ -340,12 +340,15 @@ function getElements() {
             var imageID = subElement.inlineObjectElement.inlineObjectId;
             var fullImageData = inlineObjects[imageID];
             if (fullImageData) {
+
+              var s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri);
+
               var childImage = {
                 index: subElement.endIndex,
                 height: fullImageData.inlineObjectProperties.embeddedObject.size.height.magnitude,
                 width: fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude,
                 imageId: subElement.inlineObjectElement.inlineObjectId,
-                imageUrl: fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri,
+                imageUrl: s3Url,
                 imageAlt: cleanContent(fullImageData.inlineObjectProperties.embeddedObject.title)
               };
               eleData.children.push(childImage);
@@ -361,6 +364,30 @@ function getElements() {
   });
 
   return orderedElements;
+}
+
+function uploadImageToS3(imageID, contentUri) {
+  var awsAccessKeyId = "AKIATVKONJCDNAP3M2RY";
+  var awsSecretKey = "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";
+  var awsBucket = "tiny-news-demo-assets-dev";
+  var objectName = "image" + imageID + ".png";
+
+  var imageData = null;
+  // get the image data from google first
+  var res = UrlFetchApp.fetch(contentUri, {headers: {Authorization: "Bearer " + ScriptApp.getOAuthToken()}, muteHttpExceptions: true});
+  if (res.getResponseCode() == 200) {
+    imageData = res.getBlob(); //.setName("image1");
+  } else {
+    Logger.log("Failed to fetch image data for uri: ", contentUri);
+    return null;
+  }
+
+  var s3 = S3.getInstance(awsAccessKeyId, awsSecretKey);
+  s3.putObject(awsBucket, objectName, imageData, {logRequests:true});
+
+  var s3Url = "http://" + awsBucket + ".s3.amazonaws.com/" + objectName;
+  Logger.log("s3 url: ", s3Url);
+  return s3Url;
 }
 
 function formatElements() {
