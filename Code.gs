@@ -1,8 +1,12 @@
 // TODO: add form fields to the sidebar requesting these values
+// or manage these somewhere else
 var ACCESS_TOKEN = "32671a3e2a109127e05a666ab469d2901d3999b8977af6a2";
 var PERSONAL_ACCESS_TOKEN = "40ae4d0bed27eeae5fbbe761972c746e3e19485e903b7527"
 var CONTENT_API = "https://d3a91xrcpp69ev.cloudfront.net/cms/manage/production"
 var GRAPHQL_API = "https://d3a91xrcpp69ev.cloudfront.net/graphql"
+var AWS_ACCESS_KEY_ID = "AKIATVKONJCDNAP3M2RY";
+var AWS_SECRET_KEY = "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";
+var AWS_BUCKET = "tiny-news-demo-assets-dev";
 
 /**
  * The event handler triggered when installing the add-on.
@@ -340,12 +344,15 @@ function getElements() {
             var imageID = subElement.inlineObjectElement.inlineObjectId;
             var fullImageData = inlineObjects[imageID];
             if (fullImageData) {
+
+              var s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri);
+
               var childImage = {
                 index: subElement.endIndex,
                 height: fullImageData.inlineObjectProperties.embeddedObject.size.height.magnitude,
                 width: fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude,
                 imageId: subElement.inlineObjectElement.inlineObjectId,
-                imageUrl: fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri,
+                imageUrl: s3Url,
                 imageAlt: cleanContent(fullImageData.inlineObjectProperties.embeddedObject.title)
               };
               eleData.children.push(childImage);
@@ -361,6 +368,27 @@ function getElements() {
   });
 
   return orderedElements;
+}
+
+function uploadImageToS3(imageID, contentUri) {
+  var objectName = "image" + imageID + ".png";
+
+  var imageData = null;
+  // get the image data from google first
+  var res = UrlFetchApp.fetch(contentUri, {headers: {Authorization: "Bearer " + ScriptApp.getOAuthToken()}, muteHttpExceptions: true});
+  if (res.getResponseCode() == 200) {
+    imageData = res.getBlob(); //.setName("image1");
+  } else {
+    Logger.log("Failed to fetch image data for uri: ", contentUri);
+    return null;
+  }
+
+  var s3 = S3.getInstance(AWS_ACCESS_KEY_ID, AWS_SECRET_KEY);
+  s3.putObject(AWS_BUCKET, objectName, imageData, {logRequests:true});
+
+  var s3Url = "http://" + AWS_BUCKET + ".s3.amazonaws.com/" + objectName;
+  Logger.log("s3 url: ", s3Url);
+  return s3Url;
 }
 
 function formatElements() {
