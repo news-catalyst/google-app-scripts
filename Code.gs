@@ -1,8 +1,12 @@
 // TODO: add form fields to the sidebar requesting these values
+// or manage these somewhere else
 var ACCESS_TOKEN = "32671a3e2a109127e05a666ab469d2901d3999b8977af6a2";
 var PERSONAL_ACCESS_TOKEN = "40ae4d0bed27eeae5fbbe761972c746e3e19485e903b7527"
 var CONTENT_API = "https://d3a91xrcpp69ev.cloudfront.net/cms/manage/production"
 var GRAPHQL_API = "https://d3a91xrcpp69ev.cloudfront.net/graphql"
+var AWS_ACCESS_KEY_ID = "AKIATVKONJCDNAP3M2RY";
+var AWS_SECRET_KEY = "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";
+var AWS_BUCKET = "tiny-news-demo-assets-dev";
 
 /**
  * The event handler triggered when installing the add-on.
@@ -367,9 +371,6 @@ function getElements() {
 }
 
 function uploadImageToS3(imageID, contentUri) {
-  var awsAccessKeyId = "AKIATVKONJCDNAP3M2RY";
-  var awsSecretKey = "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";
-  var awsBucket = "tiny-news-demo-assets-dev";
   var objectName = "image" + imageID + ".png";
 
   var imageData = null;
@@ -382,10 +383,10 @@ function uploadImageToS3(imageID, contentUri) {
     return null;
   }
 
-  var s3 = S3.getInstance(awsAccessKeyId, awsSecretKey);
-  s3.putObject(awsBucket, objectName, imageData, {logRequests:true});
+  var s3 = S3.getInstance(AWS_ACCESS_KEY_ID, AWS_SECRET_KEY);
+  s3.putObject(AWS_BUCKET, objectName, imageData, {logRequests:true});
 
-  var s3Url = "http://" + awsBucket + ".s3.amazonaws.com/" + objectName;
+  var s3Url = "http://" + AWS_BUCKET + ".s3.amazonaws.com/" + objectName;
   Logger.log("s3 url: ", s3Url);
   return s3Url;
 }
