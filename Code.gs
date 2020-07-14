@@ -117,12 +117,12 @@ function uploadImageToS3(imageID, contentUri) {
     return null;
   }
 
-  var destinationPath = "/" + orgNameSlug + "/" + headlineSlug + "/" + objectName;
+  var destinationPath = orgNameSlug + "/" + headlineSlug + "/" + objectName;
 
   var s3 = S3.getInstance(AWS_ACCESS_KEY_ID, AWS_SECRET_KEY);
   s3.putObject(AWS_BUCKET, destinationPath, imageData, {logRequests:true});
 
-  var s3Url = "http://" + AWS_BUCKET + ".s3.amazonaws.com" + destinationPath;
+  var s3Url = "http://" + AWS_BUCKET + ".s3.amazonaws.com/" + destinationPath;
   return s3Url;
 }
 
