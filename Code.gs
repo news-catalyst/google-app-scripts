@@ -17,6 +17,9 @@ function onOpen() {
     .createMenu('Webiny')
     .addItem('Show sidebar', 'showSidebar')
     .addToUi();
+  // try to load articleID and published status + custom headline and byline
+  // when the document opens to prevent slow loading when the sidebar is opened
+  setArticleMeta();
 }
 
 /**
