@@ -27,14 +27,15 @@ function onOpen() {
     .createMenu('Webiny')
     .addItem('Show sidebar', 'showSidebar')
     .addToUi();
+  // try to load articleID and published status + custom headline and byline
+  // when the document opens to prevent slow loading when the sidebar is opened
+  setArticleMeta();
 }
 
 /**
  * Displays a sidebar with Webiny integration stuff TBD
  */
 function showSidebar() {
-  var metadata = setArticleMeta();
-  Logger.log("Showing sidebar after requesting article metadata");
   var html = HtmlService.createHtmlOutputFromFile('Page')
     .setTitle('Webiny Integration')
     .setWidth(300);
@@ -413,7 +414,9 @@ function formatElements() {
   }).forEach(element => {
     var formattedElement = {
       type: element.type,
-      link: element.link
+      style: element.style,
+      link: element.link,
+      listType: element.listType
     };
     if (formattedElement.type === "list") {
       formattedElement.listType = element.listType;
