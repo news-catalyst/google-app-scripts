@@ -246,6 +246,7 @@ function getElements() {
 
       // handle list items
       if (element.paragraph.bullet) {
+        eleData.items = [];
         eleData.type = "list";
         eleData.index = element.endIndex;
         var nestingLevel = element.paragraph.bullet.nestingLevel;
@@ -258,18 +259,22 @@ function getElements() {
         var findListElement = (element) => element.type === "list" && element.listId === listID
         var listElementIndex = orderedElements.findIndex(findListElement);
         // don't create a new element for an existing list
-        // just append this element's text to the exist list's children
+        // just append this element's text to the exist list's items
         if (listElementIndex > 0) {
           var listElement = orderedElements[listElementIndex];
+          var listElementChildren = [];
           element.paragraph.elements.forEach(subElement => {
             // append list items to the main list element's children
-            listElement.children.push({
+            listElementChildren.push({
               content: cleanContent(subElement.textRun.content),
-              index: subElement.endIndex,
-              nestingLevel: nestingLevel,
               style: cleanStyle(subElement.textRun.textStyle)
             })
           });
+          listElement.items.push({
+            children: listElementChildren,
+            index: eleData.index,
+            nestingLevel: nestingLevel
+          })
           orderedElements[listElementIndex] = listElement;
         } else {
           // make a new list element
@@ -280,15 +285,19 @@ function getElements() {
           }
           eleData.type = "list";
           eleData.listId = listID;
+          var listElementChildren = [];
           element.paragraph.elements.forEach(subElement => {
             // append list items to the main list element's children
-            eleData.children.push({
+            listElementChildren.push({
               content: cleanContent(subElement.textRun.content),
-              index: subElement.endIndex,
-              nestingLevel: nestingLevel,
               style: cleanStyle(subElement.textRun.textStyle)
             })
           });
+          eleData.items.push({
+            nestingLevel: nestingLevel,
+            children: listElementChildren,
+            index: eleData.index
+          })
           orderedElements.push(eleData);
         }
       }
@@ -404,10 +413,14 @@ function formatElements() {
   }).forEach(element => {
     var formattedElement = {
       type: element.type,
-      link: element.link,
-      listType: element.listType
+      link: element.link
     };
-    formattedElement.children = element.children;
+    if (formattedElement.type === "list") {
+      formattedElement.listType = element.listType;
+      formattedElement.items = element.items;
+    } else {
+      formattedElement.children = element.children;
+    }
     formattedElements.push(formattedElement);
   })
   return formattedElements;
