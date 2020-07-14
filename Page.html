@@ -19,6 +19,14 @@
         div.innerHTML = text;
       }
 
+      function displayConfigFormMessage(text) {
+        var div = document.getElementById('script-config-form-output');
+        div.innerHTML = text;
+
+        var scriptForm = document.getElementById('script-config-form')
+        scriptForm.visibility = "hidden";
+      }
+
       function setPublishedFlag(value) {
         var isPublishedSpan = document.getElementById('is-published');
         var isPublishedYesNo = "no";
@@ -26,6 +34,19 @@
           isPublishedYesNo = "yes";
         }
         isPublishedSpan.innerHTML = isPublishedYesNo;
+      }
+
+      function onSuccessConfig(data) {
+        var configDiv = document.getElementById('config');
+        if (data !== null && data !== {} && Object.keys(data).length > 0) {
+          var scriptForm = document.getElementById('script-config-form')
+          scriptForm.display = "none";
+          configDiv.innerHTML = "Loaded script config, just FYI."
+        } else {
+          var scriptForm = document.getElementById('script-config-form')
+          scriptForm.display = "block";
+          configDiv.innerHTML = "No script config found. Fill in the form."
+        }
       }
 
       function onSuccessMeta(data) {
@@ -41,6 +62,10 @@
         articleByline.value = data.byline;
       }
 
+      function handleScriptConfig() {
+         google.script.run.withSuccessHandler(onSuccessConfig).getScriptConfig();
+      }
+
       function handleMeta() {
          google.script.run.withSuccessHandler(onSuccessMeta).getArticleMeta();
       }
@@ -51,7 +76,12 @@
       
       window.onload = (function(){
         handleMeta();
+        handleScriptConfig();
       });
+
+      function handleScriptConfigSubmit(formObject) {
+        google.script.run.withSuccessHandler(displayConfigFormMessage).setScriptConfig(formObject);
+      }
 
       function handleFormSubmit(formObject) {
         google.script.run.withSuccessHandler(displayFormMessage).processForm(formObject);
@@ -79,6 +109,56 @@
   <body>
     <div class="sidebar branding-below">
       <h1 class="title">Publishing Info</h1>
+
+      <div id="config"></div>
+      <form id="script-config-form" style="display: none;" onsubmit="handleScriptConfigSubmit(this)">
+        <div id="script-config-form-output" class="block secondary"></div>
+        <div class="block form-group">
+          <label for="access-token">
+            <b>Content API Access Token</b>
+          </label>
+          <input id="access-token" name="ACCESS_TOKEN" type="text" />
+        </div>
+        <div class="block form-group">
+          <label for="content-api">
+            <b>Content API URL</b>
+          </label>
+          <input id="content-api" name="CONTENT_API" type="text" />
+        </div>
+        <div class="block form-group">
+          <label for="personal-access-token">
+            <b>GraphQL API Access Token</b>
+          </label>
+          <input id="personal-access-token" name="PERSONAL_ACCESS_TOKEN" type="text" />
+        </div>
+        <div class="block form-group">
+          <label for="graphql-api-url">
+            <b>GraphQL API URL</b>
+          </label>
+          <input id="graphql-api-url" name="GRAPHQL_API" type="text" />
+        </div>
+        <div class="block form-group">
+          <label for="aws-access-key">
+            <b>AWS Access Key ID</b>
+          </label>
+          <input id="aws-access-key" name="AWS_ACCESS_KEY_ID" type="text" />
+        </div>
+        <div class="block form-group">
+          <label for="aws-secret-key">
+            <b>AWS Secret Key</b>
+          </label>
+          <input id="aws-secret-key" name="AWS_SECRET_KEY" type="text" />
+        </div>
+        <div class="block form-group">
+          <label for="aws-bucket">
+            <b>AWS Bucket</b>
+          </label>
+          <input id="aws-bucket" name="AWS_BUCKET" type="text" />
+        </div>
+        <div class="block">
+          <button class="blue">Submit</button>
+        </div>
+      </form>
 
       <form id="articleMeta" onsubmit="handleFormSubmit(this)">
         <div id="form-output" class="block secondary"></div>

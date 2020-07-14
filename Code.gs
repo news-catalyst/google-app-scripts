@@ -1,13 +1,3 @@
-// TODO: add form fields to the sidebar requesting these values
-// or manage these somewhere else
-var ACCESS_TOKEN = "32671a3e2a109127e05a666ab469d2901d3999b8977af6a2";
-var PERSONAL_ACCESS_TOKEN = "40ae4d0bed27eeae5fbbe761972c746e3e19485e903b7527"
-var CONTENT_API = "https://d3a91xrcpp69ev.cloudfront.net/cms/manage/production"
-var GRAPHQL_API = "https://d3a91xrcpp69ev.cloudfront.net/graphql"
-var AWS_ACCESS_KEY_ID = "AKIATVKONJCDNAP3M2RY";
-var AWS_SECRET_KEY = "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";
-var AWS_BUCKET = "tiny-news-demo-assets-dev";
-
 /**
  * The event handler triggered when installing the add-on.
  * @param {Event} e The onInstall event.
@@ -34,7 +24,6 @@ function onOpen() {
  */
 function showSidebar() {
   var metadata = setArticleMeta();
-  Logger.log("Showing sidebar after requesting article metadata");
   var html = HtmlService.createHtmlOutputFromFile('Page')
     .setTitle('Webiny Integration')
     .setWidth(300);
@@ -102,6 +91,12 @@ function slugify(value) {
 .* destination URL determined by: Organization Name, Article Title, and image ID
 .*/ 
 function uploadImageToS3(imageID, contentUri) {
+
+  var scriptConfig = getScriptConfig();
+  var AWS_ACCESS_KEY_ID = scriptConfig['AWS_ACCESS_KEY_ID'];
+  var AWS_SECRET_KEY = scriptConfig['AWS_SECRET_KEY'];
+  var AWS_BUCKET = scriptConfig['AWS_BUCKET'];
+
   var orgName = getOrganizationName();
   var orgNameSlug = slugify(orgName);
   var headline = getHeadline();
@@ -120,19 +115,36 @@ function uploadImageToS3(imageID, contentUri) {
   }
 
   var destinationPath = "/" + orgNameSlug + "/" + headlineSlug + "/" + objectName;
-  Logger.log("Image dest path: ", destinationPath);
 
   var s3 = S3.getInstance(AWS_ACCESS_KEY_ID, AWS_SECRET_KEY);
   s3.putObject(AWS_BUCKET, destinationPath, imageData, {logRequests:true});
 
   var s3Url = "http://" + AWS_BUCKET + ".s3.amazonaws.com" + destinationPath;
-  Logger.log("s3 url: ", s3Url);
   return s3Url;
 }
 
 //
 // Data storage functions
 //
+
+/*
+.* Gets the script configuration, data available to all users and docs for this add-on
+.*/
+function getScriptConfig() {
+  var scriptProperties = PropertiesService.getScriptProperties();
+  var data = scriptProperties.getProperties();
+  return data;  
+}
+
+/*
+.* Sets script-wide configuration
+.*/
+function setScriptConfig(data) {
+  var scriptProperties = PropertiesService.getScriptProperties();
+  for (var key in data) {
+    scriptProperties.setProperty(key, data[key]);
+  }
+}
 
 /*
 .* general purpose function (called in the other data storage functions) to retrieve a value for a key
@@ -234,7 +246,6 @@ function getArticleMeta() {
   var byline = getByline();
 
   if (typeof(articleID) === "undefined" || articleID === null) {
-    Logger.log("articleID is undefined, returning new doc state");
     return {
       articleID: null,
       isPublished: false,
@@ -242,7 +253,6 @@ function getArticleMeta() {
       byline: byline
     }
   }
-  Logger.log("articleID is: ", articleID);
 
   return {
     articleID: articleID,
@@ -385,10 +395,8 @@ function getElements() {
         var foundLink = subElements.find(subElement => subElement.textRun.textStyle.hasOwnProperty('link'))
         if (foundLink) { 
           var linkUrl = foundLink.textRun.textStyle.link.url;
-          Logger.log("found a link: ", linkUrl)
           var embeddableUrl = (/twitter\.com|youtube\.com|youtu\.be|google\.com|imgur.com|twitch\.tv|vimeo\.com|mixcloud\.com|instagram\.com|facebook\.com|dailymotion\.com/i).test(linkUrl);
           if (embeddableUrl) {
-            Logger.log("found embeddableUrl: ", linkUrl);
             eleData.type = "embed";
             eleData.link = linkUrl;
             orderedElements.push(eleData);
@@ -494,6 +502,10 @@ function formatElements() {
 function createArticleFrom(versionID, title, elements) {
   Logger.log("createArticleFrom versionID: ", versionID);
 
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
   var localeID = getLocaleID();
   if (localeID === null) {
     var locales = getLocales();
@@ -592,6 +604,11 @@ function createArticleFrom(versionID, title, elements) {
 . */
 function createArticle(title, elements) {
 
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+
   var localeID = getLocaleID();
   if (localeID === null) {
     var locales = getLocales();
@@ -659,6 +676,10 @@ function createArticle(title, elements) {
  * Updates an article in webiny
  */
 function updateArticle(id, title, elements) {
+
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
 
   var localeID = getLocaleID();
   if (localeID === null) {
@@ -760,6 +781,11 @@ function publishArticle() {
   var versionID = getArticleID();
   Logger.log("publishing article versionID: ", versionID);
 
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+
   var formData = {
     query: `mutation PublishBasicArticle($revision: ID!) {
       content: publishBasicArticle(revision: $revision) {
@@ -824,6 +850,10 @@ function publishArticle() {
 }
 
 function getLocales() {
+  var scriptConfig = getScriptConfig();
+  var PERSONAL_ACCESS_TOKEN = scriptConfig['PERSONAL_ACCESS_TOKEN'];
+  var GRAPHQL_API = scriptConfig['GRAPHQL_API'];
+
   query = `{
     i18n {
       listI18NLocales {
@@ -874,6 +904,9 @@ function setDefaultLocale(locales) {
 
 function setArticleMeta() {
   var articleID = getArticleID();
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
 
   // prefer custom headline (set in sidebar form) but fallback to document name
   var headline = getHeadline();
@@ -965,8 +998,6 @@ function setArticleMeta() {
 .* setting the headline and byline (for now)
 .*/
 function processForm(formObject) {
-  Logger.log("processForm: ", formObject);
-
   var headline = formObject["article-headline"];
   storeHeadline(headline);
 
