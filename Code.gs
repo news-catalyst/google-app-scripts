@@ -42,6 +42,115 @@ function showSidebar() {
     .showSidebar(html);
 }
 
+//
+// Utility functions 
+//
+
+// TODO Actual implementation TBD
+function getOrganizationName() {
+  return "News Catalyst"
+}
+
+/**
+ * Gets the title of the article from the name of the Google Doc
+ */
+function getDocumentName() {
+  var headline = DocumentApp.getActiveDocument().getName();
+  return headline;
+}
+
+/*
+.* for now this only trims whitespace, but stands to allow for any other text cleaning up we may need
+.*/
+function cleanContent(content) {
+  return content.trim();
+}
+
+/*
+.* condenses text style into one object allowing for bold, italic and underline
+.* google docs style attribute often contains unrelated info, sometimes even the text content
+.*/
+function cleanStyle(incomingStyle) {
+  var cleanedStyle = {
+    underline: incomingStyle.underline,
+    bold: incomingStyle.bold,
+    italic: incomingStyle.italic
+  }
+  return cleanedStyle;
+}
+
+// Implementation from https://gist.github.com/codeguy/6684588
+// takes a regular string and returns a slug
+function slugify(value) {
+  value = value.trim();
+  value = value.toLowerCase();
+  var from = "àáäâèéëêìíïîòóöôùúüûñç·/_,:;";
+  var to   = "aaaaeeeeiiiioooouuuunc------";
+  for (var i=0, l=from.length ; i<l ; i++) {
+    value = value.replace(new RegExp(from.charAt(i), 'g'), to.charAt(i));
+  }
+
+  value = value.replace(/[^a-z0-9 -]/g, '') // remove invalid chars
+      .replace(/\s+/g, '-') // collapse whitespace and replace by -
+      .replace(/-+/g, '-'); // collapse dashes
+
+  return value;
+}
+
+/*
+.* This uploads an image in the Google Doc to S3
+.* destination URL determined by: Organization Name, Article Title, and image ID
+.*/ 
+function uploadImageToS3(imageID, contentUri) {
+  var orgName = getOrganizationName();
+  var orgNameSlug = slugify(orgName);
+  var headline = getHeadline();
+  var headlineSlug = slugify(headline);
+
+  var objectName = "image" + imageID + ".png";
+
+  // get the image data from google first
+  var imageData = null;
+  var res = UrlFetchApp.fetch(contentUri, {headers: {Authorization: "Bearer " + ScriptApp.getOAuthToken()}, muteHttpExceptions: true});
+  if (res.getResponseCode() == 200) {
+    imageData = res.getBlob(); //.setName("image1");
+  } else {
+    Logger.log("Failed to fetch image data for uri: ", contentUri);
+    return null;
+  }
+
+  var destinationPath = "/" + orgNameSlug + "/" + headlineSlug + "/" + objectName;
+  Logger.log("Image dest path: ", destinationPath);
+
+  var s3 = S3.getInstance(AWS_ACCESS_KEY_ID, AWS_SECRET_KEY);
+  s3.putObject(AWS_BUCKET, destinationPath, imageData, {logRequests:true});
+
+  var s3Url = "http://" + AWS_BUCKET + ".s3.amazonaws.com" + destinationPath;
+  Logger.log("s3 url: ", s3Url);
+  return s3Url;
+}
+
+//
+// Data storage functions
+//
+
+/*
+.* general purpose function (called in the other data storage functions) to retrieve a value for a key
+.*/
+function getValue(key) {
+  var documentProperties = PropertiesService.getDocumentProperties();
+  var value = documentProperties.getProperty(key);
+  return value;
+}
+
+/*
+.* general purpose function (called in the other data storage functions) to set a value at a key
+.*/
+function storeValue(key, value) {
+  var documentProperties = PropertiesService.getDocumentProperties();
+  documentProperties.setProperty(key, value);
+}
+
 /**
  * Retrieves the ID of the article from the local document storage
  */
@@ -68,32 +177,6 @@ function getLatestVersionPublished() {
   var documentProperties = PropertiesService.getDocumentProperties();
   var isLatestVersionPublished = documentProperties.getProperty('LATEST_VERSION_PUBLISHED');
   return isLatestVersionPublished;
-}
-
-function getArticleMeta() {
-  var articleID = getArticleID();
-
-  var isLatestVersionPublished = getLatestVersionPublished();
-  var headline = getHeadline();
-  var byline = getByline();
-
-  if (typeof(articleID) === "undefined" || articleID === null) {
-    Logger.log("articleID is undefined, returning new doc state");
-    return {
-      articleID: null,
-      isPublished: false,
-      headline: headline,
-      byline: byline
-    }
-  }
-  Logger.log("articleID is: ", articleID);
-
-  return {
-    articleID: articleID,
-    isPublished: isLatestVersionPublished,
-    headline: headline,
-    byline: byline
-  }
 }
 
 /**
@@ -135,16 +218,44 @@ function storeHeadline(headline) {
   storeValue("ARTICLE_HEADLINE", headline)
 }
 
-function getByline() {
-  return getValue('ARTICLE_BYLINE');
+//
+// Functions for retrieving and formatting document contents
+//
+
+/*
+. * Returns metadata about the article, including its id, whether it was published
+. * headline and byline
+. */
+function getArticleMeta() {
+  var articleID = getArticleID();
+
+  var isLatestVersionPublished = getLatestVersionPublished();
+  var headline = getHeadline();
+  var byline = getByline();
+
+  if (typeof(articleID) === "undefined" || articleID === null) {
+    Logger.log("articleID is undefined, returning new doc state");
+    return {
+      articleID: null,
+      isPublished: false,
+      headline: headline,
+      byline: byline
+    }
+  }
+  Logger.log("articleID is: ", articleID);
+
+  return {
+    articleID: articleID,
+    isPublished: isLatestVersionPublished,
+    headline: headline,
+    byline: byline
+  }
 }
 
-function storeByline(byline) {
-  storeValue("ARTICLE_BYLINE", byline)
-}
 
 /**
-. * Gets the current document's contents
+. * Gets the current document's contents and
+.  * posts them to webiny
 . */
 function getCurrentDocContents() {
   var title = getHeadline();
@@ -188,37 +299,11 @@ function getCurrentDocContents() {
   return responseText;
 }
 
-/**
- * Gets the title of the article
- */
-function getDocumentName() {
-  var headline = DocumentApp.getActiveDocument().getName();
-  return headline;
-}
 
-function getImages() {
-  var documentID = DocumentApp.getActiveDocument().getId();
-  var document = Docs.Documents.get(documentID);
-
-  var inlineObjects = Object.keys(document.inlineObjects).reduce(function (
-    ar,
-    e,
-    i
-  ) {
-    var o = document.inlineObjects[e].inlineObjectProperties.embeddedObject;
-    var imgProps = {};
-    imgProps.alt = o.title;
-    if (o.hasOwnProperty('imageProperties')) {
-      imgProps.url = o.imageProperties.contentUri;
-    }
-    ar.push(imgProps);
-    return ar;
-  },
-  []);
-
-  return inlineObjects;
-}
-
+/*
+.* Retrieves "elements" from the google doc - which are headings, images, paragraphs, lists
+.* Preserves order, indicates that order with `index` attribute
+.*/
 function getElements() {
   var documentID = DocumentApp.getActiveDocument().getId();
   var document = Docs.Documents.get(documentID);
@@ -370,27 +455,10 @@ function getElements() {
   return orderedElements;
 }
 
-function uploadImageToS3(imageID, contentUri) {
-  var objectName = "image" + imageID + ".png";
 
-  var imageData = null;
-  // get the image data from google first
-  var res = UrlFetchApp.fetch(contentUri, {headers: {Authorization: "Bearer " + ScriptApp.getOAuthToken()}, muteHttpExceptions: true});
-  if (res.getResponseCode() == 200) {
-    imageData = res.getBlob(); //.setName("image1");
-  } else {
-    Logger.log("Failed to fetch image data for uri: ", contentUri);
-    return null;
-  }
-
-  var s3 = S3.getInstance(AWS_ACCESS_KEY_ID, AWS_SECRET_KEY);
-  s3.putObject(AWS_BUCKET, objectName, imageData, {logRequests:true});
-
-  var s3Url = "http://" + AWS_BUCKET + ".s3.amazonaws.com/" + objectName;
-  Logger.log("s3 url: ", s3Url);
-  return s3Url;
-}
-
+/*
+.* Gets elements and formats them into JSON structure for us to work with on the front-end
+.*/
 function formatElements() {
   var elements = getElements();
 
@@ -413,73 +481,9 @@ function formatElements() {
   return formattedElements;
 }
 
-/**
- * Gets the body (regular paragraphs) of the article
- */
-function getBody() {
-  // Get the contents of the active document.
-  var body = DocumentApp.getActiveDocument().getBody();
-
-  // Define the search parameters.
-  var searchType = DocumentApp.ElementType.PARAGRAPH;
-  var searchHeading = DocumentApp.ParagraphHeading.NORMAL;
-  var searchResult = null;
-
-  var paragraphs = [];
-
-  // Search until all regular paragraphs are found.
-  while ((searchResult = body.findElement(searchType, searchResult))) {
-    var ele = searchResult.getElement();
-    var par = ele.asParagraph();
-
-    if (par.getHeading() == searchHeading) {
-      // Found a paragraph, append to the list
-      var paragraphText = par.getText();
-      paragraphs.push(paragraphText);
-    }
-  }
-  return paragraphs;
-}
-
-/**
- * Formats an array of images found in the doc into JSON to store in Webiny 
- *  as part of the article body.
- * @param images an array of image data
- * 
- */
-function formatImages(images) {
-  var formattedImages = [];
-  for (var i = 0; i < images.length; i++) {
-    var img = images[i];
-    formattedImages.push({
-      type: 'image',
-      url: img.url,
-      alt: img.alt
-    });
-  }
-  return formattedImages;
-}
-
-/**
- * 
- * Formats paragraphs into JSON for storing in the webiny article body
- * @param paragraphs an array of paragraph data
- */
-function formatParagraphs(paragraphs) {
-  var formattedParagraphs = [];
-  for (var i = 0; i < paragraphs.length; i++) {
-    var p = paragraphs[i];
-    formattedParagraphs.push({
-      type: 'paragraph',
-      children: [
-        {
-          text: p,
-        },
-      ],
-    });
-  }
-  return formattedParagraphs;
-}
+//
+// GraphQL functions
+//
 
 /**
  * Creates a new revision of the article
@@ -582,6 +586,7 @@ function createArticleFrom(versionID, title, elements) {
   storeArticleID(latestVersionID);
   return response;
 }
+
 /**
 . * Posts document contents to graphql, creating a new article
 . */
@@ -867,15 +872,6 @@ function setDefaultLocale(locales) {
   return 'Stored localeID as ' + localeID;
 }
 
-function cleanStyle(incomingStyle) {
-  var cleanedStyle = {
-    underline: incomingStyle.underline,
-    bold: incomingStyle.bold,
-    italic: incomingStyle.italic
-  }
-  return cleanedStyle;
-}
-
 function setArticleMeta() {
   var articleID = getArticleID();
 
@@ -964,21 +960,10 @@ function setArticleMeta() {
   return responseData;
 }
 
-function cleanContent(content) {
-  return content.trim();
-}
-
-function getValue(key) {
-  var documentProperties = PropertiesService.getDocumentProperties();
-  var value = documentProperties.getProperty(key);
-  return value;
-}
-
-function storeValue(key, value) {
-  var documentProperties = PropertiesService.getDocumentProperties();
-  documentProperties.setProperty(key, value);
-}
-
+/*
+.* called from Page.html, this function handles incoming form data from the sidebar,
+.* setting the headline and byline (for now)
+.*/
 function processForm(formObject) {
   Logger.log("processForm: ", formObject);
 
