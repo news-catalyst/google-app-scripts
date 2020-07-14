@@ -94,12 +94,11 @@ function slugify(value) {
 .* destination URL determined by: Organization Name, Article Title, and image ID
 .*/ 
 function uploadImageToS3(imageID, contentUri) {
-
   var scriptConfig = getScriptConfig();
   var AWS_ACCESS_KEY_ID = scriptConfig['AWS_ACCESS_KEY_ID'];
   var AWS_SECRET_KEY = scriptConfig['AWS_SECRET_KEY'];
   var AWS_BUCKET = scriptConfig['AWS_BUCKET'];
-
+  
   var orgName = getOrganizationName();
   var orgNameSlug = slugify(orgName);
   var headline = getHeadline();
@@ -131,6 +130,7 @@ function uploadImageToS3(imageID, contentUri) {
 //
 
 /*
+
 .* Gets the script configuration, data available to all users and docs for this add-on
 .*/
 function getScriptConfig() {
@@ -150,6 +150,7 @@ function setScriptConfig(data) {
 }
 
 /*
+
 .* general purpose function (called in the other data storage functions) to retrieve a value for a key
 .*/
 function getValue(key) {
@@ -249,6 +250,8 @@ function getArticleMeta() {
   var byline = getByline();
 
   if (typeof(articleID) === "undefined" || articleID === null) {
+    Logger.log("articleID is undefined, returning new doc state");
+
     return {
       articleID: null,
       isPublished: false,
@@ -256,7 +259,8 @@ function getArticleMeta() {
       byline: byline
     }
   }
-
+  Logger.log("articleID is: ", articleID);
+  
   return {
     articleID: articleID,
     isPublished: isLatestVersionPublished,
@@ -344,6 +348,7 @@ function getElements() {
 
       // handle list items
       if (element.paragraph.bullet) {
+        eleData.items = [];
         eleData.type = "list";
         eleData.index = element.endIndex;
         var nestingLevel = element.paragraph.bullet.nestingLevel;
@@ -356,18 +361,22 @@ function getElements() {
         var findListElement = (element) => element.type === "list" && element.listId === listID
         var listElementIndex = orderedElements.findIndex(findListElement);
         // don't create a new element for an existing list
-        // just append this element's text to the exist list's children
+        // just append this element's text to the exist list's items
         if (listElementIndex > 0) {
           var listElement = orderedElements[listElementIndex];
+          var listElementChildren = [];
           element.paragraph.elements.forEach(subElement => {
             // append list items to the main list element's children
-            listElement.children.push({
+            listElementChildren.push({
               content: cleanContent(subElement.textRun.content),
-              index: subElement.endIndex,
-              nestingLevel: nestingLevel,
               style: cleanStyle(subElement.textRun.textStyle)
             })
           });
+          listElement.items.push({
+            children: listElementChildren,
+            index: eleData.index,
+            nestingLevel: nestingLevel
+          })
           orderedElements[listElementIndex] = listElement;
         } else {
           // make a new list element
@@ -378,15 +387,19 @@ function getElements() {
           }
           eleData.type = "list";
           eleData.listId = listID;
+          var listElementChildren = [];
           element.paragraph.elements.forEach(subElement => {
             // append list items to the main list element's children
-            eleData.children.push({
+            listElementChildren.push({
               content: cleanContent(subElement.textRun.content),
-              index: subElement.endIndex,
-              nestingLevel: nestingLevel,
               style: cleanStyle(subElement.textRun.textStyle)
             })
           });
+          eleData.items.push({
+            nestingLevel: nestingLevel,
+            children: listElementChildren,
+            index: eleData.index
+          })
           orderedElements.push(eleData);
         }
       }
@@ -483,10 +496,16 @@ function formatElements() {
   }).forEach(element => {
     var formattedElement = {
       type: element.type,
+      style: element.style,
       link: element.link,
       listType: element.listType
     };
-    formattedElement.children = element.children;
+    if (formattedElement.type === "list") {
+      formattedElement.listType = element.listType;
+      formattedElement.items = element.items;
+    } else {
+      formattedElement.children = element.children;
+    }
     formattedElements.push(formattedElement);
   })
   return formattedElements;
