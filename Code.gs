@@ -405,6 +405,7 @@ function formatElements() {
   }).forEach(element => {
     var formattedElement = {
       type: element.type,
+      style: element.style,
       link: element.link,
       listType: element.listType
     };
