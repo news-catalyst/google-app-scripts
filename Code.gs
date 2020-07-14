@@ -1,8 +1,12 @@
 // TODO: add form fields to the sidebar requesting these values
+// or manage these somewhere else
 var ACCESS_TOKEN = "32671a3e2a109127e05a666ab469d2901d3999b8977af6a2";
 var PERSONAL_ACCESS_TOKEN = "40ae4d0bed27eeae5fbbe761972c746e3e19485e903b7527"
 var CONTENT_API = "https://d3a91xrcpp69ev.cloudfront.net/cms/manage/production"
 var GRAPHQL_API = "https://d3a91xrcpp69ev.cloudfront.net/graphql"
+var AWS_ACCESS_KEY_ID = "AKIATVKONJCDNAP3M2RY";
+var AWS_SECRET_KEY = "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";
+var AWS_BUCKET = "tiny-news-demo-assets-dev";
 
 /**
  * The event handler triggered when installing the add-on.
@@ -97,9 +101,7 @@ function getArticleMeta() {
  * Retrieves the ID of the document's locale from local doc storage
  */
 function getLocaleID() {
-  var documentProperties = PropertiesService.getDocumentProperties();
-  var storedLocaleID = documentProperties.getProperty('LOCALE_ID');
-  return storedLocaleID;
+  return getValue('LOCALE_ID');
 }
 
 /**
@@ -107,8 +109,23 @@ function getLocaleID() {
  * @param localeID webiny ID for the doc's locale
  */
 function storeLocaleID(localeID) {
-  var documentProperties = PropertiesService.getDocumentProperties();
-  documentProperties.setProperty('LOCALE_ID', localeID);
+  storeValue("LOCALE_ID", localeID);
+}
+
+function getHeadline() {
+  return getValue('ARTICLE_HEADLINE');
+}
+
+function storeHeadline(headline) {
+  storeValue("ARTICLE_HEADLINE", headline)
+}
+
+function getByline() {
+  return getValue('ARTICLE_BYLINE');
+}
+
+function storeByline(byline) {
+  storeValue("ARTICLE_BYLINE", byline)
 }
 
 function getHeadline() {
@@ -328,12 +345,15 @@ function getElements() {
             var imageID = subElement.inlineObjectElement.inlineObjectId;
             var fullImageData = inlineObjects[imageID];
             if (fullImageData) {
+
+              var s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri);
+
               var childImage = {
                 index: subElement.endIndex,
                 height: fullImageData.inlineObjectProperties.embeddedObject.size.height.magnitude,
                 width: fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude,
                 imageId: subElement.inlineObjectElement.inlineObjectId,
-                imageUrl: fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri,
+                imageUrl: s3Url,
                 imageAlt: cleanContent(fullImageData.inlineObjectProperties.embeddedObject.title)
               };
               eleData.children.push(childImage);
@@ -349,6 +369,27 @@ function getElements() {
   });
 
   return orderedElements;
+}
+
+function uploadImageToS3(imageID, contentUri) {
+  var objectName = "image" + imageID + ".png";
+
+  var imageData = null;
+  // get the image data from google first
+  var res = UrlFetchApp.fetch(contentUri, {headers: {Authorization: "Bearer " + ScriptApp.getOAuthToken()}, muteHttpExceptions: true});
+  if (res.getResponseCode() == 200) {
+    imageData = res.getBlob(); //.setName("image1");
+  } else {
+    Logger.log("Failed to fetch image data for uri: ", contentUri);
+    return null;
+  }
+
+  var s3 = S3.getInstance(AWS_ACCESS_KEY_ID, AWS_SECRET_KEY);
+  s3.putObject(AWS_BUCKET, objectName, imageData, {logRequests:true});
+
+  var s3Url = "http://" + AWS_BUCKET + ".s3.amazonaws.com/" + objectName;
+  Logger.log("s3 url: ", s3Url);
+  return s3Url;
 }
 
 function formatElements() {
@@ -557,6 +598,8 @@ function createArticle(title, elements) {
     }
   }
 
+  var byline = getByline();
+
   var formData = {
     query:
       'mutation CreateBasicArticle($data: BasicArticleInput!) {\n  content: createBasicArticle(data: $data) {\n    data {\n      id\n      headline {\n        values {\n          value\n          locale\n        }\n      }\n      body {\n        values {\n          value\n          locale\n        }\n      }\n      byline {\n        values {\n          value\n          locale\n        }\n      }\n    }\n    error {\n      message\n      code\n      data\n    }\n  }\n}',
@@ -582,13 +625,14 @@ function createArticle(title, elements) {
           values: [
             {
               locale: localeID,
-              value: "Jacqui Lough",
+              value: byline,
             },
           ],
         },
       },
     },
   };
+
   var options = {
     method: 'post',
     contentType: 'application/json',
@@ -919,7 +963,6 @@ function setArticleMeta() {
   }
 
   return responseData;
-  
 }
 
 function cleanContent(content) {
