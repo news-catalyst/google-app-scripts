@@ -118,10 +118,19 @@ function uploadImageToS3(imageID, contentUri) {
   }
 
   var destinationPath = orgNameSlug + "/" + headlineSlug + "/" + objectName;
+  var s3;
 
-  var s3 = S3.getInstance(AWS_ACCESS_KEY_ID, AWS_SECRET_KEY);
-  s3.putObject(AWS_BUCKET, destinationPath, imageData, {logRequests:true});
+  try {
+    s3 = getInstance(AWS_ACCESS_KEY_ID, AWS_SECRET_KEY);
+  } catch (e) {
+    Logger.log("Failed getting S3 instance: ", e)
+  }
 
+  try {
+    s3.putObject(AWS_BUCKET, destinationPath, imageData, {logRequests:true});
+  } catch (e) {
+    Logger.log("Failed putting object: ", e)
+  }
   var s3Url = "http://" + AWS_BUCKET + ".s3.amazonaws.com/" + destinationPath;
   return s3Url;
 }
