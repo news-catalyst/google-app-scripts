@@ -3,6 +3,7 @@
  * @param {Event} e The onInstall event.
  */
 function onInstall(e) {
+  Logger.log("onInstall running in authMode: ", e.authMode);
   onOpen(e);
 }
 
@@ -12,21 +13,21 @@ function onInstall(e) {
  *
  * This adds a "Webiny" menu option.
  */
-function onOpen() {
+function onOpen(e) {
+  Logger.log("onOpen running in authMode: ", e.authMode);
   DocumentApp.getUi() // Or DocumentApp or SlidesApp or FormApp.
     .createMenu('Webiny')
     .addItem('Show sidebar', 'showSidebar')
     .addToUi();
-  // try to load articleID and published status + custom headline and byline
-  // when the document opens to prevent slow loading when the sidebar is opened
-  setArticleMeta();
 }
 
 /**
  * Displays a sidebar with Webiny integration stuff TBD
  */
 function showSidebar() {
-  var metadata = setArticleMeta();
+  // try to load articleID and published status + custom headline and byline
+  // when the document opens to prevent slow loading when the sidebar is opened
+  setArticleMeta();
   var html = HtmlService.createHtmlOutputFromFile('Page')
     .setTitle('Webiny Integration')
     .setWidth(300);
@@ -117,10 +118,19 @@ function uploadImageToS3(imageID, contentUri) {
   }
 
   var destinationPath = orgNameSlug + "/" + headlineSlug + "/" + objectName;
+  var s3;
 
-  var s3 = S3.getInstance(AWS_ACCESS_KEY_ID, AWS_SECRET_KEY);
-  s3.putObject(AWS_BUCKET, destinationPath, imageData, {logRequests:true});
+  try {
+    s3 = getInstance(AWS_ACCESS_KEY_ID, AWS_SECRET_KEY);
+  } catch (e) {
+    Logger.log("Failed getting S3 instance: ", e)
+  }
 
+  try {
+    s3.putObject(AWS_BUCKET, destinationPath, imageData, {logRequests:true});
+  } catch (e) {
+    Logger.log("Failed putting object: ", e)
+  }
   var s3Url = "http://" + AWS_BUCKET + ".s3.amazonaws.com/" + destinationPath;
   return s3Url;
 }
