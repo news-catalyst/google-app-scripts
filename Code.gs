@@ -3,6 +3,7 @@
  * @param {Event} e The onInstall event.
  */
 function onInstall(e) {
+  Logger.log("onInstall running in authMode: ", e.authMode);
   onOpen(e);
 }
 
@@ -12,21 +13,21 @@ function onInstall(e) {
  *
  * This adds a "Webiny" menu option.
  */
-function onOpen() {
+function onOpen(e) {
+  Logger.log("onOpen running in authMode: ", e.authMode);
   DocumentApp.getUi() // Or DocumentApp or SlidesApp or FormApp.
     .createMenu('Webiny')
     .addItem('Show sidebar', 'showSidebar')
     .addToUi();
-  // try to load articleID and published status + custom headline and byline
-  // when the document opens to prevent slow loading when the sidebar is opened
-  setArticleMeta();
 }
 
 /**
  * Displays a sidebar with Webiny integration stuff TBD
  */
 function showSidebar() {
-  var metadata = setArticleMeta();
+  // try to load articleID and published status + custom headline and byline
+  // when the document opens to prevent slow loading when the sidebar is opened
+  setArticleMeta();
   var html = HtmlService.createHtmlOutputFromFile('Page')
     .setTitle('Webiny Integration')
     .setWidth(300);
