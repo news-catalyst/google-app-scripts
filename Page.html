@@ -11,6 +11,12 @@
         handleMeta();
       }
       
+      function onFailureMeta(error) {
+        var loadingDiv = document.getElementById('loading');
+        console.log(error);
+        loadingDiv.innerHTML = "An error occurred: " + error;
+      }
+
       function onSuccessMeta(data) {
         var revisionIdSpan = document.getElementById('revision-id');
         revisionIdSpan.innerHTML = data.articleID;
@@ -24,13 +30,17 @@
         articleByline.value = data.byline;
 
         var loadingDiv = document.getElementById('loading');
-        loadingDiv.style.visibility = "hidden";
+        loadingDiv.style.display = "none";
 
         var form = document.getElementById('article-meta-form');
-        form.style.visibility = "visible";
+        form.style.display = "block";
         
         var revisionDiv = document.getElementById('revision-info');
-        revisionDiv.style.visibility = "visible";
+        revisionDiv.style.display = "block";
+
+        var saveDiv = document.getElementById('save-article');
+        saveDiv.style.display = "block";
+
       }
 
       function displayFormMessage(text) {
@@ -46,7 +56,7 @@
         div.innerHTML = text;
 
         var scriptForm = document.getElementById('script-config-form')
-        scriptForm.visibility = "hidden";
+        scriptForm.display = "none";
       }
 
       function setPublishedFlag(value) {
@@ -63,7 +73,7 @@
         if (data !== null && data !== {} && Object.keys(data).length > 0) {
           var scriptForm = document.getElementById('script-config-form')
           scriptForm.display = "none";
-          configDiv.innerHTML = "Loaded script config, just FYI."
+          configDiv.innerHTML = "<div class='gray secondary'>Loaded script config, just FYI. You're ready to publish!</div><hr/>"
         } else {
           var scriptForm = document.getElementById('script-config-form')
           scriptForm.display = "block";
@@ -71,12 +81,17 @@
         }
       }
 
+      function onFailureConfig(error) {
+        var configDiv = document.getElementById('config');
+        configDiv.innerHTML = "An error occurred. This may be due to being logged into multiple google accounts at once. Try opening this doc in an incognito window.";
+      }
+
       function handleScriptConfig() {
-         google.script.run.withSuccessHandler(onSuccessConfig).getScriptConfig();
+         google.script.run.withFailureHandler(onFailureConfig).withSuccessHandler(onSuccessConfig).getScriptConfig();
       }
 
       function handleMeta() {
-         google.script.run.withSuccessHandler(onSuccessMeta).getArticleMeta();
+         google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessMeta).getArticleMeta();
       }
 
       function handleClick() {
@@ -85,12 +100,17 @@
       
       window.onload = (function(){
         var form = document.getElementById('article-meta-form');
-        form.style.visibility = "hidden";
+        form.style.display = "none";
         
         var revisionDiv = document.getElementById('revision-info');
-        revisionDiv.style.visibility = "hidden";
-        handleMeta();
+        revisionDiv.style.display = "none";
+
+        var saveDiv = document.getElementById('save-article');
+        saveDiv.style.display = "none";
+
         handleScriptConfig();
+
+        handleMeta();
       });
 
       function handleScriptConfigSubmit(formObject) {
@@ -123,7 +143,7 @@
   </head>
   <body>
     <div class="sidebar branding-below">
-      <h1 class="title">Publishing Info</h1>
+      <h1 class="title">Publishing Tools</h1>
 
       <div class="block" id="loading">Loading...</div>
 
@@ -214,7 +234,7 @@
 
       <div id="output" class="block"></div>
       
-      <div class="block">
+      <div id="save-article" class="block">
         <button class="button blue" onclick="handleClick()">Save Article</button>
       </div>
     </div>
