@@ -334,8 +334,49 @@ function getCurrentDocContents() {
 function getElements() {
   var documentID = DocumentApp.getActiveDocument().getId();
   var document = Docs.Documents.get(documentID);
+
   var elements = document.body.content;
   var inlineObjects = document.inlineObjects;
+
+  var orderedElements = [];
+
+  var headers = document.headers;
+
+  // Look for a main article image in the header
+  if (Object.keys(headers).length === 1) {
+    var headerKey = Object.keys(headers)[0];
+    var header = headers[headerKey];
+    var headerContent = header.content;
+    headerContent.forEach(content => {
+      content.paragraph.elements.forEach(element => {
+        var headerElement = {
+          type: null,
+          children: []
+        };
+        if ( element.inlineObjectElement && element.inlineObjectElement.inlineObjectId) {
+          headerElement.type = "mainImage";
+          var imageID = element.inlineObjectElement.inlineObjectId;
+          var fullImageData = inlineObjects[imageID];
+          if (fullImageData) {
+            var s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri);
+
+            var childImage = {
+              index: element.endIndex,
+              height: fullImageData.inlineObjectProperties.embeddedObject.size.height.magnitude,
+              width: fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude,
+              imageId: element.inlineObjectElement.inlineObjectId,
+              imageUrl: s3Url,
+              imageAlt: cleanContent(fullImageData.inlineObjectProperties.embeddedObject.title)
+            };
+            headerElement.children.push(childImage);
+          }
+        }
+        if (headerElement.type !== null) {
+          orderedElements.push(headerElement);
+        }
+      });
+    });
+  }
 
   var listInfo = {};
   var listItems = DocumentApp.getActiveDocument().getListItems();
@@ -345,7 +386,6 @@ function getElements() {
     listInfo[id] = glyphType;
   })
 
-  var orderedElements = [];
   elements.forEach(element => {
     Logger.log(element);
     if (element.paragraph && element.paragraph.elements) {
