@@ -15,7 +15,14 @@ function onInstall(e) {
  */
 function onOpen(e) {
   Logger.log("onOpen running in authMode: ", e.authMode);
-  DocumentApp.getUi() // Or DocumentApp or SlidesApp or FormApp.
+  if (e && e.authMode === ScriptApp.AuthMode.NONE) {
+    Logger.log("AuthMode is NONE")
+  } else {
+    Logger.log("AuthMode is > NONE")
+  }
+
+  // display sidebar
+  DocumentApp.getUi()
     .createMenu('Webiny')
     .addItem('Show sidebar', 'showSidebar')
     .addToUi();
@@ -25,11 +32,8 @@ function onOpen(e) {
  * Displays a sidebar with Webiny integration stuff TBD
  */
 function showSidebar() {
-  // try to load articleID and published status + custom headline and byline
-  // when the document opens to prevent slow loading when the sidebar is opened
-  setArticleMeta();
   var html = HtmlService.createHtmlOutputFromFile('Page')
-    .setTitle('Webiny Integration')
+    .setTitle('CMS Integration')
     .setWidth(300);
   DocumentApp.getUi() // Or DocumentApp or SlidesApp or FormApp.
     .showSidebar(html);
