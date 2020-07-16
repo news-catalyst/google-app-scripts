@@ -18,6 +18,17 @@
       }
 
       function onSuccessMeta(data) {
+        var articleTagsSelect = document.getElementById('article-tags');
+        data.allTags.forEach(tag => {
+          var option = document.createElement("option");
+          option.text = tag.title.value;
+          option.value = tag.id;
+          if (data.articleTags && data.articleTags.includes(tag.id)) {
+            option.selected = true;
+          }
+          articleTagsSelect.add(option);
+        })
+
         var revisionIdSpan = document.getElementById('revision-id');
         revisionIdSpan.innerHTML = data.articleID;
 
@@ -90,7 +101,13 @@
          google.script.run.withFailureHandler(onFailureConfig).withSuccessHandler(onSuccessConfig).getScriptConfig();
       }
 
+      function onSuccessTags(data) {
+        var div = document.getElementById('tags-output');
+        div.innerHTML = JSON.stringify(data);
+      }
+
       function handleMeta() {
+         google.script.run.withSuccessHandler(onSuccessTags).getTags();
          google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessMeta).getArticleMeta();
       }
 
@@ -145,6 +162,7 @@
     <div class="sidebar branding-below">
       <h1 class="title">Publishing Tools</h1>
 
+      <pre id="tags-output"></pre>
       <div class="block" id="loading">Loading...</div>
 
       <div id="config"></div>
@@ -214,6 +232,13 @@
               <b>Byline</b>
             </label>
             <input id="article-byline" name="article-byline" type="text" />
+          </div>
+          <div class="block form-group">
+            <label for="article-tags">
+              <b>Tags</b>
+            </label>
+            <select id="article-tags" name="article-tags" multiple>
+            </select>
           </div>
           <div class="block">
             <button class="blue">Submit</button>

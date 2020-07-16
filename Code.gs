@@ -173,6 +173,20 @@ function getValue(key) {
   return value;
 }
 
+function getValueJSON(key) {
+  var valueString = getValue(key);
+  var value = [];
+  if (valueString && valueString !== null) {
+    try {
+      value = JSON.parse(valueString);
+    } catch(e) {
+      Logger.log("error parsing JSON: ", e)
+      value = []
+    }
+  } 
+  return value;
+}
+
 /*
 .* general purpose function (called in the other data storage functions) to set a value at a key
 .*/
@@ -181,6 +195,21 @@ function storeValue(key, value) {
   documentProperties.setProperty(key, value);
 }
 
+function storeValueJSON(key, value) {
+  var valueString;
+  try {
+    valueString = JSON.stringify(value);
+  } catch(e) {
+    Logger.log("error stringify-ing data: ", e)
+    valueString = JSON.stringify([]);
+  }
+  storeValue(key, valueString);
+}
+
+function deleteValue(key) {
+  var documentProperties = PropertiesService.getDocumentProperties();
+  documentProperties.deleteProperty(key);
+}
 /**
  * Retrieves the ID of the article from the local document storage
  */
@@ -248,6 +277,16 @@ function storeHeadline(headline) {
   storeValue("ARTICLE_HEADLINE", headline)
 }
 
+function getTags() {
+  return getValueJSON('ARTICLE_TAGS');
+}
+
+function storeTags(tags) {
+  // temporary
+  // deleteValue("ARTICLE_TAGS");
+  storeValueJSON("ARTICLE_TAGS", tags)
+}
+
 //
 // Functions for retrieving and formatting document contents
 //
@@ -262,6 +301,8 @@ function getArticleMeta() {
   var isLatestVersionPublished = getLatestVersionPublished();
   var headline = getHeadline();
   var byline = getByline();
+  var allTags = loadTagsFromDB();
+  var articleTags = getTags();
 
   if (typeof(articleID) === "undefined" || articleID === null) {
     Logger.log("articleID is undefined, returning new doc state");
@@ -270,17 +311,25 @@ function getArticleMeta() {
       articleID: null,
       isPublished: false,
       headline: headline,
-      byline: byline
+      byline: byline,
+      allTags: allTags,
+      articleTags: []
     }
   }
   Logger.log("articleID is: ", articleID);
+  Logger.log("articleTags: ", articleTags);
+  Logger.log("allTags: ", allTags);
   
-  return {
+  var articleMetadata = {
     articleID: articleID,
     isPublished: isLatestVersionPublished,
     headline: headline,
-    byline: byline
-  }
+    byline: byline,
+    allTags: allTags,
+    articleTags: articleTags
+  };
+  Logger.log("articleMetadata: ", articleMetadata);
+  return articleMetadata;
 }
 
 
@@ -593,6 +642,19 @@ function createArticleFrom(versionID, title, elements) {
   }
 
   var byline = getByline();
+  var tags = getStoredTags();
+  var tagsArrayForGraphQL = [];
+  tags.forEach(tag => {
+    tagsArrayForGraphQL.push({
+      locale: localeID,
+      value: [
+        {
+          id: tag.id,
+          name: tag.title.value
+        }
+      ]
+    });
+  });
 
   var formData = {
     query: `mutation CreateBasicArticleFrom($revision: ID!, $data: BasicArticleInput) {
@@ -650,6 +712,9 @@ function createArticleFrom(versionID, title, elements) {
             },
           ],
         },
+    		tags: {
+          values: tagsArrayForGraphQL
+        },
       },
     },
   };
@@ -697,6 +762,20 @@ function createArticle(title, elements) {
 
   var byline = getByline();
 
+  var tags = getStoredTags();
+  var tagsArrayForGraphQL = [];
+  tags.forEach(tag => {
+    tagsArrayForGraphQL.push({
+      locale: localeID,
+      value: [
+        {
+          id: tag.id,
+          name: tag.title.value
+        }
+      ]
+    });
+  });
+
   var formData = {
     query:
       'mutation CreateBasicArticle($data: BasicArticleInput!) {\n  content: createBasicArticle(data: $data) {\n    data {\n      id\n      headline {\n        values {\n          value\n          locale\n        }\n      }\n      body {\n        values {\n          value\n          locale\n        }\n      }\n      byline {\n        values {\n          value\n          locale\n        }\n      }\n    }\n    error {\n      message\n      code\n      data\n    }\n  }\n}',
@@ -725,6 +804,9 @@ function createArticle(title, elements) {
               value: byline,
             },
           ],
+        },
+    		tags: {
+          values: tagsArrayForGraphQL
         },
       },
     },
@@ -925,6 +1007,49 @@ function publishArticle() {
   }
 }
 
+function loadTagsFromDB() {
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+  var formData = {
+    query: `query listTags {
+      content: listTags {
+        data {
+          id
+          title {
+            value
+          }
+        } 
+      }
+    }`
+  };
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  Logger.log(JSON.stringify(formData))
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  Logger.log(responseData);
+
+  // TODO update latestVersionPublished flag
+
+  if (responseData && responseData.data.content.data !== null) {
+    return responseData.data.content.data;
+  } else {
+    return responseData.data.content.error;
+  }
+}
+
 function getLocales() {
   var scriptConfig = getScriptConfig();
   var PERSONAL_ACCESS_TOKEN = scriptConfig['PERSONAL_ACCESS_TOKEN'];
@@ -1079,6 +1204,9 @@ function processForm(formObject) {
 
   var byline = formObject["article-byline"];
   storeByline(byline);
+
+  var tags = formObject["article-tags"];
+  storeTags(tags);
 
   return "Saved article headline and byline."
 }
