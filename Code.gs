@@ -43,6 +43,12 @@ function showSidebar() {
 // Utility functions 
 //
 
+// get unique values from an array
+// from https://stackoverflow.com/questions/1960473/get-all-unique-values-in-a-javascript-array-remove-duplicates?answertab=votes#tab-top
+function onlyUnique(value, index, self) { 
+  return self.indexOf(value) === index;
+}
+
 // TODO Actual implementation TBD
 function getOrganizationName() {
   return "News Catalyst"
@@ -642,18 +648,24 @@ function createArticleFrom(versionID, title, elements) {
   }
 
   var byline = getByline();
-  var tags = getStoredTags();
+
+  var allTags = loadTagsFromDB(); // includes id and name
+  var articleTags = getTags(); // only id
+
+  // compare all tags array to those selected for this article
   var tagsArrayForGraphQL = [];
-  tags.forEach(tag => {
-    tagsArrayForGraphQL.push({
-      locale: localeID,
-      value: [
-        {
-          id: tag.id,
-          name: tag.title.value
-        }
-      ]
-    });
+  allTags.forEach(tag => {
+    if (articleTags.includes(tag.id)) {
+      tagsArrayForGraphQL.push({
+        locale: localeID,
+        value: [
+          {
+            id: tag.id,
+            name: tag.title.value
+          }
+        ]
+      });
+    }
   });
 
   var formData = {
@@ -762,18 +774,23 @@ function createArticle(title, elements) {
 
   var byline = getByline();
 
-  var tags = getStoredTags();
+  var allTags = loadTagsFromDB(); // includes id and name
+  var articleTags = getTags(); // only id
+
+  // compare all tags array to those selected for this article
   var tagsArrayForGraphQL = [];
-  tags.forEach(tag => {
-    tagsArrayForGraphQL.push({
-      locale: localeID,
-      value: [
-        {
-          id: tag.id,
-          name: tag.title.value
-        }
-      ]
-    });
+  allTags.forEach(tag => {
+    if (articleTags.includes(tag.id)) {
+      tagsArrayForGraphQL.push({
+        locale: localeID,
+        value: [
+          {
+            id: tag.id,
+            name: tag.title.value
+          }
+        ]
+      });
+    }
   });
 
   var formData = {
@@ -1126,6 +1143,16 @@ function setArticleMeta() {
         data {
           id
           savedOn
+          tags {
+            values {
+              value {
+                id
+                title {
+                  value
+                }
+              }
+            }
+          }
           meta {
             published
             version
@@ -1190,6 +1217,16 @@ function setArticleMeta() {
     storeArticleID(latestVersionID);
     storeLatestVersionPublished(latestVersionPublished);
   }
+
+  var tagsData = responseData.data.content.data.tags.values;
+  var tagIDs = [];
+  tagsData.forEach(tagData => {
+    tagData.value.forEach(tagValue => {
+      tagIDs.push(tagValue.id)
+    })
+  });
+  var uniqueTags = tagIDs.filter(onlyUnique);
+  storeTags(uniqueTags);
 
   return responseData;
 }
