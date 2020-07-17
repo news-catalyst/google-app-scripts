@@ -655,7 +655,8 @@ function createArticleFrom(versionID, title, elements) {
   // compare all tags array to those selected for this article
   var tagsArrayForGraphQL = [];
   allTags.forEach(tag => {
-    if (articleTags.includes(tag.id)) {
+    const result = articleTags.find( ({ id }) => id === tag.id );
+    if (result !== undefined) {
       tagsArrayForGraphQL.push({
         locale: localeID,
         value: [
@@ -774,13 +775,14 @@ function createArticle(title, elements) {
 
   var byline = getByline();
 
-  var allTags = loadTagsFromDB(); // includes id and name
-  var articleTags = getTags(); // only id
+  var allTags = loadTagsFromDB();
+  var articleTags = getTags();
 
   // compare all tags array to those selected for this article
   var tagsArrayForGraphQL = [];
   allTags.forEach(tag => {
-    if (articleTags.includes(tag.id)) {
+    const result = articleTags.find( ({ id }) => id === tag.id );
+    if (result !== undefined) {
       tagsArrayForGraphQL.push({
         locale: localeID,
         value: [
@@ -1067,10 +1069,40 @@ function loadTagsFromDB() {
   }
 }
 
+// todo move to utility
+function tagExists(tagData) { 
+  return tagData.title === 'cherries';
+}
+
+function addTagToLocalStore(formObject) {
+  var tagTitle = formObject['new-article-tag'];
+  var articleTags = getTags();
+  const result = articleTags.find( ({ title }) => title === tagTitle );
+  if (result !== undefined) {
+    Logger.log("Tag already exists: ", result);
+    return "Tag already exists: ", tagTitle;
+  } else {
+    articleTags.push({
+      id: null,
+      title: tagTitle
+    });
+    storeTags(articleTags);
+    return "Stored new tag: ", tagTitle
+  }
+}
+
 function createTag(formObject) {
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  var tagTitle = formObject['new-article-tag'];
+  var articleTags = getTags();
+  const result = articleTags.find( ({ title }) => title === tagTitle );
+  if (result !== undefined) {
+    Logger.log("Tag already exists: ", result);
+    return;
+  }
 
   var localeID = getLocaleID();
   if (localeID === null) {
@@ -1131,8 +1163,10 @@ function createTag(formObject) {
   Logger.log(responseData);
 
   var newTagData = responseData.data.content.data;
-  var articleTags = getTags(); // only id
-  articleTags.push(newTagData.id);
+  articleTags.push({
+    id: newTagData.id,
+    title: newTagData.title
+  });
   storeTags(articleTags);
 
   return responseData;

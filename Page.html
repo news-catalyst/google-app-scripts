@@ -18,7 +18,7 @@
       }
 
       function handleNewTagForm(formObject) {
-         google.script.run.withSuccessHandler(onSuccessTags).createTag(formObject);
+         google.script.run.withSuccessHandler(onSuccessTags).addTagToLocalStore(formObject);
         // var articleTagsSelect = document.getElementById('article-tags');
       }
 
@@ -28,7 +28,9 @@
           var option = document.createElement("option");
           option.text = tag.title.value;
           option.value = tag.id;
-          if (data.articleTags && data.articleTags.includes(tag.id)) {
+
+          const result = data.articleTags.find( ({ id }) => id === tag.id );
+          if (result !== undefined) {
             option.selected = true;
           }
           articleTagsSelect.add(option);
