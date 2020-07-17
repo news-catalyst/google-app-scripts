@@ -1067,6 +1067,77 @@ function loadTagsFromDB() {
   }
 }
 
+function createTag(formObject) {
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  var localeID = getLocaleID();
+  if (localeID === null) {
+    var locales = getLocales();
+    setDefaultLocale(locales);
+    localeID = getLocaleID();
+    if (localeID === null) {
+      return 'Failed updating article: unable to find a default locale';
+    }
+  }
+
+  var formData = {
+    query: `mutation CreateTag($data: TagInput!) {
+      content: createTag(data: $data) {
+        data {
+          id
+          title {
+            value
+          }
+        }
+        error {
+          message
+          code
+          data
+        }
+      }
+    }`,
+    variables: {
+        data: {
+          title: {
+            values: [
+              {
+                value: formObject["new-article-tag"],
+                locale: localeID
+              }
+            ]
+          }
+        }
+      }
+  };
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  Logger.log(JSON.stringify(formData))
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  Logger.log(responseData);
+
+  var newTagData = responseData.data.content.data;
+  var articleTags = getTags(); // only id
+  articleTags.push(newTagData.id);
+  storeTags(articleTags);
+
+  return responseData;
+}
+
 function getLocales() {
   var scriptConfig = getScriptConfig();
   var PERSONAL_ACCESS_TOKEN = scriptConfig['PERSONAL_ACCESS_TOKEN'];

@@ -17,6 +17,11 @@
         loadingDiv.innerHTML = "An error occurred: " + error;
       }
 
+      function handleNewTagForm(formObject) {
+         google.script.run.withSuccessHandler(onSuccessTags).createTag(formObject);
+        // var articleTagsSelect = document.getElementById('article-tags');
+      }
+
       function onSuccessMeta(data) {
         var articleTagsSelect = document.getElementById('article-tags');
         data.allTags.forEach(tag => {
@@ -34,6 +39,9 @@
 
         setPublishedFlag(data.isPublished);
 
+        var tagForm = document.getElementById('new-tag-form');
+        tagForm.style.display = "block";
+        
         var articleHeadline = document.getElementById('article-headline');
         articleHeadline.value = data.headline;
 
@@ -119,6 +127,9 @@
         var form = document.getElementById('article-meta-form');
         form.style.display = "none";
         
+        var tagForm = document.getElementById('new-tag-form');
+        tagForm.style.display = "none";
+        
         var revisionDiv = document.getElementById('revision-info');
         revisionDiv.style.display = "none";
 
@@ -135,6 +146,7 @@
       }
 
       function handleFormSubmit(formObject) {
+        console.log("handleFormSubmit: ", formObject);
         google.script.run.withSuccessHandler(displayFormMessage).processForm(formObject);
       }
 
@@ -149,6 +161,7 @@
       }
       window.addEventListener('load', preventFormSubmit);
 
+
     </script>
     <style>
       .branding-below {
@@ -161,6 +174,18 @@
   <body>
     <div class="sidebar branding-below">
       <h1 class="title">Publishing Tools</h1>
+
+      <form id="new-tag-form" style="display: none;" onsubmit="handleNewTagForm(this)">
+        <div class="block form-group">
+          <label for="article-tags">
+            <b>Add a new tag</b>
+          </label>
+          <input id="new-article-tag" name="new-article-tag" type="text" />
+        </div>
+        <div class="block form-group">
+          <button class="blue">Submit</button>
+        </div>
+      </form>
 
       <pre id="tags-output"></pre>
       <div class="block" id="loading">Loading...</div>
@@ -237,8 +262,7 @@
             <label for="article-tags">
               <b>Tags</b>
             </label>
-            <select id="article-tags" name="article-tags" multiple>
-            </select>
+            <select id="article-tags" name="article-tags" multiple="multiple"></select>
           </div>
           <div class="block">
             <button class="blue">Submit</button>
