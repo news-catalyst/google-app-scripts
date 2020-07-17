@@ -463,18 +463,29 @@ function getElements() {
       // try to find an embeddable link: url on its own line matching one of a set of hosts (twitter, youtube, etc)
       if (subElements.length === 1) {
         var foundLink = subElements.find(subElement => subElement.textRun.textStyle.hasOwnProperty('link'))
+        var linkUrl = null;
+        var embeddableUrlRegex = /twitter\.com|youtube\.com|youtu\.be|google\.com|imgur.com|twitch\.tv|vimeo\.com|mixcloud\.com|instagram\.com|facebook\.com|dailymotion\.com/i;
         if (foundLink) { 
-          var linkUrl = foundLink.textRun.textStyle.link.url;
-          var embeddableUrl = (/twitter\.com|youtube\.com|youtu\.be|google\.com|imgur.com|twitch\.tv|vimeo\.com|mixcloud\.com|instagram\.com|facebook\.com|dailymotion\.com/i).test(linkUrl);
+          linkUrl = foundLink.textRun.textStyle.link.url;
+        // try to find a URL by itself that google hasn't auto-linked
+        } else if(embeddableUrlRegex.test(subElements[0].textRun.content.trim())) {
+          linkUrl = subElements[0].textRun.content.trim();
+          Logger.log("Found non-linked URL by itself: ", linkUrl);
+        }
+        if ( linkUrl !== null) {
+          Logger.log("linkUrl is not null: ", linkUrl);
+          var embeddableUrl = embeddableUrlRegex.test(linkUrl);
           if (embeddableUrl) {
+            Logger.log("creating embed data for ", linkUrl);
             eleData.type = "embed";
             eleData.link = linkUrl;
             orderedElements.push(eleData);
+            Logger.log(orderedElements);
           } else {
             Logger.log("url not embeddable: ", linkUrl);
           }
         } else {
-          Logger.log("failed to find a link in element child", subElements[0])
+          Logger.log("linkUrl is null: ", subElements[0].textRun.content);
         }
       } 
 
