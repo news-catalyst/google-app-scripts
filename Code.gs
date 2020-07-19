@@ -288,9 +288,40 @@ function getTags() {
 }
 
 function storeTags(tags) {
-  // temporary
-  // deleteValue("ARTICLE_TAGS");
-  storeValueJSON("ARTICLE_TAGS", tags)
+  Logger.log("storeTags with tags arg: ", tags);
+  var allTags = loadTagsFromDB();
+  var storableTags = [];
+  // try to find id and title of tag to store full data
+  tags.forEach(tag => {
+    Logger.log("processing tag: ", tag);
+    var tagID;
+    if (typeof(tag) === 'object') {
+      Logger.log("tag is an object: ", tag)
+      tagID = tag.id;
+    } else {
+      Logger.log("tag is a string: ", tag)
+      tagID = tag;
+    }
+    Logger.log("Looking for tag with id: ", tagID);
+    var result = allTags.find( ({ id }) => id === tagID );
+    if (result !== undefined) {
+      storableTags.push({
+        id: result.id,
+        newTag: false,
+        title: result.title.value
+      });
+    // treat this as a new tag
+    } else {
+      storableTags.push({
+        id: null,
+        newTag: true,
+        title: tag
+      });
+    }
+  })
+  Logger.log("storing tags: ", storableTags);
+
+  storeValueJSON("ARTICLE_TAGS", storableTags);
 }
 
 //
@@ -649,8 +680,17 @@ function createArticleFrom(versionID, title, elements) {
 
   var byline = getByline();
 
-  var allTags = loadTagsFromDB(); // includes id and name
   var articleTags = getTags(); // only id
+  Logger.log("createArticleFrom articleTags: ", articleTags);
+  // create any new tags
+  const newTags = articleTags.filter(articleTag => articleTag.newTag === true);
+  Logger.log("creating new tags: ", newTags);
+  newTags.forEach(newTag => {
+    Logger.log("creating new tag: ", newTag.title);
+    createTag(newTag.title);
+  })
+
+  var allTags = loadTagsFromDB(); // includes id and name
 
   // compare all tags array to those selected for this article
   var tagsArrayForGraphQL = [];
@@ -733,6 +773,7 @@ function createArticleFrom(versionID, title, elements) {
   };
   var options = {
     method: 'post',
+    muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
       authorization: ACCESS_TOKEN,
@@ -740,7 +781,7 @@ function createArticleFrom(versionID, title, elements) {
     payload: JSON.stringify(formData),
   };
 
-  Logger.log(JSON.stringify(formData))
+  Logger.log("createArticleFrom formData: ", JSON.stringify(formData));
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
@@ -833,6 +874,7 @@ function createArticle(title, elements) {
 
   var options = {
     method: 'post',
+    muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
       authorization: ACCESS_TOKEN,
@@ -934,6 +976,7 @@ function updateArticle(id, title, elements) {
   };
   var options = {
     method: 'post',
+    muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
       authorization: ACCESS_TOKEN,
@@ -1001,6 +1044,7 @@ function publishArticle() {
   };
   var options = {
     method: 'post',
+    muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
       authorization: ACCESS_TOKEN,
@@ -1044,6 +1088,7 @@ function loadTagsFromDB() {
   };
   var options = {
     method: 'post',
+    muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
       authorization: ACCESS_TOKEN,
@@ -1091,15 +1136,15 @@ function addTagToLocalStore(formObject) {
   }
 }
 
-function createTag(formObject) {
+function createTag(tagTitle) {
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
-  var tagTitle = formObject['new-article-tag'];
+  Logger.log("createTag title: ", tagTitle);
   var articleTags = getTags();
   const result = articleTags.find( ({ title }) => title === tagTitle );
-  if (result !== undefined) {
+  if (result !== undefined && !result.newTag && result.id !== null) {
     Logger.log("Tag already exists: ", result);
     return;
   }
@@ -1135,7 +1180,7 @@ function createTag(formObject) {
           title: {
             values: [
               {
-                value: formObject["new-article-tag"],
+                value: tagTitle,
                 locale: localeID
               }
             ]
@@ -1145,6 +1190,7 @@ function createTag(formObject) {
   };
   var options = {
     method: 'post',
+    muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
       authorization: ACCESS_TOKEN,
@@ -1163,10 +1209,25 @@ function createTag(formObject) {
   Logger.log(responseData);
 
   var newTagData = responseData.data.content.data;
-  articleTags.push({
-    id: newTagData.id,
-    title: newTagData.title
-  });
+
+  // if we found this tag already in the articleTags, update it with the ID and mark it as no longer new
+  const tagIndex = articleTags.findIndex( ({title}) => title === tagTitle);
+  if (tagIndex > 0) {
+    Logger.log("created new tag, now updating articleTags data: ", articleTags[tagIndex]);
+    articleTags[tagIndex].newTag = false;
+    articleTags[tagIndex].id = newTagData.id;
+    Logger.log("created new tag, updated articleTags data is: ", articleTags[tagIndex]);
+  // otherwise just append the new tag data
+  } else {
+    Logger.log("created new tag, now appending it to articleTags data");
+    articleTags.push({
+      id: newTagData.id,
+      newTag: false,
+      title: newTagData.title
+    });
+    Logger.log("created new tag, appended it to articleTags data: ", articleTags);
+  }
+
   storeTags(articleTags);
 
   return responseData;
@@ -1192,6 +1253,7 @@ function getLocales() {
 
   var options = {
     method: 'post',
+    muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
       authorization:
@@ -1287,6 +1349,7 @@ function setArticleMeta() {
   };
   var options = {
     method: 'post',
+    muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
       authorization: ACCESS_TOKEN,
@@ -1308,7 +1371,6 @@ function setArticleMeta() {
   var latestVersionID = null;
   var latestVersionPublished;
   var revisions = responseData.data.content.data.meta.revisions;
-  Logger.log("revisions: ", revisions);
   revisions.forEach(revision => {
     if (revision.meta.latestVersion) {
       latestVersionID = revision.id;
@@ -1324,6 +1386,7 @@ function setArticleMeta() {
   }
 
   var tagsData = responseData.data.content.data.tags.values;
+  Logger.log("setArticleMeta tagsData: ", tagsData);
   var tagIDs = [];
   tagsData.forEach(tagData => {
     tagData.value.forEach(tagValue => {
@@ -1348,6 +1411,7 @@ function processForm(formObject) {
   storeByline(byline);
 
   var tags = formObject["article-tags"];
+  Logger.log("tags: ", tags);
   storeTags(tags);
 
   return "Saved article headline and byline."
