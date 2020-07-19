@@ -697,6 +697,10 @@ function createArticleFrom(versionID, title, elements) {
   allTags.forEach(tag => {
     const result = articleTags.find( ({ id }) => id === tag.id );
     if (result !== undefined) {
+
+      // just try to publish it because the article won't publish with any unpublished tags :(
+      // TODO: see if there's a way to optimise this so we're not unnecessarily publishing tags
+      publishTag(tag.id);
       tagsArrayForGraphQL.push({
         locale: localeID,
         value: [
@@ -1136,6 +1140,62 @@ function addTagToLocalStore(formObject) {
   }
 }
 
+function publishTag(tagID) {
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  var formData = {
+      query: `mutation PublishTag($revision: ID!) {
+      content: publishTag(revision: $revision) {
+        data {
+          id
+          meta {
+            publishedOn
+            published
+          }
+        }
+        error {
+          message
+          code
+          data
+        }
+      }
+    }`,
+    variables: {
+      revision: tagID
+    }
+  };
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  Logger.log(JSON.stringify(formData))
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  Logger.log(responseData);
+
+  var publishedSuccessfully = responseData.data.content.data.meta.published;
+  if (publishedSuccessfully) {
+    Logger.log("Published tag with id ", tagID, " successfully.")
+    return true;
+  } else {
+    Logger.log("Something went wrong publishing tag with id ", tagID, ": ", responseData);
+    return false;
+  }
+}
+
 function createTag(tagTitle) {
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
@@ -1210,6 +1270,9 @@ function createTag(tagTitle) {
 
   var newTagData = responseData.data.content.data;
 
+  // after creating the tag we have to publish it
+  publishTag(newTagData.id);
+
   // if we found this tag already in the articleTags, update it with the ID and mark it as no longer new
   const tagIndex = articleTags.findIndex( ({title}) => title === tagTitle);
   if (tagIndex > 0) {
@@ -1228,6 +1291,8 @@ function createTag(tagTitle) {
     Logger.log("created new tag, appended it to articleTags data: ", articleTags);
   }
 
+  // PUBLISH the tag as well
+  // TODO
   storeTags(articleTags);
 
   return responseData;
