@@ -289,7 +289,7 @@ function getTags() {
 
 function storeTags(tags) {
   Logger.log("storeTags with tags arg: ", tags);
-  var allTags = loadTagsFromDB();
+  var allTags = getValueJSON('ALL_TAGS'); // don't request from the DB again - too slow
   var storableTags = [];
   // try to find id and title of tag to store full data
   tags.forEach(tag => {
@@ -339,6 +339,7 @@ function getArticleMeta() {
   var headline = getHeadline();
   var byline = getByline();
   var allTags = loadTagsFromDB();
+  storeValueJSON('ALL_TAGS', allTags);
   var articleTags = getTags();
 
   if (typeof(articleID) === "undefined" || articleID === null) {
@@ -684,13 +685,15 @@ function createArticleFrom(versionID, title, elements) {
   Logger.log("createArticleFrom articleTags: ", articleTags);
   // create any new tags
   const newTags = articleTags.filter(articleTag => articleTag.newTag === true);
-  Logger.log("creating new tags: ", newTags);
-  newTags.forEach(newTag => {
-    Logger.log("creating new tag: ", newTag.title);
-    createTag(newTag.title);
-  })
+  if (newTags.length > 0) {
+    Logger.log("creating new tags: ", newTags);
+    newTags.forEach(newTag => {
+      Logger.log("creating new tag: ", newTag.title);
+      createTag(newTag.title);
+    })
+  }
 
-  var allTags = loadTagsFromDB(); // includes id and name
+  var allTags = getValueJSON('ALL_TAGS'); // don't look up in the DB again, too slow
 
   // compare all tags array to those selected for this article
   var tagsArrayForGraphQL = [];
@@ -820,7 +823,7 @@ function createArticle(title, elements) {
 
   var byline = getByline();
 
-  var allTags = loadTagsFromDB();
+  var allTags = getValueJSON('ALL_TAGS'); // don't look up in the DB again, too slow
   var articleTags = getTags();
 
   // compare all tags array to those selected for this article
@@ -1111,7 +1114,7 @@ function loadTagsFromDB() {
 
   // TODO update latestVersionPublished flag
 
-  if (responseData && responseData.data.content.data !== null) {
+  if (responseData && responseData.data && responseData.data.content && responseData.data.content.data !== null) {
     return responseData.data.content.data;
   } else {
     return responseData.data.content.error;
@@ -1186,10 +1189,18 @@ function publishTag(tagID) {
   var responseData = JSON.parse(responseText);
   Logger.log(responseData);
 
-  var publishedSuccessfully = responseData.data.content.data.meta.published;
-  if (publishedSuccessfully) {
-    Logger.log("Published tag with id ", tagID, " successfully.")
-    return true;
+  if (responseData.data.content.error !== null) {
+    Logger.log("Error publishing tag ", tagID, ": ", responseData.data.content.error);
+    return false;
+  } else if (responseData.data.content.data) {
+    var publishedSuccessfully = responseData.data.content.data.meta.published;
+    if (publishedSuccessfully) {
+      Logger.log("Published tag with id ", tagID, " successfully.")
+      return true;
+    } else {
+      Logger.log("Something went wrong publishing tag with id ", tagID, ": ", responseData);
+      return false;
+    }
   } else {
     Logger.log("Something went wrong publishing tag with id ", tagID, ": ", responseData);
     return false;
@@ -1479,5 +1490,6 @@ function processForm(formObject) {
   Logger.log("tags: ", tags);
   storeTags(tags);
 
-  return "Saved article headline and byline."
+  return "Updated article headline, byline and tags. You still need to publish the article for these changes to go live!"
+
 }
