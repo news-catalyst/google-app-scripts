@@ -112,8 +112,12 @@ function uploadImageToS3(imageID, contentUri) {
 
   var orgName = getOrganizationName();
   var orgNameSlug = slugify(orgName);
-  var headline = getHeadline();
-  var headlineSlug = slugify(headline);
+  var headlineSlug = getSlug();
+  if (headlineSlug === null || typeof(headlineSlug) === "undefined") {
+    var headline = getHeadline();
+    headlineSlug = slugify(headline);
+    storeSlug(headlineSlug);
+  }
 
   var objectName = "image" + imageID + ".png";
 
@@ -267,6 +271,13 @@ function storeHeadline(headline) {
   storeValue("ARTICLE_HEADLINE", headline)
 }
 
+function getSlug() {
+  return getValue('ARTICLE_SLUG');
+}
+
+function storeSlug(slug) {
+  storeValue("ARTICLE_SLUG", slug)
+}
 function getByline() {
   return getValue('ARTICLE_BYLINE');
 }
@@ -707,6 +718,9 @@ function createArticleFrom(versionID, title, elements) {
 
   var publishingInfo = getPublishingInfo();
 
+  var headlineSlug = slugify(title);
+  storeSlug(headlineSlug);
+
   var articleTags = getTags(); // only id
   Logger.log("createArticleFrom articleTags: ", articleTags);
   // create any new tags
@@ -781,6 +795,14 @@ function createArticleFrom(versionID, title, elements) {
               value: title,
             },
           ],
+        },
+        slug: {
+          values:[
+            {
+              value: headlineSlug,
+              locale: localeID
+            }
+          ]
         },
         firstPublishedOn: {
           values:[
@@ -866,6 +888,9 @@ function createArticle(title, elements) {
 
   var publishingInfo = getPublishingInfo();
 
+  var headlineSlug = slugify(title);
+  storeSlug(headlineSlug);
+
   var allTags = getValueJSON('ALL_TAGS'); // don't look up in the DB again, too slow
   var articleTags = getTags();
 
@@ -898,6 +923,14 @@ function createArticle(title, elements) {
               value: title,
             },
           ],
+        },
+        slug: {
+          values:[
+            {
+              value: headlineSlug,
+              locale: localeID
+            }
+          ]
         },
         firstPublishedOn: {
           values:[
@@ -1434,6 +1467,9 @@ function setArticleMeta() {
     headline = getDocumentName();
     storeHeadline(headline);
   }
+
+  var slug = slugify(headline);
+  storeSlug(slug);
 
   if (typeof(articleID) === "undefined" || articleID === null) {
     return null;
