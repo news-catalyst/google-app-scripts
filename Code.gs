@@ -40,12 +40,12 @@ function showSidebar() {
 }
 
 //
-// Utility functions 
+// Utility functions
 //
 
 // get unique values from an array
 // from https://stackoverflow.com/questions/1960473/get-all-unique-values-in-a-javascript-array-remove-duplicates?answertab=votes#tab-top
-function onlyUnique(value, index, self) { 
+function onlyUnique(value, index, self) {
   return self.indexOf(value) === index;
 }
 
@@ -103,13 +103,13 @@ function slugify(value) {
 /*
 .* This uploads an image in the Google Doc to S3
 .* destination URL determined by: Organization Name, Article Title, and image ID
-.*/ 
+.*/
 function uploadImageToS3(imageID, contentUri) {
   var scriptConfig = getScriptConfig();
   var AWS_ACCESS_KEY_ID = scriptConfig['AWS_ACCESS_KEY_ID'];
   var AWS_SECRET_KEY = scriptConfig['AWS_SECRET_KEY'];
   var AWS_BUCKET = scriptConfig['AWS_BUCKET'];
-  
+
   var orgName = getOrganizationName();
   var orgNameSlug = slugify(orgName);
   var headline = getHeadline();
@@ -156,7 +156,7 @@ function uploadImageToS3(imageID, contentUri) {
 function getScriptConfig() {
   var scriptProperties = PropertiesService.getScriptProperties();
   var data = scriptProperties.getProperties();
-  return data;  
+  return data;
 }
 
 /*
@@ -189,7 +189,7 @@ function getValueJSON(key) {
       Logger.log("error parsing JSON: ", e)
       value = []
     }
-  } 
+  }
   return value;
 }
 
@@ -361,7 +361,7 @@ function getArticleMeta() {
       isPublished: false,
       headline: headline,
       byline: byline,
-      publishingInfo: {}
+      publishingInfo: {},
       allTags: allTags,
       articleTags: []
     }
@@ -369,7 +369,7 @@ function getArticleMeta() {
   Logger.log("articleID is: ", articleID);
   Logger.log("articleTags: ", articleTags);
   Logger.log("allTags: ", allTags);
-  
+
   var articleMetadata = {
     articleID: articleID,
     isPublished: isLatestVersionPublished,
@@ -565,7 +565,7 @@ function getElements() {
         var foundLink = subElements.find(subElement => subElement.textRun.textStyle.hasOwnProperty('link'))
         var linkUrl = null;
         var embeddableUrlRegex = /twitter\.com|youtube\.com|youtu\.be|google\.com|imgur.com|twitch\.tv|vimeo\.com|mixcloud\.com|instagram\.com|facebook\.com|dailymotion\.com/i;
-        if (foundLink) { 
+        if (foundLink) {
           linkUrl = foundLink.textRun.textStyle.link.url;
         // try to find a URL by itself that google hasn't auto-linked
         } else if(embeddableUrlRegex.test(subElements[0].textRun.content.trim())) {
@@ -587,7 +587,7 @@ function getElements() {
         } else {
           Logger.log("linkUrl is null: ", subElements[0].textRun.content);
         }
-      } 
+      }
 
       element.paragraph.elements.forEach(subElement => {
         // skip lists and embed links - we already processed these above
@@ -683,8 +683,8 @@ function formatElements() {
 /**
  * Creates a new revision of the article
  * @param versionID
- * @param title 
- * @param elements 
+ * @param title
+ * @param elements
  */
 function createArticleFrom(versionID, title, elements) {
   Logger.log("createArticleFrom versionID: ", versionID);
@@ -1113,7 +1113,7 @@ function loadTagsFromDB() {
           title {
             value
           }
-        } 
+        }
       }
     }`
   };
@@ -1146,7 +1146,7 @@ function loadTagsFromDB() {
 }
 
 // todo move to utility
-function tagExists(tagData) { 
+function tagExists(tagData) {
   return tagData.title === 'cherries';
 }
 
