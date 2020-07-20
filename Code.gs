@@ -40,12 +40,12 @@ function showSidebar() {
 }
 
 //
-// Utility functions 
+// Utility functions
 //
 
 // get unique values from an array
 // from https://stackoverflow.com/questions/1960473/get-all-unique-values-in-a-javascript-array-remove-duplicates?answertab=votes#tab-top
-function onlyUnique(value, index, self) { 
+function onlyUnique(value, index, self) {
   return self.indexOf(value) === index;
 }
 
@@ -103,13 +103,13 @@ function slugify(value) {
 /*
 .* This uploads an image in the Google Doc to S3
 .* destination URL determined by: Organization Name, Article Title, and image ID
-.*/ 
+.*/
 function uploadImageToS3(imageID, contentUri) {
   var scriptConfig = getScriptConfig();
   var AWS_ACCESS_KEY_ID = scriptConfig['AWS_ACCESS_KEY_ID'];
   var AWS_SECRET_KEY = scriptConfig['AWS_SECRET_KEY'];
   var AWS_BUCKET = scriptConfig['AWS_BUCKET'];
-  
+
   var orgName = getOrganizationName();
   var orgNameSlug = slugify(orgName);
   var headline = getHeadline();
@@ -156,7 +156,7 @@ function uploadImageToS3(imageID, contentUri) {
 function getScriptConfig() {
   var scriptProperties = PropertiesService.getScriptProperties();
   var data = scriptProperties.getProperties();
-  return data;  
+  return data;
 }
 
 /*
@@ -189,7 +189,7 @@ function getValueJSON(key) {
       Logger.log("error parsing JSON: ", e)
       value = []
     }
-  } 
+  }
   return value;
 }
 
@@ -283,6 +283,16 @@ function storeHeadline(headline) {
   storeValue("ARTICLE_HEADLINE", headline)
 }
 
+
+function storePublishingInfo(info) {
+  storeValue("PUBLISHING_INFO", JSON.stringify(info));
+}
+
+function getPublishingInfo() {
+  return JSON.parse(getValue("PUBLISHING_INFO"));
+}
+
+
 function getTags() {
   return getValueJSON('ARTICLE_TAGS');
 }
@@ -336,6 +346,7 @@ function getArticleMeta() {
   var articleID = getArticleID();
 
   var isLatestVersionPublished = getLatestVersionPublished();
+  var publishingInfo = getPublishingInfo();
   var headline = getHeadline();
   var byline = getByline();
   var allTags = loadTagsFromDB();
@@ -350,6 +361,7 @@ function getArticleMeta() {
       isPublished: false,
       headline: headline,
       byline: byline,
+      publishingInfo: {},
       allTags: allTags,
       articleTags: []
     }
@@ -357,12 +369,13 @@ function getArticleMeta() {
   Logger.log("articleID is: ", articleID);
   Logger.log("articleTags: ", articleTags);
   Logger.log("allTags: ", allTags);
-  
+
   var articleMetadata = {
     articleID: articleID,
     isPublished: isLatestVersionPublished,
     headline: headline,
     byline: byline,
+    publishingInfo: publishingInfo,
     allTags: allTags,
     articleTags: articleTags
   };
@@ -552,7 +565,7 @@ function getElements() {
         var foundLink = subElements.find(subElement => subElement.textRun.textStyle.hasOwnProperty('link'))
         var linkUrl = null;
         var embeddableUrlRegex = /twitter\.com|youtube\.com|youtu\.be|google\.com|imgur.com|twitch\.tv|vimeo\.com|mixcloud\.com|instagram\.com|facebook\.com|dailymotion\.com/i;
-        if (foundLink) { 
+        if (foundLink) {
           linkUrl = foundLink.textRun.textStyle.link.url;
         // try to find a URL by itself that google hasn't auto-linked
         } else if(embeddableUrlRegex.test(subElements[0].textRun.content.trim())) {
@@ -574,7 +587,7 @@ function getElements() {
         } else {
           Logger.log("linkUrl is null: ", subElements[0].textRun.content);
         }
-      } 
+      }
 
       element.paragraph.elements.forEach(subElement => {
         // skip lists and embed links - we already processed these above
@@ -670,8 +683,8 @@ function formatElements() {
 /**
  * Creates a new revision of the article
  * @param versionID
- * @param title 
- * @param elements 
+ * @param title
+ * @param elements
  */
 function createArticleFrom(versionID, title, elements) {
   Logger.log("createArticleFrom versionID: ", versionID);
@@ -1100,7 +1113,7 @@ function loadTagsFromDB() {
           title {
             value
           }
-        } 
+        }
       }
     }`
   };
@@ -1133,7 +1146,7 @@ function loadTagsFromDB() {
 }
 
 // todo move to utility
-function tagExists(tagData) { 
+function tagExists(tagData) {
   return tagData.title === 'cherries';
 }
 
@@ -1409,6 +1422,7 @@ function setArticleMeta() {
           }
           meta {
             published
+            publishedOn
             version
             locked
             parent
@@ -1419,6 +1433,7 @@ function setArticleMeta() {
               meta {
                 latestVersion
                 published
+                publishedOn
               }
             }
           }
@@ -1455,21 +1470,34 @@ function setArticleMeta() {
   Logger.log(responseData);
 
   var articleID = responseData.data.content.data.id;
-  var latestVersionID = null;
-  var latestVersionPublished;
   var revisions = responseData.data.content.data.meta.revisions;
+
+  // store publishing info like first & last dates published, latest version ID and whether or not it's been published
+  var publishingInfo = {};
+
   revisions.forEach(revision => {
     if (revision.meta.latestVersion) {
-      latestVersionID = revision.id;
-      latestVersionPublished = revision.meta.published;
+      publishingInfo.latestVersionID = revision.id;
+      publishingInfo.isLatestVersionPublished = revision.meta.published;
+      publishingInfo.publishedOn = revision.meta.publishedOn;
     }
   })
+  // weed out revisions with no published date, sort them and put in reverse chronological order
+  var nonNullRevisions = revisions.filter(revision => revision.meta.publishedOn !== null);
+  nonNullRevisions.sort(function (a, b) {
+    var aDate = new Date(a.meta.publishedOn);
+    var bDate = new Date(b.meta.publishedOn);
+    return aDate > bDate;
+  });
+  nonNullRevisions.reverse();
+  publishingInfo.firstPublishedOn = nonNullRevisions[0].meta.publishedOn;
+  publishingInfo.lastPublishedOn = nonNullRevisions[nonNullRevisions.length - 1].meta.publishedOn;
 
   // the ID of the most recent revision of the article should now be treated as its articleID
   // save this in the document properties store
-  if (latestVersionID !== null) {
-    storeArticleID(latestVersionID);
-    storeLatestVersionPublished(latestVersionPublished);
+  if (publishingInfo.latestVersionID !== null) {
+    storeArticleID(publishingInfo.latestVersionID);
+    storePublishingInfo(publishingInfo);
   }
 
   var tagsData = responseData.data.content.data.tags.values;
