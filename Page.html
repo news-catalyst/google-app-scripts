@@ -41,6 +41,13 @@
         var saveDiv = document.getElementById('save-article');
         saveDiv.style.display = "block";
 
+        if (data.publishingInfo) {
+          var firstPubDiv = document.getElementById('first-published');
+          var lastPubDiv = document.getElementById('last-published');
+          firstPubDiv.innerHTML = data.publishingInfo.firstPublishedOn;
+          lastPubDiv.innerHTML = data.publishingInfo.lastPublishedOn;
+        }
+
       }
 
       function displayFormMessage(text) {
@@ -228,6 +235,12 @@
           </p>
           <p>
             <b>Published?</b> <span id="is-published"></span>
+          </p>
+          <p>
+            <b>First published:</b> <span id="first-published"></span>
+          </p>
+          <p>
+            <b>Last published:</b> <span id="last-published"></span>
           </p>
         </div>
       </div>

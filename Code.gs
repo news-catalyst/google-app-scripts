@@ -248,6 +248,15 @@ function storeHeadline(headline) {
   storeValue("ARTICLE_HEADLINE", headline)
 }
 
+function storePublishingInfo(info) {
+  storeValue("PUBLISHING_INFO", JSON.stringify(info));
+}
+
+function getPublishingInfo() {
+  return JSON.parse(getValue("PUBLISHING_INFO"));
+}
+
+
 //
 // Functions for retrieving and formatting document contents
 //
@@ -260,6 +269,7 @@ function getArticleMeta() {
   var articleID = getArticleID();
 
   var isLatestVersionPublished = getLatestVersionPublished();
+  var publishingInfo = getPublishingInfo();
   var headline = getHeadline();
   var byline = getByline();
 
@@ -270,7 +280,8 @@ function getArticleMeta() {
       articleID: null,
       isPublished: false,
       headline: headline,
-      byline: byline
+      byline: byline,
+      publishingInfo: {}
     }
   }
   Logger.log("articleID is: ", articleID);
@@ -279,7 +290,8 @@ function getArticleMeta() {
     articleID: articleID,
     isPublished: isLatestVersionPublished,
     headline: headline,
-    byline: byline
+    byline: byline,
+    publishingInfo: publishingInfo
   }
 }
 
@@ -1014,6 +1026,7 @@ function setArticleMeta() {
           savedOn
           meta {
             published
+            publishedOn
             version
             locked
             parent
@@ -1024,6 +1037,7 @@ function setArticleMeta() {
               meta {
                 latestVersion
                 published
+                publishedOn
               }
             }
           }
@@ -1059,22 +1073,33 @@ function setArticleMeta() {
   Logger.log(responseData);
 
   var articleID = responseData.data.content.data.id;
-  var latestVersionID = null;
-  var latestVersionPublished;
   var revisions = responseData.data.content.data.meta.revisions;
-  Logger.log("revisions: ", revisions);
+
+  // store publishing info like first & last dates published, latest version ID and whether or not it's been published
+  var publishingInfo = {};
   revisions.forEach(revision => {
     if (revision.meta.latestVersion) {
-      latestVersionID = revision.id;
-      latestVersionPublished = revision.meta.published;
+      publishingInfo.latestVersionID = revision.id;
+      publishingInfo.isLatestVersionPublished = revision.meta.published;
+      publishingInfo.publishedOn = revision.meta.publishedOn;
     }
   })
+  // weed out revisions with no published date, sort them and put in reverse chronological order
+  var nonNullRevisions = revisions.filter(revision => revision.meta.publishedOn !== null);
+  nonNullRevisions.sort(function (a, b) {
+    var aDate = new Date(a.meta.publishedOn);
+    var bDate = new Date(b.meta.publishedOn);
+    return aDate > bDate;
+  });
+  nonNullRevisions.reverse();
+  publishingInfo.firstPublishedOn = nonNullRevisions[0].meta.publishedOn;
+  publishingInfo.lastPublishedOn = nonNullRevisions[nonNullRevisions.length - 1].meta.publishedOn;
 
   // the ID of the most recent revision of the article should now be treated as its articleID
   // save this in the document properties store
-  if (latestVersionID !== null) {
-    storeArticleID(latestVersionID);
-    storeLatestVersionPublished(latestVersionPublished);
+  if (publishingInfo.latestVersionID !== null) {
+    storeArticleID(publishingInfo.latestVersionID);
+    storePublishingInfo(publishingInfo);
   }
 
   return responseData;
