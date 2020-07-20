@@ -43,6 +43,12 @@ function showSidebar() {
 // Utility functions 
 //
 
+// get unique values from an array
+// from https://stackoverflow.com/questions/1960473/get-all-unique-values-in-a-javascript-array-remove-duplicates?answertab=votes#tab-top
+function onlyUnique(value, index, self) { 
+  return self.indexOf(value) === index;
+}
+
 // TODO Actual implementation TBD
 function getOrganizationName() {
   return "News Catalyst"
@@ -173,6 +179,20 @@ function getValue(key) {
   return value;
 }
 
+function getValueJSON(key) {
+  var valueString = getValue(key);
+  var value = [];
+  if (valueString && valueString !== null) {
+    try {
+      value = JSON.parse(valueString);
+    } catch(e) {
+      Logger.log("error parsing JSON: ", e)
+      value = []
+    }
+  } 
+  return value;
+}
+
 /*
 .* general purpose function (called in the other data storage functions) to set a value at a key
 .*/
@@ -181,6 +201,21 @@ function storeValue(key, value) {
   documentProperties.setProperty(key, value);
 }
 
+function storeValueJSON(key, value) {
+  var valueString;
+  try {
+    valueString = JSON.stringify(value);
+  } catch(e) {
+    Logger.log("error stringify-ing data: ", e)
+    valueString = JSON.stringify([]);
+  }
+  storeValue(key, valueString);
+}
+
+function deleteValue(key) {
+  var documentProperties = PropertiesService.getDocumentProperties();
+  documentProperties.deleteProperty(key);
+}
 /**
  * Retrieves the ID of the article from the local document storage
  */
@@ -248,6 +283,47 @@ function storeHeadline(headline) {
   storeValue("ARTICLE_HEADLINE", headline)
 }
 
+function getTags() {
+  return getValueJSON('ARTICLE_TAGS');
+}
+
+function storeTags(tags) {
+  Logger.log("storeTags with tags arg: ", tags);
+  var allTags = getValueJSON('ALL_TAGS'); // don't request from the DB again - too slow
+  var storableTags = [];
+  // try to find id and title of tag to store full data
+  tags.forEach(tag => {
+    Logger.log("processing tag: ", tag);
+    var tagID;
+    if (typeof(tag) === 'object') {
+      Logger.log("tag is an object: ", tag)
+      tagID = tag.id;
+    } else {
+      Logger.log("tag is a string: ", tag)
+      tagID = tag;
+    }
+    Logger.log("Looking for tag with id: ", tagID);
+    var result = allTags.find( ({ id }) => id === tagID );
+    if (result !== undefined) {
+      storableTags.push({
+        id: result.id,
+        newTag: false,
+        title: result.title.value
+      });
+    // treat this as a new tag
+    } else {
+      storableTags.push({
+        id: null,
+        newTag: true,
+        title: tag
+      });
+    }
+  })
+  Logger.log("storing tags: ", storableTags);
+
+  storeValueJSON("ARTICLE_TAGS", storableTags);
+}
+
 //
 // Functions for retrieving and formatting document contents
 //
@@ -262,6 +338,9 @@ function getArticleMeta() {
   var isLatestVersionPublished = getLatestVersionPublished();
   var headline = getHeadline();
   var byline = getByline();
+  var allTags = loadTagsFromDB();
+  storeValueJSON('ALL_TAGS', allTags);
+  var articleTags = getTags();
 
   if (typeof(articleID) === "undefined" || articleID === null) {
     Logger.log("articleID is undefined, returning new doc state");
@@ -270,17 +349,25 @@ function getArticleMeta() {
       articleID: null,
       isPublished: false,
       headline: headline,
-      byline: byline
+      byline: byline,
+      allTags: allTags,
+      articleTags: []
     }
   }
   Logger.log("articleID is: ", articleID);
+  Logger.log("articleTags: ", articleTags);
+  Logger.log("allTags: ", allTags);
   
-  return {
+  var articleMetadata = {
     articleID: articleID,
     isPublished: isLatestVersionPublished,
     headline: headline,
-    byline: byline
-  }
+    byline: byline,
+    allTags: allTags,
+    articleTags: articleTags
+  };
+  Logger.log("articleMetadata: ", articleMetadata);
+  return articleMetadata;
 }
 
 
@@ -605,6 +692,41 @@ function createArticleFrom(versionID, title, elements) {
 
   var byline = getByline();
 
+  var articleTags = getTags(); // only id
+  Logger.log("createArticleFrom articleTags: ", articleTags);
+  // create any new tags
+  const newTags = articleTags.filter(articleTag => articleTag.newTag === true);
+  if (newTags.length > 0) {
+    Logger.log("creating new tags: ", newTags);
+    newTags.forEach(newTag => {
+      Logger.log("creating new tag: ", newTag.title);
+      createTag(newTag.title);
+    })
+  }
+
+  var allTags = getValueJSON('ALL_TAGS'); // don't look up in the DB again, too slow
+
+  // compare all tags array to those selected for this article
+  var tagsArrayForGraphQL = [];
+  allTags.forEach(tag => {
+    const result = articleTags.find( ({ id }) => id === tag.id );
+    if (result !== undefined) {
+
+      // just try to publish it because the article won't publish with any unpublished tags :(
+      // TODO: see if there's a way to optimise this so we're not unnecessarily publishing tags
+      publishTag(tag.id);
+      tagsArrayForGraphQL.push({
+        locale: localeID,
+        value: [
+          {
+            id: tag.id,
+            name: tag.title.value
+          }
+        ]
+      });
+    }
+  });
+
   var formData = {
     query: `mutation CreateBasicArticleFrom($revision: ID!, $data: BasicArticleInput) {
       content: createBasicArticleFrom(revision: $revision, data: $data) {
@@ -661,11 +783,15 @@ function createArticleFrom(versionID, title, elements) {
             },
           ],
         },
+    		tags: {
+          values: tagsArrayForGraphQL
+        },
       },
     },
   };
   var options = {
     method: 'post',
+    muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
       authorization: ACCESS_TOKEN,
@@ -673,7 +799,7 @@ function createArticleFrom(versionID, title, elements) {
     payload: JSON.stringify(formData),
   };
 
-  Logger.log(JSON.stringify(formData))
+  Logger.log("createArticleFrom formData: ", JSON.stringify(formData));
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
@@ -708,6 +834,26 @@ function createArticle(title, elements) {
 
   var byline = getByline();
 
+  var allTags = getValueJSON('ALL_TAGS'); // don't look up in the DB again, too slow
+  var articleTags = getTags();
+
+  // compare all tags array to those selected for this article
+  var tagsArrayForGraphQL = [];
+  allTags.forEach(tag => {
+    const result = articleTags.find( ({ id }) => id === tag.id );
+    if (result !== undefined) {
+      tagsArrayForGraphQL.push({
+        locale: localeID,
+        value: [
+          {
+            id: tag.id,
+            name: tag.title.value
+          }
+        ]
+      });
+    }
+  });
+
   var formData = {
     query:
       'mutation CreateBasicArticle($data: BasicArticleInput!) {\n  content: createBasicArticle(data: $data) {\n    data {\n      id\n      headline {\n        values {\n          value\n          locale\n        }\n      }\n      body {\n        values {\n          value\n          locale\n        }\n      }\n      byline {\n        values {\n          value\n          locale\n        }\n      }\n    }\n    error {\n      message\n      code\n      data\n    }\n  }\n}',
@@ -737,12 +883,16 @@ function createArticle(title, elements) {
             },
           ],
         },
+    		tags: {
+          values: tagsArrayForGraphQL
+        },
       },
     },
   };
 
   var options = {
     method: 'post',
+    muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
       authorization: ACCESS_TOKEN,
@@ -844,6 +994,7 @@ function updateArticle(id, title, elements) {
   };
   var options = {
     method: 'post',
+    muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
       authorization: ACCESS_TOKEN,
@@ -911,6 +1062,7 @@ function publishArticle() {
   };
   var options = {
     method: 'post',
+    muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
       authorization: ACCESS_TOKEN,
@@ -936,6 +1088,238 @@ function publishArticle() {
   }
 }
 
+function loadTagsFromDB() {
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+  var formData = {
+    query: `query listTags {
+      content: listTags {
+        data {
+          id
+          title {
+            value
+          }
+        } 
+      }
+    }`
+  };
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  Logger.log(JSON.stringify(formData))
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  Logger.log(responseData);
+
+  // TODO update latestVersionPublished flag
+
+  if (responseData && responseData.data && responseData.data.content && responseData.data.content.data !== null) {
+    return responseData.data.content.data;
+  } else {
+    return responseData.data.content.error;
+  }
+}
+
+// todo move to utility
+function tagExists(tagData) { 
+  return tagData.title === 'cherries';
+}
+
+function addTagToLocalStore(formObject) {
+  var tagTitle = formObject['new-article-tag'];
+  var articleTags = getTags();
+  const result = articleTags.find( ({ title }) => title === tagTitle );
+  if (result !== undefined) {
+    Logger.log("Tag already exists: ", result);
+    return "Tag already exists: ", tagTitle;
+  } else {
+    articleTags.push({
+      id: null,
+      title: tagTitle
+    });
+    storeTags(articleTags);
+    return "Stored new tag: ", tagTitle
+  }
+}
+
+function publishTag(tagID) {
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  var formData = {
+      query: `mutation PublishTag($revision: ID!) {
+      content: publishTag(revision: $revision) {
+        data {
+          id
+          meta {
+            publishedOn
+            published
+          }
+        }
+        error {
+          message
+          code
+          data
+        }
+      }
+    }`,
+    variables: {
+      revision: tagID
+    }
+  };
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  Logger.log(JSON.stringify(formData))
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  Logger.log(responseData);
+
+  if (responseData.data.content.error !== null) {
+    Logger.log("Error publishing tag ", tagID, ": ", responseData.data.content.error);
+    return false;
+  } else if (responseData.data.content.data) {
+    var publishedSuccessfully = responseData.data.content.data.meta.published;
+    if (publishedSuccessfully) {
+      Logger.log("Published tag with id ", tagID, " successfully.")
+      return true;
+    } else {
+      Logger.log("Something went wrong publishing tag with id ", tagID, ": ", responseData);
+      return false;
+    }
+  } else {
+    Logger.log("Something went wrong publishing tag with id ", tagID, ": ", responseData);
+    return false;
+  }
+}
+
+function createTag(tagTitle) {
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  Logger.log("createTag title: ", tagTitle);
+  var articleTags = getTags();
+  const result = articleTags.find( ({ title }) => title === tagTitle );
+  if (result !== undefined && !result.newTag && result.id !== null) {
+    Logger.log("Tag already exists: ", result);
+    return;
+  }
+
+  var localeID = getLocaleID();
+  if (localeID === null) {
+    var locales = getLocales();
+    setDefaultLocale(locales);
+    localeID = getLocaleID();
+    if (localeID === null) {
+      return 'Failed updating article: unable to find a default locale';
+    }
+  }
+
+  var formData = {
+    query: `mutation CreateTag($data: TagInput!) {
+      content: createTag(data: $data) {
+        data {
+          id
+          title {
+            value
+          }
+        }
+        error {
+          message
+          code
+          data
+        }
+      }
+    }`,
+    variables: {
+        data: {
+          title: {
+            values: [
+              {
+                value: tagTitle,
+                locale: localeID
+              }
+            ]
+          }
+        }
+      }
+  };
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  Logger.log(JSON.stringify(formData))
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  Logger.log(responseData);
+
+  var newTagData = responseData.data.content.data;
+
+  // after creating the tag we have to publish it
+  publishTag(newTagData.id);
+
+  // if we found this tag already in the articleTags, update it with the ID and mark it as no longer new
+  const tagIndex = articleTags.findIndex( ({title}) => title === tagTitle);
+  if (tagIndex > 0) {
+    Logger.log("created new tag, now updating articleTags data: ", articleTags[tagIndex]);
+    articleTags[tagIndex].newTag = false;
+    articleTags[tagIndex].id = newTagData.id;
+    Logger.log("created new tag, updated articleTags data is: ", articleTags[tagIndex]);
+  // otherwise just append the new tag data
+  } else {
+    Logger.log("created new tag, now appending it to articleTags data");
+    articleTags.push({
+      id: newTagData.id,
+      newTag: false,
+      title: newTagData.title
+    });
+    Logger.log("created new tag, appended it to articleTags data: ", articleTags);
+  }
+
+  // PUBLISH the tag as well
+  // TODO
+  storeTags(articleTags);
+
+  return responseData;
+}
+
 function getLocales() {
   var scriptConfig = getScriptConfig();
   var PERSONAL_ACCESS_TOKEN = scriptConfig['PERSONAL_ACCESS_TOKEN'];
@@ -956,6 +1340,7 @@ function getLocales() {
 
   var options = {
     method: 'post',
+    muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
       authorization:
@@ -1012,6 +1397,16 @@ function setArticleMeta() {
         data {
           id
           savedOn
+          tags {
+            values {
+              value {
+                id
+                title {
+                  value
+                }
+              }
+            }
+          }
           meta {
             published
             version
@@ -1041,6 +1436,7 @@ function setArticleMeta() {
   };
   var options = {
     method: 'post',
+    muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
       authorization: ACCESS_TOKEN,
@@ -1062,7 +1458,6 @@ function setArticleMeta() {
   var latestVersionID = null;
   var latestVersionPublished;
   var revisions = responseData.data.content.data.meta.revisions;
-  Logger.log("revisions: ", revisions);
   revisions.forEach(revision => {
     if (revision.meta.latestVersion) {
       latestVersionID = revision.id;
@@ -1076,6 +1471,17 @@ function setArticleMeta() {
     storeArticleID(latestVersionID);
     storeLatestVersionPublished(latestVersionPublished);
   }
+
+  var tagsData = responseData.data.content.data.tags.values;
+  Logger.log("setArticleMeta tagsData: ", tagsData);
+  var tagIDs = [];
+  tagsData.forEach(tagData => {
+    tagData.value.forEach(tagValue => {
+      tagIDs.push(tagValue.id)
+    })
+  });
+  var uniqueTags = tagIDs.filter(onlyUnique);
+  storeTags(uniqueTags);
 
   return responseData;
 }
@@ -1091,5 +1497,10 @@ function processForm(formObject) {
   var byline = formObject["article-byline"];
   storeByline(byline);
 
-  return "Saved article headline and byline."
+  var tags = formObject["article-tags"];
+  Logger.log("tags: ", tags);
+  storeTags(tags);
+
+  return "Updated article headline, byline and tags. You still need to publish the article for these changes to go live!"
+
 }
