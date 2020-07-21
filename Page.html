@@ -103,13 +103,21 @@
         var saveDiv = document.getElementById('save-article');
         saveDiv.style.display = "block";
 
-        if (data.publishingInfo) {
-          var firstPubDiv = document.getElementById('first-published');
-          var lastPubDiv = document.getElementById('last-published');
-          var slugDiv = document.getElementById('slug');
-          firstPubDiv.innerHTML = data.publishingInfo.firstPublishedOn;
-          lastPubDiv.innerHTML = data.publishingInfo.lastPublishedOn;
-          slugDiv.innerHTML = data.publishingInfo.slug;
+        if (data.publishingInfo !== null && typeof(data.publishingInfo) !== 'undefined') {
+          if (data.publishingInfo.firstPublishedOn !== null && typeof(data.publishingInfo.firstPublishedOn) !== 'undefined') {
+            var firstPubDiv = document.getElementById('first-published');
+            firstPubDiv.innerHTML = data.publishingInfo.firstPublishedOn;
+          }
+
+          if (data.publishingInfo.lastPublishedOn !== null && typeof(data.publishingInfo.lastPublishedOn) !== 'undefined') {
+            var lastPubDiv = document.getElementById('last-published');
+            lastPubDiv.innerHTML = data.publishingInfo.lastPublishedOn;
+          }
+
+          if (data.publishingInfo.slug !== null && typeof(data.publishingInfo.slug) !== 'undefined') {
+            var slugDiv = document.getElementById('slug');
+            slugDiv.innerHTML = data.publishingInfo.slug;
+          }
         }
       }
 
@@ -345,6 +353,9 @@
 
       <div class="block">
         <div id="revision-info">
+          <p>
+            <b>Slug:</b> <span id="slug"></span>
+          </p>
           <p>
             <b>Revision ID:</b> <span id="revision-id"></span>
           </p>

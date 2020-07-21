@@ -66,6 +66,9 @@ function getDocumentName() {
 .* for now this only trims whitespace, but stands to allow for any other text cleaning up we may need
 .*/
 function cleanContent(content) {
+  if (content === null || typeof(content) === 'undefined') {
+    return "";
+  }
   return content.trim();
 }
 
@@ -85,6 +88,9 @@ function cleanStyle(incomingStyle) {
 // Implementation from https://gist.github.com/codeguy/6684588
 // takes a regular string and returns a slug
 function slugify(value) {
+  if (value === null || typeof(value) === 'undefined') {
+    return "";
+  }
   value = value.trim();
   value = value.toLowerCase();
   var from = "àáäâèéëêìíïîòóöôùúüûñç·/_,:;";
@@ -300,7 +306,17 @@ function storePublishingInfo(info) {
 }
 
 function getPublishingInfo() {
-  return JSON.parse(getValue("PUBLISHING_INFO"));
+  var publishingInfo = JSON.parse(getValue("PUBLISHING_INFO"));
+  if (publishingInfo === null || typeof(publishingInfo) === 'undefined') {
+    publishingInfo = {
+      firstPublishedOn: "",
+      lastPublishedOn: "",
+      latestVersionID: "",
+      isLatestVersionPublished: false,
+      publishedOn: ""
+    }
+  }
+  return publishingInfo;
 }
 
 
@@ -309,6 +325,11 @@ function getTags() {
 }
 
 function storeTags(tags) {
+  // choosing a single tag in the form results in one tagID being sent as a string
+  // instead of an array of tagID strings :(
+  if (typeof(tags) === 'string') {
+    tags = [tags];
+  }
   var allTags = getValueJSON('ALL_TAGS'); // don't request from the DB again - too slow
   var storableTags = [];
   // try to find id and title of tag to store full data
@@ -373,8 +394,14 @@ function getArticleMeta() {
   var articleID = getArticleID();
 
   var isLatestVersionPublished = getLatestVersionPublished();
+
   var publishingInfo = getPublishingInfo();
+
   var headline = getHeadline();
+  if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
+    headline = getDocumentName();
+    storeHeadline(headline);
+  }
   var byline = getByline();
 
   var slug = getSlug();
@@ -402,7 +429,7 @@ function getArticleMeta() {
       allTags: allTags,
       articleTags: [],
       slug: null,
-      seo: seo
+      seo: seoData
     }
   }
   var articleMetadata = {
