@@ -15,11 +15,11 @@ function onInstall(e) {
  */
 function onOpen(e) {
   Logger.log("onOpen running in authMode: ", e.authMode);
-  if (e && e.authMode === ScriptApp.AuthMode.NONE) {
-    Logger.log("AuthMode is NONE")
-  } else {
-    Logger.log("AuthMode is > NONE")
-  }
+  // if (e && e.authMode === ScriptApp.AuthMode.NONE) {
+  //   Logger.log("AuthMode is NONE")
+  // } else {
+  //   Logger.log("AuthMode is > NONE")
+  // }
 
   // display sidebar
   DocumentApp.getUi()
@@ -309,21 +309,16 @@ function getTags() {
 }
 
 function storeTags(tags) {
-  Logger.log("storeTags with tags arg: ", tags);
   var allTags = getValueJSON('ALL_TAGS'); // don't request from the DB again - too slow
   var storableTags = [];
   // try to find id and title of tag to store full data
   tags.forEach(tag => {
-    Logger.log("processing tag: ", tag);
     var tagID;
     if (typeof(tag) === 'object') {
-      Logger.log("tag is an object: ", tag)
       tagID = tag.id;
     } else {
-      Logger.log("tag is a string: ", tag)
       tagID = tag;
     }
-    Logger.log("Looking for tag with id: ", tagID);
     var result = allTags.find( ({ id }) => id === tagID );
     if (result !== undefined) {
       storableTags.push({
@@ -340,9 +335,30 @@ function storeTags(tags) {
       });
     }
   })
-  Logger.log("storing tags: ", storableTags);
 
   storeValueJSON("ARTICLE_TAGS", storableTags);
+}
+
+function getSEO() {
+  seoValue = getValueJSON('ARTICLE_SEO');
+  if (seoValue === null || seoValue.length <= 0) {
+    Logger.log("seoValue is null or empty array")
+    seoValue = {
+      searchTitle: "",
+      searchDescription: "",
+      facebookTitle: "",
+      facebookDescription: "",
+      twitterTitle: "",
+      twitterDescription: ""
+    }
+  } else {
+    Logger.log("seoValue is: ", seoValue);
+  }
+  return seoValue;
+}
+
+function storeSEO(seoData) {
+  storeValueJSON("ARTICLE_SEO", seoData);
 }
 
 //
@@ -360,9 +376,19 @@ function getArticleMeta() {
   var publishingInfo = getPublishingInfo();
   var headline = getHeadline();
   var byline = getByline();
+
+  var slug = getSlug();
+  if (slug === null || typeof(slug) === "undefined") {
+    slug = slugify(headline);
+    storeSlug(slug);
+  }
+
   var allTags = loadTagsFromDB();
   storeValueJSON('ALL_TAGS', allTags);
   var articleTags = getTags();
+
+  var seoData = getSEO();
+  Logger.log("seoData: ", seoData);
 
   if (typeof(articleID) === "undefined" || articleID === null) {
     Logger.log("articleID is undefined, returning new doc state");
@@ -374,13 +400,11 @@ function getArticleMeta() {
       byline: byline,
       publishingInfo: {},
       allTags: allTags,
-      articleTags: []
+      articleTags: [],
+      slug: null,
+      seo: seo
     }
   }
-  Logger.log("articleID is: ", articleID);
-  Logger.log("articleTags: ", articleTags);
-  Logger.log("allTags: ", allTags);
-
   var articleMetadata = {
     articleID: articleID,
     isPublished: isLatestVersionPublished,
@@ -388,9 +412,11 @@ function getArticleMeta() {
     byline: byline,
     publishingInfo: publishingInfo,
     allTags: allTags,
-    articleTags: articleTags
+    articleTags: articleTags,
+    slug: slug,
+    seo: seoData
   };
-  Logger.log("articleMetadata: ", articleMetadata);
+
   return articleMetadata;
 }
 
@@ -420,7 +446,6 @@ function getCurrentDocContents() {
   var responseData = JSON.parse(responseText);
   var articleID = responseData.data.content.data.id;
   storeArticleID(articleID);
-  Logger.log('stored article ID: ', articleID);
 
   var webinyResponseCode = webinyResponse.getResponseCode();
   var responseText;
@@ -431,7 +456,6 @@ function getCurrentDocContents() {
   }
   // publish
   var publishResponse = publishArticle();
-  Logger.log("response from publishArticle: ", publishResponse);
 
   responseText += "<br>" + publishResponse;
 
@@ -502,7 +526,6 @@ function getElements() {
   })
 
   elements.forEach(element => {
-    Logger.log(element);
     if (element.paragraph && element.paragraph.elements) {
       var eleData = {
         children: [],
@@ -581,17 +604,13 @@ function getElements() {
         // try to find a URL by itself that google hasn't auto-linked
         } else if(embeddableUrlRegex.test(subElements[0].textRun.content.trim())) {
           linkUrl = subElements[0].textRun.content.trim();
-          Logger.log("Found non-linked URL by itself: ", linkUrl);
         }
         if ( linkUrl !== null) {
-          Logger.log("linkUrl is not null: ", linkUrl);
           var embeddableUrl = embeddableUrlRegex.test(linkUrl);
           if (embeddableUrl) {
-            Logger.log("creating embed data for ", linkUrl);
             eleData.type = "embed";
             eleData.link = linkUrl;
             orderedElements.push(eleData);
-            Logger.log(orderedElements);
           } else {
             Logger.log("url not embeddable: ", linkUrl);
           }
@@ -717,18 +736,16 @@ function createArticleFrom(versionID, title, elements) {
   var byline = getByline();
 
   var publishingInfo = getPublishingInfo();
+  var seoData = getSEO();
 
   var headlineSlug = slugify(title);
   storeSlug(headlineSlug);
 
   var articleTags = getTags(); // only id
-  Logger.log("createArticleFrom articleTags: ", articleTags);
   // create any new tags
   const newTags = articleTags.filter(articleTag => articleTag.newTag === true);
   if (newTags.length > 0) {
-    Logger.log("creating new tags: ", newTags);
     newTags.forEach(newTag => {
-      Logger.log("creating new tag: ", newTag.title);
       createTag(newTag.title);
     })
   }
@@ -839,6 +856,54 @@ function createArticleFrom(versionID, title, elements) {
     		tags: {
           values: tagsArrayForGraphQL
         },
+        searchTitle: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.searchTitle,
+            },
+          ],
+        },
+        searchDescription: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.searchDescription,
+            },
+          ],
+        },
+        facebookTitle: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.facebookTitle,
+            },
+          ],
+        },
+        facebookDescription: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.facebookDescription,
+            },
+          ],
+        },
+        twitterTitle: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.twitterTitle,
+            },
+          ],
+        },
+        twitterDescription: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.twitterDescription,
+            },
+          ],
+        },
       },
     },
   };
@@ -852,7 +917,6 @@ function createArticleFrom(versionID, title, elements) {
     payload: JSON.stringify(formData),
   };
 
-  Logger.log("createArticleFrom formData: ", JSON.stringify(formData));
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
@@ -860,7 +924,6 @@ function createArticleFrom(versionID, title, elements) {
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
   var latestVersionID = responseData.data.content.data.id;
-  Logger.log("Storing latest version of articleID: ", latestVersionID);
   storeArticleID(latestVersionID);
   return response;
 }
@@ -887,6 +950,7 @@ function createArticle(title, elements) {
   var byline = getByline();
 
   var publishingInfo = getPublishingInfo();
+  var seoData = getSEO();
 
   var headlineSlug = slugify(title);
   storeSlug(headlineSlug);
@@ -966,6 +1030,54 @@ function createArticle(title, elements) {
         },
     		tags: {
           values: tagsArrayForGraphQL
+        },
+        searchTitle: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.searchTitle,
+            },
+          ],
+        },
+        searchDescription: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.searchDescription,
+            },
+          ],
+        },
+        facebookTitle: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.facebookTitle,
+            },
+          ],
+        },
+        facebookDescription: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.facebookDescription,
+            },
+          ],
+        },
+        twitterTitle: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.twitterTitle,
+            },
+          ],
+        },
+        twitterDescription: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.twitterDescription,
+            },
+          ],
         },
       },
     },
@@ -1082,8 +1194,6 @@ function updateArticle(id, title, elements) {
     },
     payload: JSON.stringify(formData),
   };
-
-  Logger.log(options);
 
   var response = UrlFetchApp.fetch(
     CONTENT_API,
@@ -1304,7 +1414,6 @@ function createTag(tagTitle) {
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
-  Logger.log("createTag title: ", tagTitle);
   var articleTags = getTags();
   const result = articleTags.find( ({ title }) => title === tagTitle );
   if (result !== undefined && !result.newTag && result.id !== null) {
@@ -1572,7 +1681,6 @@ function setArticleMeta() {
   }
 
   var tagsData = responseData.data.content.data.tags.values;
-  Logger.log("setArticleMeta tagsData: ", tagsData);
   var tagIDs = [];
   tagsData.forEach(tagData => {
     tagData.value.forEach(tagValue => {
@@ -1597,8 +1705,18 @@ function processForm(formObject) {
   storeByline(byline);
 
   var tags = formObject["article-tags"];
-  Logger.log("tags: ", tags);
   storeTags(tags);
+
+  var seoData = {
+    searchTitle: formObject["article-search-title"],
+    searchDescription: formObject["article-search-description"],
+    facebookTitle: formObject["article-facebook-title"],
+    facebookDescription: formObject["article-facebook-description"],
+    twitterTitle: formObject["article-twitter-title"],
+    twitterDescription: formObject["article-twitter-description"],
+  }
+
+  storeSEO(seoData);
 
   return "Updated article headline, byline and tags. You still need to publish the article for these changes to go live!"
 
