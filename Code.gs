@@ -705,6 +705,8 @@ function createArticleFrom(versionID, title, elements) {
 
   var byline = getByline();
 
+  var publishingInfo = getPublishingInfo();
+
   var articleTags = getTags(); // only id
   Logger.log("createArticleFrom articleTags: ", articleTags);
   // create any new tags
@@ -780,6 +782,22 @@ function createArticleFrom(versionID, title, elements) {
             },
           ],
         },
+        firstPublishedOn: {
+          values:[
+            {
+              value: publishingInfo.firstPublishedOn,
+              locale: localeID
+            }
+          ]
+        },
+        lastPublishedOn: {
+          values:[
+            {
+              value: publishingInfo.lastPublishedOn,
+              locale: localeID
+            }
+          ]
+        },
         body: {
           values: [
             {
@@ -834,7 +852,6 @@ function createArticle(title, elements) {
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
-
   var localeID = getLocaleID();
   if (localeID === null) {
     var locales = getLocales();
@@ -846,6 +863,8 @@ function createArticle(title, elements) {
   }
 
   var byline = getByline();
+
+  var publishingInfo = getPublishingInfo();
 
   var allTags = getValueJSON('ALL_TAGS'); // don't look up in the DB again, too slow
   var articleTags = getTags();
@@ -879,6 +898,22 @@ function createArticle(title, elements) {
               value: title,
             },
           ],
+        },
+        firstPublishedOn: {
+          values:[
+            {
+              value: publishingInfo.firstPublishedOn,
+              locale: localeID
+            }
+          ]
+        },
+        lastPublishedOn: {
+          values:[
+            {
+              value: publishingInfo.lastPublishedOn,
+              locale: localeID
+            }
+          ]
         },
         body: {
           values: [
