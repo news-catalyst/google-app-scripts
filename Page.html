@@ -54,6 +54,24 @@
         var articleByline = document.getElementById('article-byline');
         articleByline.value = data.byline;
 
+        var articleSearchTitle = document.getElementById('article-search-title');
+        articleSearchTitle.value = data.seo.searchTitle;
+
+        var articleSearchDescription = document.getElementById('article-search-description');
+        articleSearchDescription.value = data.seo.searchDescription;
+
+        var articleFacebookTitle = document.getElementById('article-facebook-title');
+        articleFacebookTitle.value = data.seo.facebookTitle;
+
+        var articleFacebookDescription = document.getElementById('article-facebook-description');
+        articleFacebookDescription.value = data.seo.facebookDescription;
+
+        var articleTwitterTitle = document.getElementById('article-twitter-title');
+        articleTwitterTitle.value = data.seo.twitterTitle;
+
+        var articleTwitterDescription = document.getElementById('article-twitter-description');
+        articleTwitterDescription.value = data.seo.twitterDescription;
+
         var loadingDiv = document.getElementById('loading');
         loadingDiv.style.display = "none";
 
@@ -88,10 +106,11 @@
         if (data.publishingInfo) {
           var firstPubDiv = document.getElementById('first-published');
           var lastPubDiv = document.getElementById('last-published');
+          var slugDiv = document.getElementById('slug');
           firstPubDiv.innerHTML = data.publishingInfo.firstPublishedOn;
           lastPubDiv.innerHTML = data.publishingInfo.lastPublishedOn;
+          slugDiv.innerHTML = data.publishingInfo.slug;
         }
-
       }
 
       function displayFormMessage(text) {
@@ -281,6 +300,42 @@
               <b>Tags</b>
               <select style="width: 100%" id="article-tags" name="article-tags" multiple="multiple"></select>
             </label>
+          </div>
+          <div class="block form-group">
+            <label for="article-search-title">
+              <b>Search title</b>
+            </label>
+            <input id="article-search-title" name="article-search-title" type="text" />
+          </div>
+          <div class="block form-group">
+            <label for="article-search-description">
+              <b>Search description</b>
+            </label>
+            <input id="article-search-description" name="article-search-description" type="text" />
+          </div>
+          <div class="block form-group">
+            <label for="article-facebook-title">
+              <b>Facebook title</b>
+            </label>
+            <input id="article-facebook-title" name="article-facebook-title" type="text" />
+          </div>
+          <div class="block form-group">
+            <label for="article-facebook-description">
+              <b>Facebook description</b>
+            </label>
+            <input id="article-facebook-description" name="article-facebook-description" type="text" />
+          </div>
+          <div class="block form-group">
+            <label for="article-twitter-title">
+              <b>Twitter title</b>
+            </label>
+            <input id="article-twitter-title" name="article-twitter-title" type="text" />
+          </div>
+          <div class="block form-group">
+            <label for="article-twitter-description">
+              <b>Twitter description</b>
+            </label>
+            <input id="article-twitter-description" name="article-twitter-description" type="text" />
           </div>
           <div class="block">
             <button class="blue">Submit</button>
