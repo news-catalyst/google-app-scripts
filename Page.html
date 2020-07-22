@@ -30,6 +30,12 @@
       }
 
       function onSuccessMeta(data) {
+        var loadingDiv = document.getElementById('loading');
+        loadingDiv.style.display = "none";
+
+        var form = document.getElementById('article-meta-form');
+        form.style.display = "block";
+
         var articleCategorySelect = document.getElementById('article-category');
         data.categories.forEach(category => {
           var option = document.createElement("option");
@@ -84,15 +90,8 @@
         var articleTwitterDescription = document.getElementById('article-twitter-description');
         articleTwitterDescription.value = data.seo.twitterDescription;
 
-        console.log("data: ", data);
         var slugDiv = document.getElementById('slug');
         slugDiv.innerHTML = data.slug;
-
-        var loadingDiv = document.getElementById('loading');
-        loadingDiv.style.display = "none";
-
-        var form = document.getElementById('article-meta-form');
-        form.style.display = "block";
 
         $('#article-tags').select2({
           width: 'resolve',
