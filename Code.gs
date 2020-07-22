@@ -263,27 +263,20 @@ function storeLocaleID(localeID) {
   storeValue("LOCALE_ID", localeID);
 }
 
-function getHeadline() {
-  return getValue('ARTICLE_HEADLINE');
-}
-
-function storeHeadline(headline) {
-  storeValue("ARTICLE_HEADLINE", headline)
-}
-
 function getSlug() {
   return getValue('ARTICLE_SLUG');
 }
 
 function storeSlug(slug) {
-  storeValue("ARTICLE_SLUG", slug)
+  storeValue("ARTICLE_SLUG", slug);
 }
+
 function getByline() {
   return getValue('ARTICLE_BYLINE');
 }
 
 function storeByline(byline) {
-  storeValue("ARTICLE_BYLINE", byline)
+  storeValue("ARTICLE_BYLINE", byline);
 }
 
 function getHeadline() {
@@ -291,9 +284,33 @@ function getHeadline() {
 }
 
 function storeHeadline(headline) {
-  storeValue("ARTICLE_HEADLINE", headline)
+  storeValue("ARTICLE_HEADLINE", headline);
 }
 
+function getCategoryID() {
+  return getValue('ARTICLE_CATEGORY_ID');
+}
+
+function storeCategoryID(categoryID) {
+  storeValue("ARTICLE_CATEGORY_ID", categoryID)
+}
+
+function getCategories() {
+  return getValueJSON('ALL_CATEGORIES');
+}
+
+function storeCategories(categories) {
+  storeValueJSON('ALL_CATEGORIES', categories);
+}
+
+function getNameForCategoryID(categories, categoryID) {
+  var result = categories.find( ({ id }) => id === categoryID );
+  if (typeof(result) !== 'undefined') {
+    return result.title.value;
+  } else {
+    return null;
+  }
+}
 
 function storePublishingInfo(info) {
   storeValue("PUBLISHING_INFO", JSON.stringify(info));
@@ -387,6 +404,19 @@ function getArticleMeta() {
   storeValueJSON('ALL_TAGS', allTags);
   var articleTags = getTags();
 
+  var categories = getCategories();
+  if (categories === null || categories.length <= 0) {
+    categories = listCategories();
+    Logger.log("new list of categories: ", categories);
+    storeCategories(categories);
+  }
+  Logger.log("categories: ", categories);
+
+  var categoryID = getCategoryID();
+  Logger.log("article categoryID: ", categoryID);
+  var categoryName = getNameForCategoryID(categories, categoryID);
+  Logger.log("article category name: ", categoryName);
+
   var seoData = getSEO();
   Logger.log("seoData: ", seoData);
 
@@ -401,6 +431,9 @@ function getArticleMeta() {
       publishingInfo: {},
       allTags: allTags,
       articleTags: [],
+      categories: categories,
+      categoryID: null,
+      categoryName: null,
       slug: null,
       seo: seo
     }
@@ -413,6 +446,9 @@ function getArticleMeta() {
     publishingInfo: publishingInfo,
     allTags: allTags,
     articleTags: articleTags,
+    categories: categories,
+    categoryID: categoryID,
+    categoryName: categoryName,
     slug: slug,
     seo: seoData
   };
@@ -741,6 +777,8 @@ function createArticleFrom(versionID, title, elements) {
   var headlineSlug = slugify(title);
   storeSlug(headlineSlug);
 
+  var categoryID = getCategoryID();
+
   var articleTags = getTags(); // only id
   // create any new tags
   const newTags = articleTags.filter(articleTag => articleTag.newTag === true);
@@ -817,6 +855,14 @@ function createArticleFrom(versionID, title, elements) {
           values:[
             {
               value: headlineSlug,
+              locale: localeID
+            }
+          ]
+        },
+        category: {
+          values: [
+            {
+              value: categoryID,
               locale: localeID
             }
           ]
@@ -955,6 +1001,8 @@ function createArticle(title, elements) {
   var headlineSlug = slugify(title);
   storeSlug(headlineSlug);
 
+  var categoryID = getCategoryID();
+
   var allTags = getValueJSON('ALL_TAGS'); // don't look up in the DB again, too slow
   var articleTags = getTags();
 
@@ -992,6 +1040,14 @@ function createArticle(title, elements) {
           values:[
             {
               value: headlineSlug,
+              locale: localeID
+            }
+          ]
+        },
+        category: {
+          values: [
+            {
+              value: categoryID,
               locale: localeID
             }
           ]
@@ -1279,6 +1335,51 @@ function publishArticle() {
   }
 }
 
+function listCategories() {
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+  var formData = {
+    query: `query listCategories {
+      content: listCategories {
+        data {
+          id
+          title {
+            value
+          }
+          slug {
+            value
+          }
+        } 
+      }
+    }`
+  };
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  Logger.log(JSON.stringify(formData))
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  Logger.log(responseData);
+
+  if (responseData && responseData.data && responseData.data.content && responseData.data.content.data !== null) {
+    return responseData.data.content.data;
+  } else {
+    return responseData.data.content.error;
+  }
+}
+
 function loadTagsFromDB() {
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
@@ -1381,7 +1482,7 @@ function publishTag(tagID) {
     payload: JSON.stringify(formData),
   };
 
-  Logger.log(JSON.stringify(formData))
+  Logger.log("formData: ", JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
@@ -1389,9 +1490,9 @@ function publishTag(tagID) {
 
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log(responseData);
+  Logger.log("responseData: ", responseData);
 
-  if (responseData.data.content.error !== null) {
+  if (responseData && responseData.data && responseData.data.content.error !== null) {
     Logger.log("Error publishing tag ", tagID, ": ", responseData.data.content.error);
     return false;
   } else if (responseData.data.content.data) {
@@ -1707,6 +1808,9 @@ function processForm(formObject) {
   var tags = formObject["article-tags"];
   storeTags(tags);
 
+  var categoryID = formObject["article-category"]
+  storeCategoryID(categoryID);
+
   var seoData = {
     searchTitle: formObject["article-search-title"],
     searchDescription: formObject["article-search-description"],
@@ -1718,6 +1822,6 @@ function processForm(formObject) {
 
   storeSEO(seoData);
 
-  return "Updated article headline, byline and tags. You still need to publish the article for these changes to go live!"
+  return "Updated article metadata. You still need to publish the article for these changes to go live!"
 
 }

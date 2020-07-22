@@ -30,6 +30,18 @@
       }
 
       function onSuccessMeta(data) {
+        var articleCategorySelect = document.getElementById('article-category');
+        data.categories.forEach(category => {
+          var option = document.createElement("option");
+          option.text = category.title.value;
+          option.value = category.id;
+
+          if (data.categoryID !== null && data.categoryID == category.id) {
+            option.selected = true;
+          }
+          articleCategorySelect.add(option);
+        })
+
         var articleTagsSelect = document.getElementById('article-tags');
         data.allTags.forEach(tag => {
           var option = document.createElement("option");
@@ -280,21 +292,27 @@
       <div id="article-meta-form">
         <form onsubmit="handleFormSubmit(this)">
           <div id="form-output" class="block secondary"></div>
-          <div class="gray">
-            Set your desired headline and byline for the article here. The headline will default to the name of this document otherwise.
-          </div>
           <div class="block form-group">
             <label for="article-headline">
               <b>Headline</b>
             </label>
             <input id="article-headline" name="article-headline" type="text" />
           </div>
+
           <div class="block form-group">
             <label for="article-byline">
               <b>Byline</b>
             </label>
             <input id="article-byline" name="article-byline" type="text" />
           </div>
+
+          <div class="block form-group">
+            <label for="article-category">
+              <b>Category/Section</b>
+              <select style="width: 100%" id="article-category" name="article-category"></select>
+            </label>
+          </div>
+
           <div class="block form-group">
             <label for="article-tags">
               <b>Tags</b>
