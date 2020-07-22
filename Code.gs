@@ -82,6 +82,23 @@ function cleanStyle(incomingStyle) {
   return cleanedStyle;
 }
 
+// Generates a slug for the article based on its category and headline
+function createArticleSlug(category, headline) {
+  var catSlug;
+  if (category !== null && category.trim() !== "") {
+    catSlug = slugify(category);
+  } 
+  Logger.log("category slug: ", catSlug);
+  var hedSlug;
+  if (headline !== null && headline.trim() !== "") {
+    hedSlug = slugify(headline);
+  }
+  Logger.log("headline slug: ", hedSlug);
+  var articleSlug = [catSlug, hedSlug].join("/");
+  Logger.log("article slug: ", articleSlug);
+  return articleSlug;
+}
+
 // Implementation from https://gist.github.com/codeguy/6684588
 // takes a regular string and returns a slug
 function slugify(value) {
@@ -112,12 +129,7 @@ function uploadImageToS3(imageID, contentUri) {
 
   var orgName = getOrganizationName();
   var orgNameSlug = slugify(orgName);
-  var headlineSlug = getSlug();
-  if (headlineSlug === null || typeof(headlineSlug) === "undefined") {
-    var headline = getHeadline();
-    headlineSlug = slugify(headline);
-    storeSlug(headlineSlug);
-  }
+  var articleSlug = getArticleSlug();
 
   var objectName = "image" + imageID + ".png";
 
@@ -263,11 +275,11 @@ function storeLocaleID(localeID) {
   storeValue("LOCALE_ID", localeID);
 }
 
-function getSlug() {
+function getArticleSlug() {
   return getValue('ARTICLE_SLUG');
 }
 
-function storeSlug(slug) {
+function storeArticleSlug(slug) {
   storeValue("ARTICLE_SLUG", slug);
 }
 
@@ -394,28 +406,25 @@ function getArticleMeta() {
   var headline = getHeadline();
   var byline = getByline();
 
-  var slug = getSlug();
+  var categories = getCategories();
+  if (categories === null || categories.length <= 0) {
+    categories = listCategories();
+    storeCategories(categories);
+  }
+
+  var categoryID = getCategoryID();
+  var categoryName = getNameForCategoryID(categories, categoryID);
+  Logger.log("article category name: ", categoryName);
+
+  var slug = getArticleSlug();
   if (slug === null || typeof(slug) === "undefined") {
-    slug = slugify(headline);
-    storeSlug(slug);
+    slug = createArticleSlug(categoryName, headline);
+    storeArticleSlug(slug);
   }
 
   var allTags = loadTagsFromDB();
   storeValueJSON('ALL_TAGS', allTags);
   var articleTags = getTags();
-
-  var categories = getCategories();
-  if (categories === null || categories.length <= 0) {
-    categories = listCategories();
-    Logger.log("new list of categories: ", categories);
-    storeCategories(categories);
-  }
-  Logger.log("categories: ", categories);
-
-  var categoryID = getCategoryID();
-  Logger.log("article categoryID: ", categoryID);
-  var categoryName = getNameForCategoryID(categories, categoryID);
-  Logger.log("article category name: ", categoryName);
 
   var seoData = getSEO();
   Logger.log("seoData: ", seoData);
@@ -774,10 +783,21 @@ function createArticleFrom(versionID, title, elements) {
   var publishingInfo = getPublishingInfo();
   var seoData = getSEO();
 
-  var headlineSlug = slugify(title);
-  storeSlug(headlineSlug);
+  var categories = getCategories();
+  if (categories === null || categories.length <= 0) {
+    categories = listCategories();
+    storeCategories(categories);
+  }
 
   var categoryID = getCategoryID();
+  var categoryName = getNameForCategoryID(categories, categoryID);
+  Logger.log("article category name: ", categoryName);
+
+  var slug = getArticleSlug();
+  if (slug === null || typeof(slug) === "undefined") {
+    slug = createArticleSlug(categoryName, title);
+    storeArticleSlug(slug);
+  }
 
   var articleTags = getTags(); // only id
   // create any new tags
@@ -998,10 +1018,21 @@ function createArticle(title, elements) {
   var publishingInfo = getPublishingInfo();
   var seoData = getSEO();
 
-  var headlineSlug = slugify(title);
-  storeSlug(headlineSlug);
+  var categories = getCategories();
+  if (categories === null || categories.length <= 0) {
+    categories = listCategories();
+    storeCategories(categories);
+  }
 
   var categoryID = getCategoryID();
+  var categoryName = getNameForCategoryID(categories, categoryID);
+  Logger.log("article category name: ", categoryName);
+
+  var slug = getArticleSlug();
+  if (slug === null || typeof(slug) === "undefined") {
+    slug = createArticleSlug(categoryName, title);
+    storeArticleSlug(slug);
+  }
 
   var allTags = getValueJSON('ALL_TAGS'); // don't look up in the DB again, too slow
   var articleTags = getTags();
@@ -1678,8 +1709,21 @@ function setArticleMeta() {
     storeHeadline(headline);
   }
 
-  var slug = slugify(headline);
-  storeSlug(slug);
+  var categories = getCategories();
+  if (categories === null || categories.length <= 0) {
+    categories = listCategories();
+    storeCategories(categories);
+  }
+
+  var categoryID = getCategoryID();
+  var categoryName = getNameForCategoryID(categories, categoryID);
+  Logger.log("article category name: ", categoryName);
+
+  var slug = getArticleSlug();
+  if (slug === null || typeof(slug) === "undefined") {
+    slug = createArticleSlug(categoryName, headline);
+    storeArticleSlug(slug);
+  }
 
   if (typeof(articleID) === "undefined" || articleID === null) {
     return null;

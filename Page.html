@@ -84,6 +84,10 @@
         var articleTwitterDescription = document.getElementById('article-twitter-description');
         articleTwitterDescription.value = data.seo.twitterDescription;
 
+        console.log("data: ", data);
+        var slugDiv = document.getElementById('slug');
+        slugDiv.innerHTML = data.slug;
+
         var loadingDiv = document.getElementById('loading');
         loadingDiv.style.display = "none";
 
@@ -117,11 +121,10 @@
 
         if (data.publishingInfo) {
           var firstPubDiv = document.getElementById('first-published');
-          var lastPubDiv = document.getElementById('last-published');
-          var slugDiv = document.getElementById('slug');
           firstPubDiv.innerHTML = data.publishingInfo.firstPublishedOn;
+
+          var lastPubDiv = document.getElementById('last-published');
           lastPubDiv.innerHTML = data.publishingInfo.lastPublishedOn;
-          slugDiv.innerHTML = data.publishingInfo.slug;
         }
       }
 
@@ -363,6 +366,9 @@
 
       <div class="block">
         <div id="revision-info">
+          <p>
+            <b>Article slug:</b> <span id="slug"></span>
+          </p>
           <p>
             <b>Revision ID:</b> <span id="revision-id"></span>
           </p>
