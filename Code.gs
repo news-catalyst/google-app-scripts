@@ -170,8 +170,10 @@ function uploadImageToS3(imageID, contentUri) {
 .* Gets the script configuration, data available to all users and docs for this add-on
 .*/
 function getScriptConfig() {
+  Logger.log("getScriptConfig START")
   var scriptProperties = PropertiesService.getScriptProperties();
   var data = scriptProperties.getProperties();
+  Logger.log("getScriptConfig END")
   return data;
 }
 
@@ -337,8 +339,16 @@ function getTags() {
   return getValueJSON('ARTICLE_TAGS');
 }
 
+function getAllTags() {
+  return getValueJSON('ALL_TAGS');
+}
+
+function storeAllTags(tags) {
+  return storeValueJSON('ALL_TAGS', tags);
+}
+
 function storeTags(tags) {
-  var allTags = getValueJSON('ALL_TAGS'); // don't request from the DB again - too slow
+  var allTags = getAllTags(); // don't request from the DB again - too slow
   var storableTags = [];
   // try to find id and title of tag to store full data
   tags.forEach(tag => {
@@ -399,6 +409,7 @@ function storeSEO(seoData) {
 . * headline and byline
 . */
 function getArticleMeta() {
+  Logger.log("getArticleMeta START");
   var articleID = getArticleID();
 
   var isLatestVersionPublished = getLatestVersionPublished();
@@ -408,13 +419,14 @@ function getArticleMeta() {
 
   var categories = getCategories();
   if (categories === null || categories.length <= 0) {
+    Logger.log("categories are blank: ", categories);
     categories = listCategories();
+    Logger.log("loaded categories from webiny: ", categories);
     storeCategories(categories);
   }
 
   var categoryID = getCategoryID();
   var categoryName = getNameForCategoryID(categories, categoryID);
-  Logger.log("article category name: ", categoryName);
 
   var slug = getArticleSlug();
   if (slug === null || typeof(slug) === "undefined") {
@@ -422,12 +434,14 @@ function getArticleMeta() {
     storeArticleSlug(slug);
   }
 
-  var allTags = loadTagsFromDB();
-  storeValueJSON('ALL_TAGS', allTags);
+  var allTags = getAllTags();
+  if (allTags === null || allTags.length <= 0) {
+    allTags = loadTagsFromDB();
+    storeAllTags(allTags);
+  }
   var articleTags = getTags();
 
   var seoData = getSEO();
-  Logger.log("seoData: ", seoData);
 
   if (typeof(articleID) === "undefined" || articleID === null) {
     Logger.log("articleID is undefined, returning new doc state");
@@ -462,6 +476,7 @@ function getArticleMeta() {
     seo: seoData
   };
 
+  Logger.log("getArticleMeta END");
   return articleMetadata;
 }
 
@@ -818,7 +833,7 @@ function createArticleFrom(versionID, title, elements) {
 
       // just try to publish it because the article won't publish with any unpublished tags :(
       // TODO: see if there's a way to optimise this so we're not unnecessarily publishing tags
-      publishTag(tag.id);
+      // publishTag(tag.id);
       tagsArrayForGraphQL.push({
         locale: localeID,
         value: [
