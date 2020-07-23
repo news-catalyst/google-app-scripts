@@ -366,6 +366,15 @@ function storeAllTags(tags) {
 function storeTags(tags) {
   var allTags = getAllTags(); // don't request from the DB again - too slow
   var storableTags = [];
+  Logger.log("storeTags typeof tags: ", typeof(tags), tags);
+
+  // the form in the sidebar sends a string wiht a single ID when one tag is selected 
+  // **argh**
+  // this hack addresses that issue
+  if (typeof(tags) === 'string') {
+    tags = [tags];
+  }
+
   // try to find id and title of tag to store full data
   tags.forEach(tag => {
     var tagID;
@@ -473,13 +482,13 @@ function getArticleMeta() {
       isPublished: false,
       headline: headline,
       byline: byline,
-      publishingInfo: {},
+      publishingInfo: publishingInfo,
       allTags: allTags,
-      articleTags: [],
+      articleTags: articleTags,
       categories: categories,
-      categoryID: null,
-      categoryName: null,
-      slug: null,
+      categoryID: categoryID,
+      categoryName: categoryName,
+      slug: slug,
       seo: seoData
     }
   }
