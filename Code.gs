@@ -66,6 +66,9 @@ function getDocumentName() {
 .* for now this only trims whitespace, but stands to allow for any other text cleaning up we may need
 .*/
 function cleanContent(content) {
+  if (content === null || typeof(content) === 'undefined') {
+    return "";
+  }
   return content.trim();
 }
 
@@ -102,6 +105,9 @@ function createArticleSlug(category, headline) {
 // Implementation from https://gist.github.com/codeguy/6684588
 // takes a regular string and returns a slug
 function slugify(value) {
+  if (value === null || typeof(value) === 'undefined') {
+    return "";
+  }
   value = value.trim();
   value = value.toLowerCase();
   var from = "àáäâèéëêìíïîòóöôùúüûñç·/_,:;";
@@ -331,7 +337,17 @@ function storePublishingInfo(info) {
 }
 
 function getPublishingInfo() {
-  return JSON.parse(getValue("PUBLISHING_INFO"));
+  var publishingInfo = JSON.parse(getValue("PUBLISHING_INFO"));
+  if (publishingInfo === null || typeof(publishingInfo) === 'undefined') {
+    publishingInfo = {
+      firstPublishedOn: "",
+      lastPublishedOn: "",
+      latestVersionID: "",
+      isLatestVersionPublished: false,
+      publishedOn: ""
+    }
+  }
+  return publishingInfo;
 }
 
 
@@ -350,6 +366,15 @@ function storeAllTags(tags) {
 function storeTags(tags) {
   var allTags = getAllTags(); // don't request from the DB again - too slow
   var storableTags = [];
+  Logger.log("storeTags typeof tags: ", typeof(tags), tags);
+
+  // the form in the sidebar sends a string wiht a single ID when one tag is selected 
+  // **argh**
+  // this hack addresses that issue
+  if (typeof(tags) === 'string') {
+    tags = [tags];
+  }
+
   // try to find id and title of tag to store full data
   tags.forEach(tag => {
     var tagID;
@@ -413,8 +438,14 @@ function getArticleMeta() {
   var articleID = getArticleID();
 
   var isLatestVersionPublished = getLatestVersionPublished();
+
   var publishingInfo = getPublishingInfo();
+
   var headline = getHeadline();
+  if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
+    headline = getDocumentName();
+    storeHeadline(headline);
+  }
   var byline = getByline();
 
   var categories = getCategories();
@@ -451,14 +482,14 @@ function getArticleMeta() {
       isPublished: false,
       headline: headline,
       byline: byline,
-      publishingInfo: {},
+      publishingInfo: publishingInfo,
       allTags: allTags,
-      articleTags: [],
+      articleTags: articleTags,
       categories: categories,
-      categoryID: null,
-      categoryName: null,
-      slug: null,
-      seo: seo
+      categoryID: categoryID,
+      categoryName: categoryName,
+      slug: slug,
+      seo: seoData
     }
   }
   var articleMetadata = {
