@@ -10,10 +10,12 @@
 
     <script>
       function onSuccess(contents) {
-
+        // first, switch the "published" text to say "No"
+        // because the headline and/or byline has likely changed.
+        setPublishedFlag(false);
         var configDiv = document.getElementById('config');
         configDiv.display = 'none';
-        var div = document.getElementById('output');
+        var div = document.getElementById('form-output');
         div.innerHTML = contents;
         handleMeta();
       }
@@ -22,11 +24,6 @@
         var loadingDiv = document.getElementById('loading');
         console.log(error);
         loadingDiv.innerHTML = "An error occurred: " + error;
-      }
-
-      function handleNewTagForm(formObject) {
-         google.script.run.withSuccessHandler(onSuccessTags).addTagToLocalStore(formObject);
-        // var articleTagsSelect = document.getElementById('article-tags');
       }
 
       function onSuccessMeta(data) {
@@ -115,8 +112,11 @@
         var revisionDiv = document.getElementById('revision-info');
         revisionDiv.style.display = "block";
 
-        var saveDiv = document.getElementById('save-article');
-        saveDiv.style.display = "block";
+        var saveDivTop = document.getElementById('save-article-top');
+        saveDivTop.style.display = "block";
+
+        var saveDivBottom = document.getElementById('save-article-bottom');
+        saveDivBottom.style.display = "block";
 
         if (data.publishingInfo !== null && typeof(data.publishingInfo) !== 'undefined') {
           if (data.publishingInfo.firstPublishedOn !== null && typeof(data.publishingInfo.firstPublishedOn) !== 'undefined') {
@@ -134,17 +134,6 @@
             slugDiv.innerHTML = data.publishingInfo.slug;
           }
         }
-      }
-
-      function displayFormMessage(text) {
-        // first, switch the "published" text to say "No"
-        // because the headline and/or byline has likely changed.
-        setPublishedFlag(false);
-        var configDiv = document.getElementById('config');
-        configDiv.display = 'none';
-        var div = document.getElementById('form-output');
-        div.innerHTML = text;
-
       }
 
       function displayConfigFormMessage(text) {
@@ -187,12 +176,18 @@
       }
 
       function handleMeta() {
-        //  google.script.run.withSuccessHandler(onSuccessTags).getTags();
          google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessMeta).getArticleMeta();
       }
 
-      function handleClick() {
-         google.script.run.withSuccessHandler(onSuccess).getCurrentDocContents();
+      function handleClick(formObject) {
+        var form = document.getElementById('article-meta-form');
+        form.style.display = "none";
+
+        var loadingDiv = document.getElementById('loading');
+        loadingDiv.style.display = "block";
+
+        console.log("handling click, form object is: ", formObject);
+        google.script.run.withSuccessHandler(onSuccess).getCurrentDocContents(formObject);
       }
       
       window.onload = (function(){
@@ -202,8 +197,11 @@
         var revisionDiv = document.getElementById('revision-info');
         revisionDiv.style.display = "none";
 
-        var saveDiv = document.getElementById('save-article');
-        saveDiv.style.display = "none";
+        var saveDivTop = document.getElementById('save-article-top');
+        saveDivTop.style.display = "none";
+
+        var saveDivBottom = document.getElementById('save-article-bottom');
+        saveDivBottom.style.display = "none";
 
         handleScriptConfig();
 
@@ -212,11 +210,6 @@
 
       function handleScriptConfigSubmit(formObject) {
         google.script.run.withSuccessHandler(displayConfigFormMessage).setScriptConfig(formObject);
-      }
-
-      function handleFormSubmit(formObject) {
-        console.log("handleFormSubmit: ", formObject);
-        google.script.run.withSuccessHandler(displayFormMessage).processForm(formObject);
       }
 
       // Prevent forms from submitting.
@@ -244,10 +237,10 @@
 
   </head>
   <body>
-    <div class="sidebar branding-below">
+    <a id='top' href="#"></a>
+    <div id="sidebar-wrapper" class="sidebar branding-below">
       <h1 class="title">Publishing Tools</h1>
 
-      <pre id="tags-output"></pre>
       <div class="block" id="loading">Loading...</div>
 
       <div id="config"></div>
@@ -301,8 +294,12 @@
       </form>
 
       <div id="article-meta-form">
-        <form onsubmit="handleFormSubmit(this)">
-          <div id="form-output" class="block secondary"></div>
+        <form onsubmit="handleClick(this)">
+          <div id="form-output" class="block success"></div>
+          <div id="save-article-top" class="block">
+            <input type="submit" class="blue" value="Save & Publish Article"/>
+          </div>
+
           <div class="block form-group">
             <label for="article-headline">
               <b>Headline</b>
@@ -366,8 +363,8 @@
             </label>
             <input id="article-twitter-description" name="article-twitter-description" type="text" />
           </div>
-          <div class="block">
-            <button class="blue">Submit</button>
+          <div id="save-article-bottom" class="block">
+            <input type="submit" class="blue" value="Save & Publish Article"/>
           </div>
         </form>
       </div>
@@ -393,11 +390,8 @@
       </div>
 
       <div id="output" class="block"></div>
-      
-      <div id="save-article" class="block">
-        <button class="button blue" onclick="handleClick()">Save Article</button>
-      </div>
     </div>
+
     <div class="sidebar bottom">
       <span class="gray">
         Powered by News Catalyst
