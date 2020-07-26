@@ -149,7 +149,7 @@ function uploadImageToS3(imageID, contentUri) {
     return null;
   }
 
-  var destinationPath = orgNameSlug + "/" + headlineSlug + "/" + objectName;
+  var destinationPath = orgNameSlug + "/" + articleSlug + "/" + objectName;
   var s3;
 
   try {
@@ -459,11 +459,8 @@ function getArticleMeta() {
   var categoryID = getCategoryID();
   var categoryName = getNameForCategoryID(categories, categoryID);
 
-  var slug = getArticleSlug();
-  if (slug === null || typeof(slug) === "undefined") {
-    slug = createArticleSlug(categoryName, headline);
-    storeArticleSlug(slug);
-  }
+  var slug = createArticleSlug(categoryName, headline);
+  storeArticleSlug(slug);
 
   var allTags = getAllTags();
   if (allTags === null || allTags.length <= 0) {
@@ -920,7 +917,7 @@ function createArticleFrom(versionID, title, elements) {
         slug: {
           values:[
             {
-              value: headlineSlug,
+              value: slug,
               locale: localeID
             }
           ]
@@ -1116,7 +1113,7 @@ function createArticle(title, elements) {
         slug: {
           values:[
             {
-              value: headlineSlug,
+              value: slug,
               locale: localeID
             }
           ]
