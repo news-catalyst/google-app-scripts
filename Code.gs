@@ -513,7 +513,12 @@ function getArticleMeta() {
 . * Gets the current document's contents and
 .  * posts them to webiny
 . */
-function getCurrentDocContents() {
+function getCurrentDocContents(formObject) {
+  Logger.log("getCurrentDocContents: ", formObject);
+
+  var propMessage = processForm(formObject);
+  Logger.log(propMessage);
+
   var title = getHeadline();
   var formattedElements = formatElements();
 
@@ -1886,6 +1891,10 @@ function setArticleMeta() {
 .* setting the headline and byline (for now)
 .*/
 function processForm(formObject) {
+  if (formObject === null || typeof(formObject) === "undefined") {
+    return;
+  }
+  Logger.log("processForm: ", formObject);
   var headline = formObject["article-headline"];
   storeHeadline(headline);
 
