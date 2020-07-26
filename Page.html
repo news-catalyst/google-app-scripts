@@ -35,27 +35,35 @@
 
         var articleCategorySelect = document.getElementById('article-category');
         data.categories.forEach(category => {
-          var option = document.createElement("option");
-          option.text = category.title.value;
-          option.value = category.id;
+          // first check if this option already exists; don't add dupes!
+          var selectorString = "#article-category option[value='" + category.id + "']";
+          if ( $(selectorString).length <= 0 ) {
+            var option = document.createElement("option");
+            option.text = category.title.value;
+            option.value = category.id;
 
-          if (data.categoryID !== null && data.categoryID == category.id) {
-            option.selected = true;
+            if (data.categoryID !== null && data.categoryID == category.id) {
+              option.selected = true;
+            }
+            articleCategorySelect.add(option);
           }
-          articleCategorySelect.add(option);
         })
 
         var articleTagsSelect = document.getElementById('article-tags');
         data.allTags.forEach(tag => {
-          var option = document.createElement("option");
-          option.text = tag.title.value;
-          option.value = tag.id;
+          // first check if this option already exists; don't add dupes!
+          var selectorString = "#article-tags option[value='" + tag.id + "']";
+          if ( $(selectorString).length <= 0 ) {
+            var option = document.createElement("option");
+            option.text = tag.title.value;
+            option.value = tag.id;
 
-          const result = data.articleTags.find( ({ id }) => id === tag.id );
-          if (result !== undefined) {
-            option.selected = true;
+            const result = data.articleTags.find( ({ id }) => id === tag.id );
+            if (result !== undefined) {
+              option.selected = true;
+            }
+            articleTagsSelect.add(option);
           }
-          articleTagsSelect.add(option);
         })
 
         var revisionIdSpan = document.getElementById('revision-id');
@@ -182,7 +190,6 @@
         var loadingDiv = document.getElementById('loading');
         loadingDiv.style.display = "block";
 
-        console.log("handling click, form object is: ", formObject);
         google.script.run.withSuccessHandler(onSuccess).getCurrentDocContents(formObject);
       }
       
