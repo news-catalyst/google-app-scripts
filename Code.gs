@@ -1131,22 +1131,6 @@ function createArticle(title, elements) {
             }
           ]
         },
-        firstPublishedOn: {
-          values:[
-            {
-              value: publishingInfo.firstPublishedOn,
-              locale: localeID
-            }
-          ]
-        },
-        lastPublishedOn: {
-          values:[
-            {
-              value: publishingInfo.lastPublishedOn,
-              locale: localeID
-            }
-          ]
-        },
         body: {
           values: [
             {
