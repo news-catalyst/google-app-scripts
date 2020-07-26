@@ -138,12 +138,14 @@
         if (data.publishingInfo !== null && typeof(data.publishingInfo) !== 'undefined') {
           if (data.publishingInfo.firstPublishedOn !== null && typeof(data.publishingInfo.firstPublishedOn) !== 'undefined') {
             var firstPubDiv = document.getElementById('first-published');
-            firstPubDiv.innerHTML = data.publishingInfo.firstPublishedOn;
+            var localisedDate = new Date(data.publishingInfo.firstPublishedOn).toLocaleString();
+            firstPubDiv.innerHTML = localisedDate;
           }
 
           if (data.publishingInfo.lastPublishedOn !== null && typeof(data.publishingInfo.lastPublishedOn) !== 'undefined') {
             var lastPubDiv = document.getElementById('last-published');
-            lastPubDiv.innerHTML = data.publishingInfo.lastPublishedOn;
+            var localisedDate = new Date(data.publishingInfo.lastPublishedOn).toLocaleString();
+            lastPubDiv.innerHTML = localisedDate;
           }
 
         }
