@@ -10,10 +10,12 @@
 
     <script>
       function onSuccess(contents) {
-
+        // first, switch the "published" text to say "No"
+        // because the headline and/or byline has likely changed.
+        setPublishedFlag(false);
         var configDiv = document.getElementById('config');
         configDiv.display = 'none';
-        var div = document.getElementById('output');
+        var div = document.getElementById('form-output');
         div.innerHTML = contents;
         handleMeta();
       }
@@ -24,11 +26,6 @@
         loadingDiv.innerHTML = "An error occurred: " + error;
       }
 
-      function handleNewTagForm(formObject) {
-         google.script.run.withSuccessHandler(onSuccessTags).addTagToLocalStore(formObject);
-        // var articleTagsSelect = document.getElementById('article-tags');
-      }
-
       function onSuccessMeta(data) {
         var loadingDiv = document.getElementById('loading');
         loadingDiv.style.display = "none";
@@ -37,28 +34,45 @@
         form.style.display = "block";
 
         var articleCategorySelect = document.getElementById('article-category');
-        data.categories.forEach(category => {
-          var option = document.createElement("option");
-          option.text = category.title.value;
-          option.value = category.id;
-
-          if (data.categoryID !== null && data.categoryID == category.id) {
-            option.selected = true;
+        var categoriesSorted = data.categories.sort(function (a, b) {
+          let comparison = 0;
+          if (a.title.value > b.title.value) {
+            comparison = 1;
+          } else if (a.title.value < b.title.value) {
+            comparison = -1;
           }
-          articleCategorySelect.add(option);
+          return comparison;
+        });
+        categoriesSorted.forEach(category => {
+          // first check if this option already exists; don't add dupes!
+          var selectorString = "#article-category option[value='" + category.id + "']";
+          if ( $(selectorString).length <= 0 ) {
+            var option = document.createElement("option");
+            option.text = category.title.value;
+            option.value = category.id;
+
+            if (data.categoryID !== null && data.categoryID == category.id) {
+              option.selected = true;
+            }
+            articleCategorySelect.add(option);
+          }
         })
 
         var articleTagsSelect = document.getElementById('article-tags');
         data.allTags.forEach(tag => {
-          var option = document.createElement("option");
-          option.text = tag.title.value;
-          option.value = tag.id;
+          // first check if this option already exists; don't add dupes!
+          var selectorString = "#article-tags option[value='" + tag.id + "']";
+          if ( $(selectorString).length <= 0 ) {
+            var option = document.createElement("option");
+            option.text = tag.title.value;
+            option.value = tag.id;
 
-          const result = data.articleTags.find( ({ id }) => id === tag.id );
-          if (result !== undefined) {
-            option.selected = true;
+            const result = data.articleTags.find( ({ id }) => id === tag.id );
+            if (result !== undefined) {
+              option.selected = true;
+            }
+            articleTagsSelect.add(option);
           }
-          articleTagsSelect.add(option);
         })
 
         var revisionIdSpan = document.getElementById('revision-id');
@@ -115,36 +129,26 @@
         var revisionDiv = document.getElementById('revision-info');
         revisionDiv.style.display = "block";
 
-        var saveDiv = document.getElementById('save-article');
-        saveDiv.style.display = "block";
+        var saveDivTop = document.getElementById('save-article-top');
+        saveDivTop.style.display = "block";
+
+        var saveDivBottom = document.getElementById('save-article-bottom');
+        saveDivBottom.style.display = "block";
 
         if (data.publishingInfo !== null && typeof(data.publishingInfo) !== 'undefined') {
           if (data.publishingInfo.firstPublishedOn !== null && typeof(data.publishingInfo.firstPublishedOn) !== 'undefined') {
             var firstPubDiv = document.getElementById('first-published');
-            firstPubDiv.innerHTML = data.publishingInfo.firstPublishedOn;
+            var localisedDate = new Date(data.publishingInfo.firstPublishedOn).toLocaleString();
+            firstPubDiv.innerHTML = localisedDate;
           }
 
           if (data.publishingInfo.lastPublishedOn !== null && typeof(data.publishingInfo.lastPublishedOn) !== 'undefined') {
             var lastPubDiv = document.getElementById('last-published');
-            lastPubDiv.innerHTML = data.publishingInfo.lastPublishedOn;
+            var localisedDate = new Date(data.publishingInfo.lastPublishedOn).toLocaleString();
+            lastPubDiv.innerHTML = localisedDate;
           }
 
-          if (data.publishingInfo.slug !== null && typeof(data.publishingInfo.slug) !== 'undefined') {
-            var slugDiv = document.getElementById('slug');
-            slugDiv.innerHTML = data.publishingInfo.slug;
-          }
         }
-      }
-
-      function displayFormMessage(text) {
-        // first, switch the "published" text to say "No"
-        // because the headline and/or byline has likely changed.
-        setPublishedFlag(false);
-        var configDiv = document.getElementById('config');
-        configDiv.display = 'none';
-        var div = document.getElementById('form-output');
-        div.innerHTML = text;
-
       }
 
       function displayConfigFormMessage(text) {
@@ -187,12 +191,17 @@
       }
 
       function handleMeta() {
-        //  google.script.run.withSuccessHandler(onSuccessTags).getTags();
          google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessMeta).getArticleMeta();
       }
 
-      function handleClick() {
-         google.script.run.withSuccessHandler(onSuccess).getCurrentDocContents();
+      function handleClick(formObject) {
+        var form = document.getElementById('article-meta-form');
+        form.style.display = "none";
+
+        var loadingDiv = document.getElementById('loading');
+        loadingDiv.style.display = "block";
+
+        google.script.run.withSuccessHandler(onSuccess).getCurrentDocContents(formObject);
       }
       
       window.onload = (function(){
@@ -202,8 +211,11 @@
         var revisionDiv = document.getElementById('revision-info');
         revisionDiv.style.display = "none";
 
-        var saveDiv = document.getElementById('save-article');
-        saveDiv.style.display = "none";
+        var saveDivTop = document.getElementById('save-article-top');
+        saveDivTop.style.display = "none";
+
+        var saveDivBottom = document.getElementById('save-article-bottom');
+        saveDivBottom.style.display = "none";
 
         handleScriptConfig();
 
@@ -212,11 +224,6 @@
 
       function handleScriptConfigSubmit(formObject) {
         google.script.run.withSuccessHandler(displayConfigFormMessage).setScriptConfig(formObject);
-      }
-
-      function handleFormSubmit(formObject) {
-        console.log("handleFormSubmit: ", formObject);
-        google.script.run.withSuccessHandler(displayFormMessage).processForm(formObject);
       }
 
       // Prevent forms from submitting.
@@ -237,6 +244,9 @@
         bottom: 56px;
         top: 0;
       }
+      input[type="text"] {
+        width: 100%;
+      }
       .button, button, input[type="button"] {
         min-width: 0 !important;
       }
@@ -244,10 +254,10 @@
 
   </head>
   <body>
-    <div class="sidebar branding-below">
+    <a id='top' href="#"></a>
+    <div id="sidebar-wrapper" class="sidebar branding-below">
       <h1 class="title">Publishing Tools</h1>
 
-      <pre id="tags-output"></pre>
       <div class="block" id="loading">Loading...</div>
 
       <div id="config"></div>
@@ -301,8 +311,12 @@
       </form>
 
       <div id="article-meta-form">
-        <form onsubmit="handleFormSubmit(this)">
-          <div id="form-output" class="block secondary"></div>
+        <form onsubmit="handleClick(this)">
+          <div id="form-output" class="block success"></div>
+          <div id="save-article-top" class="block">
+            <input type="submit" class="blue" value="Save & Publish Article"/>
+          </div>
+
           <div class="block form-group">
             <label for="article-headline">
               <b>Headline</b>
@@ -366,8 +380,8 @@
             </label>
             <input id="article-twitter-description" name="article-twitter-description" type="text" />
           </div>
-          <div class="block">
-            <button class="blue">Submit</button>
+          <div id="save-article-bottom" class="block">
+            <input type="submit" class="blue" value="Save & Publish Article"/>
           </div>
         </form>
       </div>
@@ -393,11 +407,8 @@
       </div>
 
       <div id="output" class="block"></div>
-      
-      <div id="save-article" class="block">
-        <button class="button blue" onclick="handleClick()">Save Article</button>
-      </div>
     </div>
+
     <div class="sidebar bottom">
       <span class="gray">
         Powered by News Catalyst
