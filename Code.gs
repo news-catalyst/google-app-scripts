@@ -85,21 +85,15 @@ function cleanStyle(incomingStyle) {
   return cleanedStyle;
 }
 
-// Generates a slug for the article based on its category and headline
+// Generates a slug for the article based on its headline
+// NOTE: this was generating a slug with category + headline, but nextjs routing doesn't work with a slash in the slug :-/
 function createArticleSlug(category, headline) {
-  var catSlug;
-  if (category !== null && category.trim() !== "") {
-    catSlug = slugify(category);
-  } 
-  Logger.log("category slug: ", catSlug);
   var hedSlug;
   if (headline !== null && headline.trim() !== "") {
     hedSlug = slugify(headline);
   }
   Logger.log("headline slug: ", hedSlug);
-  var articleSlug = [catSlug, hedSlug].join("/");
-  Logger.log("article slug: ", articleSlug);
-  return articleSlug;
+  return hedSlug;
 }
 
 // Implementation from https://gist.github.com/codeguy/6684588
