@@ -78,7 +78,7 @@
         var revisionIdSpan = document.getElementById('revision-id');
         revisionIdSpan.innerHTML = data.articleID;
 
-        setPublishedFlag(data.isPublished);
+        setPublishedFlag(data.publishingInfo.isLatestVersionPublished);
 
         var articleHeadline = document.getElementById('article-headline');
         articleHeadline.value = data.headline;

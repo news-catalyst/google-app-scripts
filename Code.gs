@@ -434,6 +434,7 @@ function getArticleMeta() {
   var isLatestVersionPublished = getLatestVersionPublished();
 
   var publishingInfo = getPublishingInfo();
+  Logger.log("publishingInfo: ", publishingInfo);
 
   var headline = getHeadline();
   if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
@@ -470,7 +471,6 @@ function getArticleMeta() {
 
     return {
       articleID: null,
-      isPublished: false,
       headline: headline,
       byline: byline,
       publishingInfo: publishingInfo,
@@ -485,7 +485,6 @@ function getArticleMeta() {
   }
   var articleMetadata = {
     articleID: articleID,
-    isPublished: isLatestVersionPublished,
     headline: headline,
     byline: byline,
     publishingInfo: publishingInfo,
@@ -1472,8 +1471,6 @@ function loadTagsFromDB() {
   var responseData = JSON.parse(responseText);
   Logger.log(responseData);
 
-  // TODO update latestVersionPublished flag
-
   if (responseData && responseData.data && responseData.data.content && responseData.data.content.data !== null) {
     return responseData.data.content.data;
   } else {
@@ -1847,8 +1844,11 @@ function setArticleMeta() {
   // the ID of the most recent revision of the article should now be treated as its articleID
   // save this in the document properties store
   if (publishingInfo.latestVersionID !== null) {
+    Logger.log("storing article ID and publishingInfo: ", publishingInfo);
     storeArticleID(publishingInfo.latestVersionID);
     storePublishingInfo(publishingInfo);
+  } else {
+    Logger.log("NOT storing article ID and publishingInfo: ", publishingInfo);
   }
 
   var tagsData = responseData.data.content.data.tags.values;
