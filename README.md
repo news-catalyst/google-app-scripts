@@ -1,6 +1,8 @@
 # Google App Scripts for tinynews
 
-This repo is a collection of scripts for Google Docs add-ons used in publishing to tinynewsco sites.
+This repo is a collection of scripts for a Google Docs publishing add-on for tinynewsco sites.
+
+The add-on is in release 1 (`05August2020`) published as `version 22` in the Google SDK Marketplace - private, for News Catalyst Google users.
 
 ## Howto
 
