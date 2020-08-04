@@ -944,11 +944,11 @@ function createArticleFrom(versionID, title, elements) {
             }
           ]
         },
-        body: {
+        content: {
           values: [
             {
               locale: localeID,
-              value: elements,
+              value: JSON.stringify(elements),
             },
           ],
         },
@@ -1097,7 +1097,7 @@ function createArticle(title, elements) {
 
   var formData = {
     query:
-      'mutation CreateBasicArticle($data: BasicArticleInput!) {\n  content: createBasicArticle(data: $data) {\n    data {\n      id\n      headline {\n        values {\n          value\n          locale\n        }\n      }\n      body {\n        values {\n          value\n          locale\n        }\n      }\n      byline {\n        values {\n          value\n          locale\n        }\n      }\n    }\n    error {\n      message\n      code\n      data\n    }\n  }\n}',
+      'mutation CreateBasicArticle($data: BasicArticleInput!) {\n  content: createBasicArticle(data: $data) {\n    data {\n      id\n      headline {\n        values {\n          value\n          locale\n        }\n      }\n      content {\n        values {\n          value\n          locale\n        }\n      }\n      byline {\n        values {\n          value\n          locale\n        }\n      }\n    }\n    error {\n      message\n      code\n      data\n    }\n  }\n}',
     variables: {
       data: {
         headline: {
@@ -1124,11 +1124,11 @@ function createArticle(title, elements) {
             }
           ]
         },
-        body: {
+        content: {
           values: [
             {
               locale: localeID,
-              value: elements,
+              value: JSON.stringify(elements),
             },
           ],
         },
@@ -1246,7 +1246,7 @@ function updateArticle(id, title, elements) {
             locale
           }
         }
-        body {
+        content {
           values {
             value
             locale
@@ -1278,11 +1278,11 @@ function updateArticle(id, title, elements) {
             },
           ],
         },
-        body: {
+        content: {
           values: [
             {
               locale: localeID,
-              value: elements,
+              value: JSON.stringify(elements),
             },
           ],
         },
