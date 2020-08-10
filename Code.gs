@@ -358,11 +358,15 @@ function storeAllTags(tags) {
 }
 
 function storeTags(tags) {
+  if (tags === undefined) {
+    Logger.log("storeTags called with undefined tags argument")
+    return;
+  }
   var allTags = getAllTags(); // don't request from the DB again - too slow
   var storableTags = [];
   Logger.log("storeTags typeof tags: ", typeof(tags), tags);
 
-  // the form in the sidebar sends a string wiht a single ID when one tag is selected 
+  // the form in the sidebar sends a string with a single ID when one tag is selected 
   // **argh**
   // this hack addresses that issue
   if (typeof(tags) === 'string') {
@@ -568,39 +572,41 @@ function getElements() {
   var headers = document.headers;
 
   // Look for a main article image in the header
-  if (Object.keys(headers).length === 1) {
-    var headerKey = Object.keys(headers)[0];
-    var header = headers[headerKey];
-    var headerContent = header.content;
-    headerContent.forEach(content => {
-      content.paragraph.elements.forEach(element => {
-        var headerElement = {
-          type: null,
-          children: []
-        };
-        if ( element.inlineObjectElement && element.inlineObjectElement.inlineObjectId) {
-          headerElement.type = "mainImage";
-          var imageID = element.inlineObjectElement.inlineObjectId;
-          var fullImageData = inlineObjects[imageID];
-          if (fullImageData) {
-            var s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri);
+  if (headers !== null && headers !== undefined) {
+    if (Object.keys(headers).length === 1) {
+      var headerKey = Object.keys(headers)[0];
+      var header = headers[headerKey];
+      var headerContent = header.content;
+      headerContent.forEach(content => {
+        content.paragraph.elements.forEach(element => {
+          var headerElement = {
+            type: null,
+            children: []
+          };
+          if ( element.inlineObjectElement && element.inlineObjectElement.inlineObjectId) {
+            headerElement.type = "mainImage";
+            var imageID = element.inlineObjectElement.inlineObjectId;
+            var fullImageData = inlineObjects[imageID];
+            if (fullImageData) {
+              var s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri);
 
-            var childImage = {
-              index: element.endIndex,
-              height: fullImageData.inlineObjectProperties.embeddedObject.size.height.magnitude,
-              width: fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude,
-              imageId: element.inlineObjectElement.inlineObjectId,
-              imageUrl: s3Url,
-              imageAlt: cleanContent(fullImageData.inlineObjectProperties.embeddedObject.title)
-            };
-            headerElement.children.push(childImage);
+              var childImage = {
+                index: element.endIndex,
+                height: fullImageData.inlineObjectProperties.embeddedObject.size.height.magnitude,
+                width: fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude,
+                imageId: element.inlineObjectElement.inlineObjectId,
+                imageUrl: s3Url,
+                imageAlt: cleanContent(fullImageData.inlineObjectProperties.embeddedObject.title)
+              };
+              headerElement.children.push(childImage);
+            }
           }
-        }
-        if (headerElement.type !== null) {
-          orderedElements.push(headerElement);
-        }
+          if (headerElement.type !== null) {
+            orderedElements.push(headerElement);
+          }
+        });
       });
-    });
+    }
   }
 
   var listInfo = {};
