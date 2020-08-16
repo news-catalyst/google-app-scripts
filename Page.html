@@ -26,6 +26,11 @@
         loadingDiv.innerHTML = "An error occurred: " + error;
       }
 
+      function onFailure(error) {
+        var loadingDiv = document.getElementById('loading');
+        console.log(error);
+        loadingDiv.innerHTML = "An error occurred: " + error;
+      }
       function onSuccessMeta(data) {
         var loadingDiv = document.getElementById('loading');
         loadingDiv.style.display = "none";
@@ -201,7 +206,7 @@
         var loadingDiv = document.getElementById('loading');
         loadingDiv.style.display = "block";
 
-        google.script.run.withSuccessHandler(onSuccess).getCurrentDocContents(formObject);
+        google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).getCurrentDocContents(formObject);
       }
       
       window.onload = (function(){
