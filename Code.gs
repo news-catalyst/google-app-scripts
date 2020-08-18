@@ -92,7 +92,6 @@ function createArticleSlug(category, headline) {
   if (headline !== null && headline.trim() !== "") {
     hedSlug = slugify(headline);
   }
-  Logger.log("headline slug: ", hedSlug);
   return hedSlug;
 }
 
@@ -461,11 +460,12 @@ function getArticleMeta() {
   var slug = createArticleSlug(categoryName, headline);
   storeArticleSlug(slug);
 
-  var allTags = getAllTags();
-  if (allTags === null || allTags.length <= 0) {
-    allTags = loadTagsFromDB();
-    storeAllTags(allTags);
-  }
+  // always load the latest tags from webiny to avoid issues being out of sync
+  // FYI: I've run into problems when this isn't done (e.g. a dupe tag is created elsewhere, which could be likely when actual orgs use this
+  // or more likely, the document storage in Google Docs gets some data weird with new vs existing tags)
+  var allTags = loadTagsFromDB();
+  storeAllTags(allTags);
+
   var articleTags = getTags();
 
   var seoData = getSEO();
@@ -547,7 +547,7 @@ function getCurrentDocContents(formObject) {
   // publish
   var publishResponse = publishArticle();
 
-  responseText += "<br>" + publishResponse;
+  responseText += "<br>" + JSON.stringify(publishResponse);
 
   // update published flag and latest version ID
   setArticleMeta();
@@ -707,7 +707,7 @@ function getElements() {
             Logger.log("url not embeddable: ", linkUrl);
           }
         } else {
-          Logger.log("linkUrl is null: ", subElements[0].textRun.content);
+          // Logger.log("linkUrl is null: ", subElements[0].textRun.content);
         }
       }
 
@@ -847,10 +847,13 @@ function createArticleFrom(versionID, title, elements) {
   }
 
   var articleTags = getTags(); // only id
+  Logger.log("createArticleFrom articleTags: ", articleTags);
   // create any new tags
   const newTags = articleTags.filter(articleTag => articleTag.newTag === true);
+  Logger.log("createArticleFrom newTags: ", newTags);
   if (newTags.length > 0) {
     newTags.forEach(newTag => {
+      Logger.log("createArticleFrom creating new tag: ", newTag);
       createTag(newTag.title);
     })
   }
@@ -865,7 +868,7 @@ function createArticleFrom(versionID, title, elements) {
 
       // just try to publish it because the article won't publish with any unpublished tags :(
       // TODO: see if there's a way to optimise this so we're not unnecessarily publishing tags
-      // publishTag(tag.id);
+      publishTag(tag.id);
       tagsArrayForGraphQL.push({
         locale: localeID,
         value: [
@@ -1020,6 +1023,7 @@ function createArticleFrom(versionID, title, elements) {
       },
     },
   };
+  Logger.log("formData: ", formData);
   var options = {
     method: 'post',
     muteHttpExceptions: true,
@@ -1073,7 +1077,6 @@ function createArticle(title, elements) {
 
   var categoryID = getCategoryID();
   var categoryName = getNameForCategoryID(categories, categoryID);
-  Logger.log("article category name: ", categoryName);
 
   var slug = getArticleSlug();
   if (slug === null || typeof(slug) === "undefined") {
@@ -1555,7 +1558,7 @@ function publishTag(tagID) {
   if (responseData && responseData.data && responseData.data.content.error !== null) {
     Logger.log("Error publishing tag ", tagID, ": ", responseData.data.content.error);
     return false;
-  } else if (responseData.data.content.data) {
+  } else if (responseData && responseData.data && responseData.data.content && responseData.data.content.data) {
     var publishedSuccessfully = responseData.data.content.data.meta.published;
     if (publishedSuccessfully) {
       Logger.log("Published tag with id ", tagID, " successfully.")
@@ -1571,6 +1574,7 @@ function publishTag(tagID) {
 }
 
 function createTag(tagTitle) {
+  Logger.log("creating tag: ", tagTitle);
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
@@ -1600,6 +1604,9 @@ function createTag(tagTitle) {
           title {
             value
           }
+          slug {
+            value
+          }
         }
         error {
           message
@@ -1617,10 +1624,19 @@ function createTag(tagTitle) {
                 locale: localeID
               }
             ]
+          },
+          slug: {
+            values: [
+              {
+                value: slugify(tagTitle),
+                locale: localeID
+              }
+            ]
           }
         }
       }
   };
+  Logger.log("tag formData: ", formData);
   var options = {
     method: 'post',
     muteHttpExceptions: true,
@@ -1878,7 +1894,6 @@ function processForm(formObject) {
   if (formObject === null || typeof(formObject) === "undefined") {
     return;
   }
-  Logger.log("processForm: ", formObject);
   var headline = formObject["article-headline"];
   storeHeadline(headline);
 
