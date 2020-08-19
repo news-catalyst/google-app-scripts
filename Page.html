@@ -14,7 +14,7 @@
         // because the headline and/or byline has likely changed.
         setPublishedFlag(false);
         var configDiv = document.getElementById('config');
-        configDiv.display = 'none';
+        configDiv.style.display = 'none';
         var div = document.getElementById('form-output');
         div.innerHTML = contents;
         handleMeta();
@@ -109,6 +109,12 @@
         var articleTwitterDescription = document.getElementById('article-twitter-description');
         articleTwitterDescription.value = data.seo.twitterDescription;
 
+        var previewUrl = document.getElementById('preview-url');
+        previewUrl.value = data.previewUrl;
+
+        var previewSecret = document.getElementById('preview-secret');
+        previewSecret.value = data.previewSecret;
+
         var slugDiv = document.getElementById('slug');
         slugDiv.innerHTML = data.slug;
 
@@ -134,11 +140,17 @@
         var revisionDiv = document.getElementById('revision-info');
         revisionDiv.style.display = "block";
 
-        var saveDivTop = document.getElementById('save-article-top');
-        saveDivTop.style.display = "block";
+        var previewDivTop = document.getElementById('preview-button-top');
+        previewDivTop.style.display = "inline";
 
-        var saveDivBottom = document.getElementById('save-article-bottom');
-        saveDivBottom.style.display = "block";
+        var previewDivBottom = document.getElementById('preview-button-bottom');
+        previewDivBottom.style.display = "inline";
+
+        var saveDivTop = document.getElementById('save-button-top');
+        saveDivTop.style.display = "inline";
+
+        var saveDivBottom = document.getElementById('save-button-bottom');
+        saveDivBottom.style.display = "inline";
 
         if (data.publishingInfo !== null && typeof(data.publishingInfo) !== 'undefined') {
           if (data.publishingInfo.firstPublishedOn !== null && typeof(data.publishingInfo.firstPublishedOn) !== 'undefined') {
@@ -157,11 +169,59 @@
       }
 
       function displayConfigFormMessage(text) {
-        var div = document.getElementById('script-config-form-output');
-        div.innerHTML = text;
+        var configDiv = document.getElementById('config');
+        configDiv.innerHTML = text;
 
+        hideConfigForm();
+
+        var articleMetaForm = document.getElementById('article-meta-form');
+        articleMetaForm.style.display = 'block';
+      }
+
+      function onSuccessConfigFormValues(data) {
+        var accessToken = document.getElementById('access-token');
+        accessToken.value = data.accessToken;
+
+        var contentApi = document.getElementById('content-api');
+        contentApi.value = data.contentApi;
+
+        var personalAccessToken = document.getElementById('personal-access-token');
+        personalAccessToken.value = data.personalAccessToken;
+
+        var graphqlApi = document.getElementById('graphql-api-url');
+        graphqlApi.value = data.graphqlApi;
+
+        var previewUrl = document.getElementById('preview-url');
+        previewUrl.value = data.previewUrl;
+
+        var previewSecret = document.getElementById('preview-secret');
+        previewSecret.value = data.previewSecret;
+
+        var awsAccessKey = document.getElementById('aws-access-key');
+        awsAccessKey.value = data.awsAccessKey;
+
+        var awsSecretKey = document.getElementById('aws-secret-key');
+        awsSecretKey.value = data.awsSecretKey;
+
+        var awsBucket = document.getElementById('aws-bucket');
+        awsBucket.value = data.awsBucket;
+      }
+
+      function getConfigAndDisplayForm() {
+        var articleMetaForm = document.getElementById('article-meta-form');
+        articleMetaForm.style.display = 'none';
+        showConfigForm();
+        google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessConfigFormValues).getArticleMeta();
+      }
+
+      function showConfigForm() {
         var scriptForm = document.getElementById('script-config-form')
-        scriptForm.display = "none";
+        scriptForm.style.display = "block";
+      }
+
+      function hideConfigForm() {
+        var scriptForm = document.getElementById('script-config-form')
+        scriptForm.style.display = "none";
       }
 
       function setPublishedFlag(value) {
@@ -176,13 +236,13 @@
       function onSuccessConfig(data) {
         var configDiv = document.getElementById('config');
         if (data !== null && data !== {} && Object.keys(data).length > 0) {
-          var scriptForm = document.getElementById('script-config-form')
-          scriptForm.display = "none";
-          // configDiv.innerHTML = "<div class='gray secondary'>Loaded script config, just FYI. You're ready to publish!</div><hr/>"
+          configDiv.innerHTML = "<div class='success'>Configuration loaded.</div><hr/>"
+          hideConfigForm();
+          var articleMetaForm = document.getElementById('article-meta-form');
+          articleMetaForm.style.display = 'block';
         } else {
-          var scriptForm = document.getElementById('script-config-form')
-          scriptForm.display = "block";
-          configDiv.innerHTML = "<div class='error'>No script config found. Fill in the form.</div><hr/>"
+          showConfigForm();
+          configDiv.innerHTML = "<div class='error'>No script config found. Fill in the form to use publishing tools.</div><hr/>"
         }
       }
 
@@ -203,24 +263,38 @@
         var form = document.getElementById('article-meta-form');
         form.style.display = "none";
 
+        var configDiv = document.getElementById('config');
+        configDiv.style.display = "none";
+
         var loadingDiv = document.getElementById('loading');
         loadingDiv.style.display = "block";
 
-        google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).getCurrentDocContents(formObject);
+        if (formObject.submitted === "Preview") {
+          google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).handlePreview(formObject);
+        } else {
+          google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).getCurrentDocContents(formObject, true);
+        }
       }
       
       window.onload = (function(){
         var form = document.getElementById('article-meta-form');
         form.style.display = "none";
+        hideConfigForm();
         
         var revisionDiv = document.getElementById('revision-info');
         revisionDiv.style.display = "none";
 
-        var saveDivTop = document.getElementById('save-article-top');
+        var saveDivTop = document.getElementById('save-button-top');
         saveDivTop.style.display = "none";
 
-        var saveDivBottom = document.getElementById('save-article-bottom');
+        var saveDivBottom = document.getElementById('save-button-bottom');
         saveDivBottom.style.display = "none";
+
+        var previewButtonTop = document.getElementById('preview-button-top');
+        previewButtonTop.style.display = "none";
+
+        var previewButtonBottom = document.getElementById('preview-button-bottom');
+        previewButtonBottom.style.display = "none";
 
         handleScriptConfig();
 
@@ -266,8 +340,8 @@
       <div class="block" id="loading">Loading...</div>
 
       <div id="config"></div>
-      <form id="script-config-form" style="display: none;" onsubmit="handleScriptConfigSubmit(this)">
-        <div id="script-config-form-output" class="block secondary"></div>
+      <div id="script-config-form-output" class="block secondary"></div>
+      <form id="script-config-form" onsubmit="handleScriptConfigSubmit(this)">
         <div class="block form-group">
           <label for="access-token">
             <b>Content API Access Token</b>
@@ -293,6 +367,18 @@
           <input id="graphql-api-url" name="GRAPHQL_API" type="text" />
         </div>
         <div class="block form-group">
+          <label for="preview-url">
+            <b>Preview Host URL</b>
+          </label>
+          <input id="preview-url" name="PREVIEW_URL" type="text" placeholder="http://localhost:3000/api/preview" />
+        </div>
+        <div class="block form-group">
+          <label for="preview-secret">
+            <b>Preview Secret Param</b>
+          </label>
+          <input id="preview-secret" name="PREVIEW_SECRET" type="text" />
+        </div>
+        <div class="block form-group">
           <label for="aws-access-key">
             <b>AWS Access Key ID</b>
           </label>
@@ -311,15 +397,16 @@
           <input id="aws-bucket" name="AWS_BUCKET" type="text" />
         </div>
         <div class="block">
-          <button class="blue">Submit</button>
+          <button class="blue">Save Config</button>
         </div>
       </form>
 
       <div id="article-meta-form">
         <form onsubmit="handleClick(this)">
           <div id="form-output" class="block success"></div>
-          <div id="save-article-top" class="block">
-            <input type="submit" class="blue" value="Save & Publish Article"/>
+          <div class="block">
+            <input type="submit" name="preview" id="preview-button-top" class="blue" value="Preview" onclick="this.form.submitted=this.value;"/>
+            <input type="submit" class="blue" id="save-button-top" value="Publish" onclick="this.form.submitted=this.value;"/>
           </div>
 
           <div class="block form-group">
@@ -385,8 +472,9 @@
             </label>
             <input id="article-twitter-description" name="article-twitter-description" type="text" />
           </div>
-          <div id="save-article-bottom" class="block">
-            <input type="submit" class="blue" value="Save & Publish Article"/>
+          <div class="block">
+            <input type="submit" name="preview" id="preview-button-bottom" class="blue" value="Preview" onclick="this.form.submitted=this.value;"/>
+            <input type="submit" class="blue" id="save-button-bottom" value="Publish" onclick="this.form.submitted=this.value;"/>
           </div>
         </form>
       </div>
@@ -412,6 +500,11 @@
       </div>
 
       <div id="output" class="block"></div>
+
+      <div class="block">
+        <button onclick="getConfigAndDisplayForm()">Show Config</button>
+        <button onclick="hideConfigForm()">Hide Config</button>
+      </div>
     </div>
 
     <div class="sidebar bottom">

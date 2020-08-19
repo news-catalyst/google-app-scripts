@@ -184,6 +184,7 @@ function setScriptConfig(data) {
   for (var key in data) {
     scriptProperties.setProperty(key, data[key]);
   }
+  return "Saved configuration.";
 }
 
 /*
@@ -278,7 +279,7 @@ function storeLocaleID(localeID) {
 
 function getArticleSlug() {
   return getValue('ARTICLE_SLUG');
-}
+}  
 
 function storeArticleSlug(slug) {
   storeValue("ARTICLE_SLUG", slug);
@@ -434,8 +435,6 @@ function getArticleMeta() {
   Logger.log("getArticleMeta START");
   var articleID = getArticleID();
 
-  var isLatestVersionPublished = getLatestVersionPublished();
-
   var publishingInfo = getPublishingInfo();
   Logger.log("publishingInfo: ", publishingInfo);
 
@@ -470,10 +469,30 @@ function getArticleMeta() {
 
   var seoData = getSEO();
 
+  var scriptConfig = getScriptConfig();
+  var previewUrl = scriptConfig['PREVIEW_URL']
+  var previewSecret = scriptConfig['PREVIEW_SECRET'];
+  var accessToken = scriptConfig['ACCESS_TOKEN'];
+  var contentApi = scriptConfig['CONTENT_API'];
+  var personalAccessToken = scriptConfig['PERSONAL_ACCESS_TOKEN'];
+  var graphqlApi = scriptConfig['GRAPHQL_API'];
+  var awsAccessKey = scriptConfig['AWS_ACCESS_KEY_ID'];
+  var awsSecretKey = scriptConfig['AWS_SECRET_KEY'];
+  var awsBucket = scriptConfig['AWS_BUCKET'];
+
   if (typeof(articleID) === "undefined" || articleID === null) {
     Logger.log("articleID is undefined, returning new doc state");
 
     return {
+      awsAccessKey: awsAccessKey,
+      awsSecretKey: awsSecretKey,
+      awsBucket: awsBucket,
+      graphqlApi: graphqlApi,
+      personalAccessToken: personalAccessToken,
+      accessToken: accessToken,
+      contentApi: contentApi,
+      previewUrl: previewUrl,
+      previewSecret: previewSecret,
       articleID: null,
       headline: headline,
       byline: byline,
@@ -487,7 +506,17 @@ function getArticleMeta() {
       seo: seoData
     }
   }
+
   var articleMetadata = {
+    awsAccessKey: awsAccessKey,
+    awsSecretKey: awsSecretKey,
+    awsBucket: awsBucket,
+    graphqlApi: graphqlApi,
+    personalAccessToken: personalAccessToken,
+    accessToken: accessToken,
+    contentApi: contentApi,
+    previewUrl: previewUrl,
+    previewSecret: previewSecret,
     articleID: articleID,
     headline: headline,
     byline: byline,
@@ -505,12 +534,35 @@ function getArticleMeta() {
   return articleMetadata;
 }
 
+/**
+ * 
+ * Saves the article as a draft, opens preview
+ * @param {} formObject 
+ */
+function handlePreview(formObject) {
+  Logger.log("Handling preview for formObject:", formObject);
+  // save the article - pass publishFlag as false
+  var message = getCurrentDocContents(formObject, false);
+  Logger.log("message: ", message)
+
+  // construct preview url
+  var slug = getArticleSlug();
+
+  var scriptConfig = getScriptConfig();
+  var previewHost = scriptConfig['PREVIEW_URL'];
+  var previewSecret = scriptConfig['PREVIEW_SECRET'];
+  var fullPreviewUrl = previewHost + "?secret=" + previewSecret + "&slug=" + slug;
+
+  // open preview url in new window
+  message += "<br><a href='" + fullPreviewUrl + "' target='_blank'>Preview article in new window</a>"
+  return message;
+}
 
 /**
 . * Gets the current document's contents and
 .  * posts them to webiny
 . */
-function getCurrentDocContents(formObject) {
+function getCurrentDocContents(formObject, publishFlag) {
   Logger.log("getCurrentDocContents: ", formObject);
 
   var propMessage = processForm(formObject);
@@ -544,10 +596,15 @@ function getCurrentDocContents(formObject) {
   } else {
     responseText = 'Webiny responded with code ' + webinyResponseCode;
   }
-  // publish
-  var publishResponse = publishArticle();
 
-  responseText += "<br>" + JSON.stringify(publishResponse);
+  if (publishFlag) {
+    Logger.log("Publishing article...")
+    // publish
+    var publishResponse = publishArticle();
+    Logger.log("Done publishing article:", publishResponse);
+
+    responseText += "<br>" + JSON.stringify(publishResponse);
+  }
 
   // update published flag and latest version ID
   setArticleMeta();
