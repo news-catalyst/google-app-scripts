@@ -505,12 +505,31 @@ function getArticleMeta() {
   return articleMetadata;
 }
 
+/**
+ * 
+ * Saves the article as a draft, opens preview
+ * @param {} formObject 
+ */
+function handlePreview(formObject) {
+  Logger.log("Handling preview for formObject:", formObject);
+  // save the article - pass publishFlag as false
+  var message = getCurrentDocContents(formObject, false);
+  Logger.log("message: ", message)
+
+  // construct preview url
+  var slug = getArticleSlug();
+  var previewUrl = "http://localhost:3000/api/preview?secret=DUNGEONSDRAGONS&slug=" + slug;
+
+  // open preview url in new window
+  message += "<br><a href='" + previewUrl + "' target='_blank'>Preview article in new window</a>"
+  return message;
+}
 
 /**
 . * Gets the current document's contents and
 .  * posts them to webiny
 . */
-function getCurrentDocContents(formObject) {
+function getCurrentDocContents(formObject, publishFlag) {
   Logger.log("getCurrentDocContents: ", formObject);
 
   var propMessage = processForm(formObject);
@@ -544,10 +563,15 @@ function getCurrentDocContents(formObject) {
   } else {
     responseText = 'Webiny responded with code ' + webinyResponseCode;
   }
-  // publish
-  var publishResponse = publishArticle();
 
-  responseText += "<br>" + JSON.stringify(publishResponse);
+  if (publishFlag) {
+    Logger.log("Publishing article...")
+    // publish
+    var publishResponse = publishArticle();
+    Logger.log("Done publishing article:", publishResponse);
+
+    responseText += "<br>" + JSON.stringify(publishResponse);
+  }
 
   // update published flag and latest version ID
   setArticleMeta();

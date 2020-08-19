@@ -134,11 +134,17 @@
         var revisionDiv = document.getElementById('revision-info');
         revisionDiv.style.display = "block";
 
-        var saveDivTop = document.getElementById('save-article-top');
-        saveDivTop.style.display = "block";
+        var previewDivTop = document.getElementById('preview-button-top');
+        previewDivTop.style.display = "inline";
 
-        var saveDivBottom = document.getElementById('save-article-bottom');
-        saveDivBottom.style.display = "block";
+        var previewDivBottom = document.getElementById('preview-button-bottom');
+        previewDivBottom.style.display = "inline";
+
+        var saveDivTop = document.getElementById('save-button-top');
+        saveDivTop.style.display = "inline";
+
+        var saveDivBottom = document.getElementById('save-button-bottom');
+        saveDivBottom.style.display = "inline";
 
         if (data.publishingInfo !== null && typeof(data.publishingInfo) !== 'undefined') {
           if (data.publishingInfo.firstPublishedOn !== null && typeof(data.publishingInfo.firstPublishedOn) !== 'undefined') {
@@ -200,13 +206,19 @@
       }
 
       function handleClick(formObject) {
+        console.log("handling submit: ", formObject);
+        console.log("submitted:: ", formObject.submitted);
         var form = document.getElementById('article-meta-form');
         form.style.display = "none";
 
         var loadingDiv = document.getElementById('loading');
         loadingDiv.style.display = "block";
 
-        google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).getCurrentDocContents(formObject);
+        if (formObject.submitted === "Preview") {
+          google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).handlePreview(formObject);
+        } else {
+          google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).getCurrentDocContents(formObject, true);
+        }
       }
       
       window.onload = (function(){
@@ -216,11 +228,17 @@
         var revisionDiv = document.getElementById('revision-info');
         revisionDiv.style.display = "none";
 
-        var saveDivTop = document.getElementById('save-article-top');
+        var saveDivTop = document.getElementById('save-button-top');
         saveDivTop.style.display = "none";
 
-        var saveDivBottom = document.getElementById('save-article-bottom');
+        var saveDivBottom = document.getElementById('save-button-bottom');
         saveDivBottom.style.display = "none";
+
+        var previewButtonTop = document.getElementById('preview-button-top');
+        previewButtonTop.style.display = "none";
+
+        var previewButtonBottom = document.getElementById('preview-button-bottom');
+        previewButtonBottom.style.display = "none";
 
         handleScriptConfig();
 
@@ -318,8 +336,9 @@
       <div id="article-meta-form">
         <form onsubmit="handleClick(this)">
           <div id="form-output" class="block success"></div>
-          <div id="save-article-top" class="block">
-            <input type="submit" class="blue" value="Save & Publish Article"/>
+          <div class="block">
+            <input type="submit" name="preview" id="preview-button-top" class="blue" value="Preview" onclick="this.form.submitted=this.value;"/>
+            <input type="submit" class="blue" id="save-button-top" value="Publish" onclick="this.form.submitted=this.value;"/>
           </div>
 
           <div class="block form-group">
@@ -385,8 +404,9 @@
             </label>
             <input id="article-twitter-description" name="article-twitter-description" type="text" />
           </div>
-          <div id="save-article-bottom" class="block">
-            <input type="submit" class="blue" value="Save & Publish Article"/>
+          <div class="block">
+            <input type="submit" name="preview" id="preview-button-bottom" class="blue" value="Preview" onclick="this.form.submitted=this.value;"/>
+            <input type="submit" class="blue" id="save-button-bottom" value="Publish" onclick="this.form.submitted=this.value;"/>
           </div>
         </form>
       </div>
