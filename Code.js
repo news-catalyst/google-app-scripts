@@ -533,6 +533,19 @@ function getArticleMeta() {
   Logger.log("getArticleMeta END");
   return articleMetadata;
 }
+/**
+ * 
+ * Saves the article as a draft, then publishes
+ * @param {} formObject 
+ */
+function handlePublish(formObject) {
+  Logger.log("Handling publish for formObject:", formObject);
+  // save the article - pass publishFlag as true
+  var message = getCurrentDocContents(formObject, true);
+  Logger.log("message: ", message)
+
+  return message;
+}
 
 /**
  * 
