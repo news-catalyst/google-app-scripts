@@ -1917,8 +1917,12 @@ function setArticleMeta() {
     return aDate > bDate;
   });
   nonNullRevisions.reverse();
-  publishingInfo.firstPublishedOn = nonNullRevisions[0].meta.publishedOn;
-  publishingInfo.lastPublishedOn = nonNullRevisions[nonNullRevisions.length - 1].meta.publishedOn;
+  if (nonNullRevisions && nonNullRevisions[0] && nonNullRevisions[0].meta) {
+    publishingInfo.firstPublishedOn = nonNullRevisions[0].meta.publishedOn;
+  }
+  if (nonNullRevisions && nonNullRevisions[nonNullRevisions.length - 1] && nonNullRevisions[nonNullRevisions.length - 1].meta) {
+    publishingInfo.lastPublishedOn = nonNullRevisions[nonNullRevisions.length - 1].meta.publishedOn;
+  }
 
   // the ID of the most recent revision of the article should now be treated as its articleID
   // save this in the document properties store
