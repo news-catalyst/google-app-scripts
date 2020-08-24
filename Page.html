@@ -272,7 +272,7 @@
         if (formObject.submitted === "Preview") {
           google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).handlePreview(formObject);
         } else {
-          google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).getCurrentDocContents(formObject, true);
+          google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).handlePublish(formObject);
         }
       }
       
