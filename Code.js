@@ -251,6 +251,14 @@ function storeArticleID(articleID) {
   documentProperties.setProperty('ARTICLE_ID', articleID);
 }
 
+/**
+ * Deletes the articleID
+ * this is used when deleting the article from webiny
+ */
+function deleteArticleID() {
+  deleteValue('ARTICLE_ID');
+}
+
 function storeLatestVersionPublished(isLatestVersionPublished) {
   var documentProperties = PropertiesService.getDocumentProperties();
   documentProperties.setProperty('LATEST_VERSION_PUBLISHED', isLatestVersionPublished);
@@ -344,6 +352,13 @@ function getPublishingInfo() {
   return publishingInfo;
 }
 
+/**
+ * Deletes the article's publishing info
+ * this is used when deleting the article from webiny
+ */
+function deletePublishingInfo() {
+  deleteValue('PUBLISHING_INFO');
+}
 
 function getTags() {
   return getValueJSON('ARTICLE_TAGS');
@@ -1109,7 +1124,9 @@ function createArticleFrom(versionID, title, elements) {
     options
   );
   var responseText = response.getContentText();
+  Logger.log("createArticleFrom response:", responseText);
   var responseData = JSON.parse(responseText);
+  Logger.log("createArticleFrom responseData:", responseData);
   var latestVersionID = responseData.data.content.data.id;
   storeArticleID(latestVersionID);
   return response;
@@ -1395,6 +1412,64 @@ function updateArticle(id, title, elements) {
 }
 
 /**
+ * Deletes the article
+ */
+function deleteArticle() {
+  var versionID = getArticleID();
+  Logger.log("publishing article versionID: ", versionID);
+
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  var formData = {
+    query: `mutation DeleteBasicArticle($revision: ID!) {
+      content: deleteBasicArticle(where: {id: $revision}) {
+        data
+        error {
+          message
+          code
+          data
+        }
+      }
+    }`,
+    variables: {
+      revision: versionID,
+    }
+  };
+
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  Logger.log(JSON.stringify(formData))
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  Logger.log(responseData);
+
+  if (responseData && responseData.data.content.data !== null) {
+    // TODO wipe out all article metadata (ID, published dates)
+    deleteArticleID();
+    deletePublishingInfo();
+    Logger.log("Deleted ArticleID and PublishingInfo.")
+
+    return "Deleted article at revision " + versionID;
+  } else {
+    return responseData.data.content.error;
+  }
+}
+
+/**
  * Publishes the article
  */
 function publishArticle() {
@@ -1404,7 +1479,6 @@ function publishArticle() {
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
-
 
   var formData = {
     query: `mutation PublishBasicArticle($revision: ID!) {
