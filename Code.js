@@ -360,6 +360,55 @@ function deletePublishingInfo() {
   deleteValue('PUBLISHING_INFO');
 }
 
+function getAuthors() {
+  return getValueJSON('ARTICLE_AUTHORS');
+}
+
+function storeAuthors(authors) {
+  if (authors === undefined) {
+    Logger.log("storeAuthors called with undefined authors argument")
+    return;
+  }
+  var allAuthors = getAllAuthors(); // don't request from the DB again - too slow
+  var storableAuthors = [];
+  Logger.log("storeAuthors typeof authors: ", typeof(authors), authors);
+
+  // the form in the sidebar sends a string with a single ID when one author is selected 
+  // **argh**
+  // this hack addresses that issue
+  if (typeof(authors) === 'string') {
+    authors = [authors];
+  }
+
+  // try to find id and name of each author to store full data
+  authors.forEach(author => {
+    var authorID;
+    if (typeof(author) === 'object') {
+      authorID = author.id;
+    } else {
+      authorID = author;
+    }
+    var result = allAuthors.find( ({ id }) => id === authorID );
+    if (result !== undefined) {
+      storableAuthors.push({
+        id: result.id,
+        newAuthor: false,
+        name: result.name.value
+      });
+    }
+  })
+
+  storeValueJSON("ARTICLE_AUTHORS", storableAuthors);
+}
+
+function getAllAuthors() {
+  return getValueJSON('ALL_AUTHORS');
+}
+
+function storeAllAuthors(authors) {
+  return storeValueJSON('ALL_AUTHORS', authors);
+}
+
 function getTags() {
   return getValueJSON('ARTICLE_TAGS');
 }
@@ -460,6 +509,11 @@ function getArticleMeta() {
   }
   var byline = getByline();
 
+  var allAuthors = loadAuthorsFromDB();
+  storeAllAuthors(allAuthors);
+
+  var articleAuthors = getAuthors();
+
   var categories = getCategories();
   if (categories === null || categories.length <= 0) {
     Logger.log("categories are blank: ", categories);
@@ -512,6 +566,8 @@ function getArticleMeta() {
       headline: headline,
       byline: byline,
       publishingInfo: publishingInfo,
+      allAuthors: allAuthors,
+      articleAuthors: articleAuthors,
       allTags: allTags,
       articleTags: articleTags,
       categories: categories,
@@ -536,6 +592,8 @@ function getArticleMeta() {
     headline: headline,
     byline: byline,
     publishingInfo: publishingInfo,
+    allAuthors: allAuthors,
+    articleAuthors: articleAuthors,
     allTags: allTags,
     articleTags: articleTags,
     categories: categories,
@@ -931,6 +989,31 @@ function createArticleFrom(versionID, title, elements) {
     storeArticleSlug(slug);
   }
 
+  var articleAuthors = getAuthors(); // only id
+  Logger.log("createArticleFrom articleAuthors: ", articleAuthors);
+
+  var allAuthors = getAllAuthors(); // don't request from the DB again - too slow
+
+  // compare all tags array to those selected for this article
+  var authorsArrayForGraphQL = [];
+  allAuthors.forEach(author => {
+    const result = articleAuthors.find( ({ id }) => id === author.id );
+    if (result !== undefined) {
+      // just try to publish it because the article won't publish with any unpublished authors :(
+      // TODO: see if there's a way to optimise this so we're not unnecessarily publishing authors
+      publishAuthor(author.id);
+      authorsArrayForGraphQL.push({
+        locale: localeID,
+        value: [
+          {
+            id: author.id,
+            name: author.name.value
+          }
+        ]
+      });
+    }
+  });
+
   var articleTags = getTags(); // only id
   Logger.log("createArticleFrom articleTags: ", articleTags);
   // create any new tags
@@ -1054,6 +1137,10 @@ function createArticleFrom(versionID, title, elements) {
             },
           ],
         },
+        authors: {
+          values: authorsArrayForGraphQL
+        },
+
     		tags: {
           values: tagsArrayForGraphQL
         },
@@ -1589,6 +1676,48 @@ function listCategories() {
   }
 }
 
+function loadAuthorsFromDB() {
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+  var formData = {
+    query: `query listAuthors {
+      content: listAuthors {
+        data {
+          id
+          name {
+            value
+          }
+        }
+      }
+    }`
+  };
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  Logger.log(JSON.stringify(formData))
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  Logger.log(responseData);
+
+  if (responseData && responseData.data && responseData.data.content && responseData.data.content.data !== null) {
+    return responseData.data.content.data;
+  } else {
+    return responseData.data.content.error;
+  }
+}
+
 function loadTagsFromDB() {
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
@@ -1650,6 +1779,70 @@ function addTagToLocalStore(formObject) {
     });
     storeTags(articleTags);
     return "Stored new tag: ", tagTitle
+  }
+}
+
+function publishAuthor(authorID) {
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  var formData = {
+      query: `mutation PublishAuthor($revision: ID!) {
+      content: publishAuthor(revision: $revision) {
+        data {
+          id
+          meta {
+            publishedOn
+            published
+          }
+        }
+        error {
+          message
+          code
+          data
+        }
+      }
+    }`,
+    variables: {
+      revision: authorID
+    }
+  };
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  Logger.log("formData: ", JSON.stringify(formData))
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  Logger.log("responseData: ", responseData);
+
+  if (responseData && responseData.data && responseData.data.content.error !== null) {
+    Logger.log("Error publishing author ", authorID, ": ", responseData.data.content.error);
+    return false;
+  } else if (responseData && responseData.data && responseData.data.content && responseData.data.content.data) {
+    var publishedSuccessfully = responseData.data.content.data.meta.published;
+    if (publishedSuccessfully) {
+      Logger.log("Published author with id ", authorID, " successfully.")
+      return true;
+    } else {
+      Logger.log("Something went wrong publishing author with id ", authorID, ": ", responseData);
+      return false;
+    }
+  } else {
+    Logger.log("Something went wrong publishing author with id ", authorID, ": ", responseData);
+    return false;
   }
 }
 
@@ -2047,6 +2240,9 @@ function processForm(formObject) {
 
   var byline = formObject["article-byline"];
   storeByline(byline);
+
+  var authors = formObject["article-authors"];
+  storeAuthors(authors);
 
   var tags = formObject["article-tags"];
   storeTags(tags);
