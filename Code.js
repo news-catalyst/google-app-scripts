@@ -507,12 +507,22 @@ function getArticleMeta() {
     headline = getDocumentName();
     storeHeadline(headline);
   }
-  var byline = getByline();
 
+  var byline;
   var allAuthors = loadAuthorsFromDB();
   storeAllAuthors(allAuthors);
-
   var articleAuthors = getAuthors();
+  var authorSlugs = [];
+  allAuthors.forEach(author => {
+    const result = articleAuthors.find( ({ id }) => id === author.id );
+    if (result !== undefined) {
+      authorSlugs.push(author.slug.value);
+    }
+  });
+  if (authorSlugs.length > 0) {
+    byline = authorSlugs.join(' ');
+    storeByline(byline);
+  }
 
   var categories = getCategories();
   if (categories === null || categories.length <= 0) {
@@ -968,7 +978,7 @@ function createArticleFrom(versionID, title, elements) {
     }
   }
 
-  var byline = getByline();
+  // var byline = getByline();
 
   var publishingInfo = getPublishingInfo();
   var seoData = getSEO();
@@ -993,9 +1003,11 @@ function createArticleFrom(versionID, title, elements) {
   Logger.log("createArticleFrom articleAuthors: ", articleAuthors);
 
   var allAuthors = getAllAuthors(); // don't request from the DB again - too slow
+  let byline;
 
   // compare all tags array to those selected for this article
   var authorsArrayForGraphQL = [];
+  var authorSlugs = [];
   allAuthors.forEach(author => {
     const result = articleAuthors.find( ({ id }) => id === author.id );
     if (result !== undefined) {
@@ -1011,8 +1023,15 @@ function createArticleFrom(versionID, title, elements) {
           }
         ]
       });
+      authorSlugs.push(author.slug.value);
     }
   });
+
+  if (authorSlugs.length > 0) {
+    Logger.log("authorSlugs:", authorSlugs);
+    byline = authorSlugs.join(' ');
+    Logger.log("article byline:", byline);
+  }
 
   var articleTags = getTags(); // only id
   Logger.log("createArticleFrom articleTags: ", articleTags);
@@ -1238,8 +1257,6 @@ function createArticle(title, elements) {
     }
   }
 
-  var byline = getByline();
-
   var publishingInfo = getPublishingInfo();
   var seoData = getSEO();
 
@@ -1258,6 +1275,38 @@ function createArticle(title, elements) {
     storeArticleSlug(slug);
   }
 
+  var articleAuthors = getAuthors(); // only id
+  Logger.log("createArticle articleAuthors: ", articleAuthors);
+
+  var allAuthors = getAllAuthors(); // don't request from the DB again - too slow
+  let byline;
+
+  // compare all tags array to those selected for this article
+  var authorsArrayForGraphQL = [];
+  var authorSlugs = [];
+  allAuthors.forEach(author => {
+    const result = articleAuthors.find( ({ id }) => id === author.id );
+    if (result !== undefined) {
+      // just try to publish it because the article won't publish with any unpublished authors :(
+      // TODO: see if there's a way to optimise this so we're not unnecessarily publishing authors
+      publishAuthor(author.id);
+      authorsArrayForGraphQL.push({
+        locale: localeID,
+        value: [
+          {
+            id: author.id,
+            name: author.name.value
+          }
+        ]
+      });
+      authorSlugs.push(author.slug.value);
+    }
+  });
+
+  if (authorSlugs.length > 0) {
+    byline = authorSlugs.join(' ');
+    Logger.log("article byline:", byline);
+  }
   var allTags = getValueJSON('ALL_TAGS'); // don't look up in the DB again, too slow
   var articleTags = getTags();
 
@@ -1325,6 +1374,9 @@ function createArticle(title, elements) {
         },
     		tags: {
           values: tagsArrayForGraphQL
+        },
+    		authors: {
+          values: authorsArrayForGraphQL
         },
         searchTitle: {
           values: [
@@ -1686,6 +1738,9 @@ function loadAuthorsFromDB() {
         data {
           id
           name {
+            value
+          }
+          slug {
             value
           }
         }
