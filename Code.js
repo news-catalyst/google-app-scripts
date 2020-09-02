@@ -507,6 +507,14 @@ function storeSEO(seoData) {
   storeValueJSON("ARTICLE_SEO", seoData);
 }
 
+function storeDocumentType(value) {
+  storeValue('DOCUMENT_TYPE', value);
+}
+
+function getDocumentType() {
+  getValue('DOCUMENT_TYPE');
+}
+
 //
 // Functions for retrieving and formatting document contents
 //
@@ -517,6 +525,29 @@ function storeSEO(seoData) {
 . */
 function getArticleMeta() {
   Logger.log("getArticleMeta START");
+
+  // first determine if the document is an article or a static page for the site
+  // this is based on which folder the document is in: 'pages' (static pages) or anything else (articles)
+  // in order to do this we need to use the Google Drive API
+  // which requires the "https://www.googleapis.com/auth/drive.readonly" scope
+  var documentID = DocumentApp.getActiveDocument().getId();
+  var driveFile = DriveApp.getFileById(documentID)
+  var fileParents = driveFile.getParents();
+  var isStaticPage = false;
+  while ( fileParents.hasNext() ) {
+    var folder = fileParents.next();
+    if (folder.getName() === "pages") {
+      isStaticPage = true;
+    }
+  }
+
+  var documentType = 'article';
+  Logger.log("isStaticPage:", isStaticPage);
+  if (isStaticPage) {
+    documentType = 'page';
+  }
+  storeDocumentType(documentType);
+
   var articleID = getArticleID();
 
   var publishingInfo = getPublishingInfo();
@@ -590,6 +621,7 @@ function getArticleMeta() {
       awsAccessKey: awsAccessKey,
       awsSecretKey: awsSecretKey,
       awsBucket: awsBucket,
+      documentType: documentType,
       graphqlApi: graphqlApi,
       personalAccessToken: personalAccessToken,
       accessToken: accessToken,
@@ -617,6 +649,7 @@ function getArticleMeta() {
     awsAccessKey: awsAccessKey,
     awsSecretKey: awsSecretKey,
     awsBucket: awsBucket,
+    documentType: documentType,
     graphqlApi: graphqlApi,
     personalAccessToken: personalAccessToken,
     accessToken: accessToken,

@@ -57,6 +57,13 @@
         var form = document.getElementById('article-meta-form');
         form.style.display = "block";
 
+        if (data.documentType !== "article") {
+          var elements = document.getElementsByClassName('articles-only');
+          for (var i = 0; i < elements.length; i++) {
+            elements[i].style.display = "none";
+          };
+        }
+
         var articleCategorySelect = document.getElementById('article-category');
         var categoriesSorted = data.categories.sort(function (a, b) {
           let comparison = 0;
@@ -83,21 +90,24 @@
         })
 
         var articleAuthorsSelect = document.getElementById('article-authors');
-        data.allAuthors.forEach(author => {
-          // first check if this option already exists; don't add dupes!
-          var selectorString = "#article-authors option[value='" + author.id + "']";
-          if ( $(selectorString).length <= 0 ) {
-            var option = document.createElement("option");
-            option.text = author.name.value;
-            option.value = author.id;
 
-            const result = data.articleAuthors.find( ({ id }) => id === author.id );
-            if (result !== undefined) {
-              option.selected = true;
+        if (data.documentType === 'article') {
+          data.allAuthors.forEach(author => {
+            // first check if this option already exists; don't add dupes!
+            var selectorString = "#article-authors option[value='" + author.id + "']";
+            if ( $(selectorString).length <= 0 ) {
+              var option = document.createElement("option");
+              option.text = author.name.value;
+              option.value = author.id;
+
+              const result = data.articleAuthors.find( ({ id }) => id === author.id );
+              if (result !== undefined) {
+                option.selected = true;
+              }
+              articleAuthorsSelect.add(option);
             }
-            articleAuthorsSelect.add(option);
-          }
-        })
+          })
+        }
 
         var articleTagsSelect = document.getElementById('article-tags');
         data.allTags.forEach(tag => {
@@ -124,9 +134,11 @@
         var articleHeadline = document.getElementById('article-headline');
         articleHeadline.value = data.headline;
 
-        if (data.customByline !== null && data.customByline !== undefined) {
-          var articleCustomByline = document.getElementById('article-custom-byline');
-          articleCustomByline.value = data.customByline;
+        if (data.documentType === 'article') {
+          if (data.customByline !== null && data.customByline !== undefined) {
+            var articleCustomByline = document.getElementById('article-custom-byline');
+            articleCustomByline.value = data.customByline;
+          }
         }
 
         var articleSearchTitle = document.getElementById('article-search-title');
@@ -156,9 +168,11 @@
         var slugDiv = document.getElementById('slug');
         slugDiv.innerHTML = data.slug;
 
-        $('#article-authors').select2({
-          width: 'resolve',
-        });
+        if (data.documentType === 'article') {
+          $('#article-authors').select2({
+            width: 'resolve',
+          });
+        }
 
         $('#article-tags').select2({
           width: 'resolve',
@@ -486,14 +500,14 @@
             <input id="article-headline" name="article-headline" type="text" />
           </div>
 
-          <div class="block form-group">
+          <div class="block form-group articles-only">
             <label for="article-authors">
               <b>Authors</b>
               <select style="width: 100%" id="article-authors" name="article-authors" multiple="multiple"></select>
             </label>
           </div>
 
-          <div class="block form-group">
+          <div class="block form-group articles-only">
             <label for="article-custom-byline">
               <b>Custom Byline</b>
             </label>
