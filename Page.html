@@ -18,7 +18,7 @@
         var div = document.getElementById('loading');
         div.style.display = 'block';
         div.innerHTML = '<p style="color: #48C774;">' + contents + "</p>";
-        handleMeta();
+        handleMetaPreserveLoading();
       }
       
       function onSuccessDelete(contents) {
@@ -53,10 +53,7 @@
         loadingDiv.innerHTML = "<p class='error'>An error occurred: " + error + "</p>";
       }
 
-      function onSuccessMeta(data) {
-        var loadingDiv = document.getElementById('loading');
-        loadingDiv.style.display = "none";
-
+      function onSuccessMetaPreserveLoading(data) {
         var form = document.getElementById('article-meta-form');
         form.style.display = "block";
 
@@ -212,6 +209,12 @@
 
         }
       }
+      function onSuccessMeta(data) {
+        var loadingDiv = document.getElementById('loading');
+        loadingDiv.style.display = "none";
+
+        onSuccessMetaPreserveLoading(data);
+      }
 
       function displayConfigFormMessage(text) {
         var configDiv = document.getElementById('config');
@@ -298,6 +301,10 @@
 
       function handleScriptConfig() {
          google.script.run.withFailureHandler(onFailureConfig).withSuccessHandler(onSuccessConfig).getScriptConfig();
+      }
+
+      function handleMetaPreserveLoading() {
+         google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessMetaPreserveLoading).getArticleMeta();
       }
 
       function handleMeta() {
