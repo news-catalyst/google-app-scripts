@@ -293,6 +293,14 @@ function storeArticleSlug(slug) {
   storeValue("ARTICLE_SLUG", slug);
 }
 
+function getCustomByline() {
+  return getValue('ARTICLE_CUSTOM_BYLINE');
+}
+
+function storeCustomByline(customByline) {
+  storeValue("ARTICLE_CUSTOM_BYLINE", customByline);
+}
+
 function getByline() {
   return getValue('ARTICLE_BYLINE');
 }
@@ -360,10 +368,22 @@ function deletePublishingInfo() {
   deleteValue('PUBLISHING_INFO');
 }
 
+// space delimited string of author slugs
+function getAuthorSlugs() {
+  return getValue('ARTICLE_AUTHOR_SLUGS');
+}
+
+// space delimited string of author slugs
+function storeAuthorSlugs(authorSlugs) {
+  storeValue("ARTICLE_AUTHOR_SLUGS", authorSlugs);
+}
+
+// array of author data
 function getAuthors() {
   return getValueJSON('ARTICLE_AUTHORS');
 }
 
+// array of author data
 function storeAuthors(authors) {
   if (authors === undefined) {
     Logger.log("storeAuthors called with undefined authors argument")
@@ -507,12 +527,26 @@ function getArticleMeta() {
     headline = getDocumentName();
     storeHeadline(headline);
   }
-  var byline = getByline();
 
+  var customByline = getCustomByline();
+
+  var authorSlugsValue;
   var allAuthors = loadAuthorsFromDB();
   storeAllAuthors(allAuthors);
-
   var articleAuthors = getAuthors();
+
+  var authorSlugs = [];
+  allAuthors.forEach(author => {
+    const result = articleAuthors.find( ({ id }) => id === author.id );
+    if (result !== undefined) {
+      authorSlugs.push(author.slug.value);
+    }
+  });
+
+  if (authorSlugs.length > 0) {
+    authorSlugsValue = authorSlugs.join(' ');
+    storeAuthorSlugs(authorSlugsValue);
+  }
 
   var categories = getCategories();
   if (categories === null || categories.length <= 0) {
@@ -564,7 +598,8 @@ function getArticleMeta() {
       previewSecret: previewSecret,
       articleID: null,
       headline: headline,
-      byline: byline,
+      customByline: customByline,
+      authorSlugs: authorSlugsValue,
       publishingInfo: publishingInfo,
       allAuthors: allAuthors,
       articleAuthors: articleAuthors,
@@ -590,7 +625,8 @@ function getArticleMeta() {
     previewSecret: previewSecret,
     articleID: articleID,
     headline: headline,
-    byline: byline,
+    customByline: customByline,
+    authorSlugs: authorSlugsValue,
     publishingInfo: publishingInfo,
     allAuthors: allAuthors,
     articleAuthors: articleAuthors,
@@ -663,7 +699,6 @@ function getCurrentDocContents(formObject, publishFlag) {
   var webinyResponse;
   // if we already have an articleID and latest version info, we need to create a new version of the article
   if (articleID !== null) {
-    // webinyResponse = updateArticle(articleID, title, formattedElements);
     webinyResponse = createArticleFrom(articleID, title, formattedElements);
   // otherwise, we create a new article
   } else {
@@ -968,7 +1003,7 @@ function createArticleFrom(versionID, title, elements) {
     }
   }
 
-  var byline = getByline();
+  var customByline = getCustomByline();
 
   var publishingInfo = getPublishingInfo();
   var seoData = getSEO();
@@ -993,9 +1028,11 @@ function createArticleFrom(versionID, title, elements) {
   Logger.log("createArticleFrom articleAuthors: ", articleAuthors);
 
   var allAuthors = getAllAuthors(); // don't request from the DB again - too slow
+  let authorSlugsValue;
 
   // compare all tags array to those selected for this article
   var authorsArrayForGraphQL = [];
+  var authorSlugs = [];
   allAuthors.forEach(author => {
     const result = articleAuthors.find( ({ id }) => id === author.id );
     if (result !== undefined) {
@@ -1011,8 +1048,13 @@ function createArticleFrom(versionID, title, elements) {
           }
         ]
       });
+      authorSlugs.push(author.slug.value);
     }
   });
+
+  if (authorSlugs.length > 0) {
+    authorSlugsValue = authorSlugs.join(' ');
+  }
 
   var articleTags = getTags(); // only id
   Logger.log("createArticleFrom articleTags: ", articleTags);
@@ -1133,14 +1175,21 @@ function createArticleFrom(versionID, title, elements) {
           values: [
             {
               locale: localeID,
-              value: byline,
+              value: customByline,
             },
           ],
         },
         authors: {
           values: authorsArrayForGraphQL
         },
-
+        authorSlugs: {
+          values: [
+            {
+              locale: localeID,
+              value: authorSlugsValue,
+            },
+          ],
+        },
     		tags: {
           values: tagsArrayForGraphQL
         },
@@ -1238,8 +1287,7 @@ function createArticle(title, elements) {
     }
   }
 
-  var byline = getByline();
-
+  var customByline = getCustomByline();
   var publishingInfo = getPublishingInfo();
   var seoData = getSEO();
 
@@ -1256,6 +1304,39 @@ function createArticle(title, elements) {
   if (slug === null || typeof(slug) === "undefined") {
     slug = createArticleSlug(categoryName, title);
     storeArticleSlug(slug);
+  }
+
+  var articleAuthors = getAuthors(); // only id
+  Logger.log("createArticle articleAuthors: ", articleAuthors);
+
+  var allAuthors = getAllAuthors(); // don't request from the DB again - too slow
+
+  let authorSlugsValue;
+
+  // compare all tags array to those selected for this article
+  var authorsArrayForGraphQL = [];
+  var authorSlugs = [];
+  allAuthors.forEach(author => {
+    const result = articleAuthors.find( ({ id }) => id === author.id );
+    if (result !== undefined) {
+      // just try to publish it because the article won't publish with any unpublished authors :(
+      // TODO: see if there's a way to optimise this so we're not unnecessarily publishing authors
+      publishAuthor(author.id);
+      authorsArrayForGraphQL.push({
+        locale: localeID,
+        value: [
+          {
+            id: author.id,
+            name: author.name.value
+          }
+        ]
+      });
+      authorSlugs.push(author.slug.value);
+    }
+  });
+
+  if (authorSlugs.length > 0) {
+    authorSlugsValue = authorSlugs.join(' ');
   }
 
   var allTags = getValueJSON('ALL_TAGS'); // don't look up in the DB again, too slow
@@ -1319,12 +1400,23 @@ function createArticle(title, elements) {
           values: [
             {
               locale: localeID,
-              value: byline,
+              value: customByline,
             },
           ],
         },
     		tags: {
           values: tagsArrayForGraphQL
+        },
+    		authors: {
+          values: authorsArrayForGraphQL
+        },
+        authorSlugs: {
+          values: [
+            {
+              locale: localeID,
+              value: authorSlugsValue,
+            },
+          ],
         },
         searchTitle: {
           values: [
@@ -1389,107 +1481,6 @@ function createArticle(title, elements) {
   };
 
   Logger.log(JSON.stringify(formData))
-  var response = UrlFetchApp.fetch(
-    CONTENT_API,
-    options
-  );
-  Logger.log(response.getContentText());
-  return response;
-}
-
-/*
- * Updates an article in webiny
- */
-function updateArticle(id, title, elements) {
-
-  var scriptConfig = getScriptConfig();
-  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
-  var CONTENT_API = scriptConfig['CONTENT_API'];
-
-  var localeID = getLocaleID();
-  if (localeID === null) {
-    var locales = getLocales();
-    setDefaultLocale(locales);
-    localeID = getLocaleID();
-    if (localeID === null) {
-      return 'Failed updating article: unable to find a default locale';
-    }
-  }
-
-  var byline = getByline();
-
-  var formData = {
-    query: `mutation UpdateBasicArticle($id: ID!, $data: BasicArticleInput!) {
-      content: updateBasicArticle(where: { id: $id }, data: $data) {
-       data {
-        id
-        headline {
-          values {
-            value
-            locale
-          }
-        }
-        content {
-          values {
-            value
-            locale
-          }
-        }
-        byline {
-          values {
-            value
-            locale
-          }
-        }
-        savedOn
-      }
-      error {
-        message
-        code
-        data
-      }
-    }
-  }`,
-    variables: {
-      id: id,
-      data: {
-        headline: {
-          values: [
-            {
-              locale: localeID,
-              value: title,
-            },
-          ],
-        },
-        content: {
-          values: [
-            {
-              locale: localeID,
-              value: JSON.stringify(elements),
-            },
-          ],
-        },
-        byline: {
-          values: [
-            {
-              locale: localeID,
-              value: byline,
-            },
-          ],
-        },
-      },
-    },
-  };
-  var options = {
-    method: 'post',
-    muteHttpExceptions: true,
-    contentType: 'application/json',
-    headers: {
-      authorization: ACCESS_TOKEN,
-    },
-    payload: JSON.stringify(formData),
-  };
-
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
@@ -1686,6 +1677,9 @@ function loadAuthorsFromDB() {
         data {
           id
           name {
+            value
+          }
+          slug {
             value
           }
         }
@@ -2238,8 +2232,8 @@ function processForm(formObject) {
   var headline = formObject["article-headline"];
   storeHeadline(headline);
 
-  var byline = formObject["article-byline"];
-  storeByline(byline);
+  var customByline = formObject["article-custom-byline"];
+  storeCustomByline(customByline);
 
   var authors = formObject["article-authors"];
   storeAuthors(authors);

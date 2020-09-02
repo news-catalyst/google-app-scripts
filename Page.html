@@ -49,6 +49,7 @@
       function onFailure(error) {
         var loadingDiv = document.getElementById('loading');
         console.log(error);
+        loadingDiv.style.display = "block";
         loadingDiv.innerHTML = "<p class='error'>An error occurred: " + error + "</p>";
       }
 
@@ -126,8 +127,10 @@
         var articleHeadline = document.getElementById('article-headline');
         articleHeadline.value = data.headline;
 
-        var articleByline = document.getElementById('article-byline');
-        articleByline.value = data.byline;
+        if (data.customByline !== null && data.customByline !== undefined) {
+          var articleCustomByline = document.getElementById('article-custom-byline');
+          articleCustomByline.value = data.customByline;
+        }
 
         var articleSearchTitle = document.getElementById('article-search-title');
         articleSearchTitle.value = data.seo.searchTitle;
@@ -484,10 +487,10 @@
           </div>
 
           <div class="block form-group">
-            <label for="article-byline">
-              <b>Byline</b>
+            <label for="article-custom-byline">
+              <b>Custom Byline</b>
             </label>
-            <input id="article-byline" name="article-byline" type="text" />
+            <input id="article-custom-byline" name="article-custom-byline" type="text" />
           </div>
 
           <div class="block form-group">
