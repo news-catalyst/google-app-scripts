@@ -2,7 +2,7 @@
 
 This repo is a collection of scripts for a Google Docs publishing add-on for tinynewsco sites.
 
-The add-on is in release 1 (`05August2020`) published as `version 22` in the Google SDK Marketplace - private, for News Catalyst Google users.
+The add-on is in release v3 (`02Sept2020`) published as `version 31` in the Google SDK Marketplace - private, for News Catalyst Google users.
 
 ## Howto
 
@@ -22,15 +22,19 @@ More info tk.
 
 ## Features
 
-### Save Article
+### Preview Article
 
-This button on the sidebar will store the contents of the current document in Webiny. It does the following:
+Saves the article as a draft in Webiny and returns a (currently localhost only) url to preview it.
+
+### Publish Article
+
+Saves the contents of the current document in Webiny as a draft then publishes it. It does the following:
 
 * checks for a stored localeID
   * if none found, gets the list of locales from webiny, selects the default locale, and stores its ID as the localeID
 * checks for a stored articleID
   * if none found, calls the CreateBasicArticle mutation, then stores the new articleID
-  * if found, calls the UpdateBasicArticle mutation
+  * if found, calls the CreateArticleFrom mutation
 
 ### Get Locales
 
