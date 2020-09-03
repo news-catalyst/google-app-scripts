@@ -736,20 +736,20 @@ function getCurrentDocContents(formObject, publishFlag) {
   // first save the latest article content - either create a new article, or create a new revision on an existing article
   var webinyResponse;
   // if we already have an articleID and latest version info, we need to create a new version of the article
-  // if (articleID !== null) {
-  //   if (documentType === "article") {
-  //     webinyResponse = createArticleFrom(articleID, title, formattedElements);
-  //   } else {
-  //     webinyResponse = createPageFrom(articleID, title, formattedElements);
-  //   }
-  // // otherwise, we create a new article
-  // } else {
+  if (articleID !== null) {
+    if (documentType === "article") {
+      webinyResponse = createArticleFrom(articleID, title, formattedElements);
+    } else {
+      webinyResponse = createPageFrom(articleID, title, formattedElements);
+    }
+  // otherwise, we create a new article
+  } else {
     if (documentType === "article") {
       webinyResponse = createArticle(title, formattedElements);
     } else {
       webinyResponse = createPage(title, formattedElements);
     }
-  // }
+  }
 
   var responseText = webinyResponse.getContentText();
   var responseData = JSON.parse(responseText);
