@@ -767,8 +767,14 @@ function getCurrentDocContents(formObject, publishFlag) {
   if (publishFlag) {
     Logger.log(`Publishing ${documentType}...`)
     if (documentType === "article") {
-    // publish
+      // publish article
       var publishResponse = publishArticle();
+      Logger.log(`Done publishing ${documentType}:`, publishResponse);
+
+      responseText += "<br>" + JSON.stringify(publishResponse);
+    } else {
+      // publish page
+      var publishResponse = publishPage();
       Logger.log(`Done publishing ${documentType}:`, publishResponse);
 
       responseText += "<br>" + JSON.stringify(publishResponse);
@@ -1879,6 +1885,81 @@ function deleteArticle() {
     Logger.log("Deleted ArticleID and PublishingInfo.")
 
     return "Deleted article at revision " + versionID;
+  } else {
+    return responseData.data.content.error;
+  }
+}
+
+/**
+ * Publishes the page
+ */
+function publishPage() {
+  var versionID = getArticleID();
+  Logger.log("publishing page versionID: ", versionID);
+
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  var formData = {
+    query: `mutation PublishPage($revision: ID!) {
+      content: publishPage(revision: $revision) {
+        data {
+          id
+          meta {
+            published
+            latestVersion
+            version
+            locked
+            parent
+            status
+            revisions {
+              id
+              meta {
+                latestVersion
+                published
+                version
+                locked
+                parent
+                status
+              }
+            }
+          }
+        }
+        error {
+          message
+          code
+          data
+        }
+      }
+    }`,
+    variables: {
+      revision: versionID,
+    }
+  };
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  Logger.log(JSON.stringify(formData))
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  Logger.log(responseData);
+
+  // TODO update latestVersionPublished flag
+
+  if (responseData && responseData.data.content.data !== null) {
+    return "Published page at revision " + versionID;
   } else {
     return responseData.data.content.error;
   }
