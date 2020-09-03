@@ -508,11 +508,14 @@ function storeSEO(seoData) {
 }
 
 function storeDocumentType(value) {
+  Logger.log("storeDocumentType:", value);
   storeValue('DOCUMENT_TYPE', value);
 }
 
 function getDocumentType() {
-  getValue('DOCUMENT_TYPE');
+  var val = getValue('DOCUMENT_TYPE');
+  Logger.log("getDocumentType:", val);
+  return val;
 }
 
 //
@@ -542,16 +545,15 @@ function getArticleMeta() {
   }
 
   var documentType = 'article';
-  Logger.log("isStaticPage:", isStaticPage);
   if (isStaticPage) {
     documentType = 'page';
   }
+  Logger.log("Storing document type: ", documentType);
   storeDocumentType(documentType);
 
   var articleID = getArticleID();
 
   var publishingInfo = getPublishingInfo();
-  Logger.log("publishingInfo: ", publishingInfo);
 
   var headline = getHeadline();
   if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
@@ -720,6 +722,9 @@ function handlePreview(formObject) {
 function getCurrentDocContents(formObject, publishFlag) {
   Logger.log("getCurrentDocContents: ", formObject);
 
+  var documentType = getDocumentType();
+  Logger.log("document is:", documentType);
+
   var propMessage = processForm(formObject);
   Logger.log(propMessage);
 
@@ -731,12 +736,20 @@ function getCurrentDocContents(formObject, publishFlag) {
   // first save the latest article content - either create a new article, or create a new revision on an existing article
   var webinyResponse;
   // if we already have an articleID and latest version info, we need to create a new version of the article
-  if (articleID !== null) {
-    webinyResponse = createArticleFrom(articleID, title, formattedElements);
-  // otherwise, we create a new article
-  } else {
-    webinyResponse = createArticle(title, formattedElements);
-  }
+  // if (articleID !== null) {
+  //   if (documentType === "article") {
+  //     webinyResponse = createArticleFrom(articleID, title, formattedElements);
+  //   } else {
+  //     webinyResponse = createPageFrom(articleID, title, formattedElements);
+  //   }
+  // // otherwise, we create a new article
+  // } else {
+    if (documentType === "article") {
+      webinyResponse = createArticle(title, formattedElements);
+    } else {
+      webinyResponse = createPage(title, formattedElements);
+    }
+  // }
 
   var responseText = webinyResponse.getContentText();
   var responseData = JSON.parse(responseText);
@@ -746,18 +759,20 @@ function getCurrentDocContents(formObject, publishFlag) {
   var webinyResponseCode = webinyResponse.getResponseCode();
   var responseText;
   if (webinyResponseCode === 200) {
-    responseText = 'Successfully stored article in webiny.';
+    responseText = `Successfully stored ${documentType} in webiny.`;
   } else {
     responseText = 'Webiny responded with code ' + webinyResponseCode;
   }
 
   if (publishFlag) {
-    Logger.log("Publishing article...")
+    Logger.log(`Publishing ${documentType}...`)
+    if (documentType === "article") {
     // publish
-    var publishResponse = publishArticle();
-    Logger.log("Done publishing article:", publishResponse);
+      var publishResponse = publishArticle();
+      Logger.log(`Done publishing ${documentType}:`, publishResponse);
 
-    responseText += "<br>" + JSON.stringify(publishResponse);
+      responseText += "<br>" + JSON.stringify(publishResponse);
+    }
   }
 
   // update published flag and latest version ID
@@ -1012,6 +1027,168 @@ function formatElements() {
 //
 // GraphQL functions
 //
+
+/**
+ * Creates a new revision of the page
+ * @param versionID
+ * @param title
+ * @param elements
+ */
+function createPageFrom(versionID, title, elements) {
+  Logger.log("createPageFrom versionID: ", versionID);
+
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  var localeID = getLocaleID();
+  if (localeID === null) {
+    var locales = getLocales();
+    setDefaultLocale(locales);
+    localeID = getLocaleID();
+    if (localeID === null) {
+      return 'Failed updating page: unable to find a default locale';
+    }
+  }
+
+  var seoData = getSEO();
+
+  var slug = getArticleSlug();
+  if (slug === null || typeof(slug) === "undefined") {
+    slug = slugify(title);
+    storeArticleSlug(slug);
+  }
+
+  var formData = {
+    query: `mutation CreatePageFrom($revision: ID!, $data: PageInput) {
+      content: createPageFrom(revision: $revision, data: $data) {
+        data {
+          id
+          savedOn
+          meta {
+            published
+            latestVersion
+            revisions {
+              id
+              meta {
+                latestVersion
+                published
+              }
+            }
+            version
+            locked
+            parent
+            status
+          }
+        }
+        error {
+          message
+          code
+          data
+        }
+      }
+    }`,
+    variables: {
+      revision: versionID,
+      data: {
+        headline: {
+          values: [
+            {
+              locale: localeID,
+              value: title,
+            },
+          ],
+        },
+        slug: {
+          values:[
+            {
+              value: slug,
+              locale: localeID
+            }
+          ]
+        },
+        content: {
+          values: [
+            {
+              locale: localeID,
+              value: JSON.stringify(elements),
+            },
+          ],
+        },
+        searchTitle: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.searchTitle,
+            },
+          ],
+        },
+        searchDescription: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.searchDescription,
+            },
+          ],
+        },
+        facebookTitle: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.facebookTitle,
+            },
+          ],
+        },
+        facebookDescription: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.facebookDescription,
+            },
+          ],
+        },
+        twitterTitle: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.twitterTitle,
+            },
+          ],
+        },
+        twitterDescription: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.twitterDescription,
+            },
+          ],
+        },
+      },
+    },
+  };
+  Logger.log("formData: ", formData);
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var responseText = response.getContentText();
+  Logger.log("createPageFrom response:", responseText);
+  var responseData = JSON.parse(responseText);
+  Logger.log("createPageFrom responseData:", responseData);
+  var latestVersionID = responseData.data.content.data.id;
+  storeArticleID(latestVersionID);
+  return response;
+}
 
 /**
  * Creates a new revision of the article
@@ -1298,6 +1475,133 @@ function createArticleFrom(versionID, title, elements) {
   Logger.log("createArticleFrom responseData:", responseData);
   var latestVersionID = responseData.data.content.data.id;
   storeArticleID(latestVersionID);
+  return response;
+}
+
+/**
+. * Posts document contents to graphql, creating a new page
+. */
+function createPage(title, elements) {
+
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  var localeID = getLocaleID();
+  if (localeID === null) {
+    var locales = getLocales();
+    setDefaultLocale(locales);
+    localeID = getLocaleID();
+    if (localeID === null) {
+      return 'Failed updating article: unable to find a default locale';
+    }
+  }
+
+  var seoData = getSEO();
+
+  var slug = getArticleSlug();
+  if (slug === null || typeof(slug) === "undefined") {
+    slug = slugify(title);
+    storeArticleSlug(slug);
+  }
+
+  var formData = {
+    query:
+      'mutation CreatePage($data: PageInput!) {\n  content: createPage(data: $data) {\n    data {\n      id\n      headline {\n        values {\n          value\n          locale\n        }\n      }\n      content {\n        values {\n          value\n          locale\n        }\n      }\n      }\n    error {\n      message\n      code\n      data\n    }\n  }\n}',
+    variables: {
+      data: {
+        headline: {
+          values: [
+            {
+              locale: localeID,
+              value: title,
+            },
+          ],
+        },
+        slug: {
+          values:[
+            {
+              value: slug,
+              locale: localeID
+            }
+          ]
+        },
+        content: {
+          values: [
+            {
+              locale: localeID,
+              value: JSON.stringify(elements),
+            },
+          ],
+        },
+        searchTitle: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.searchTitle,
+            },
+          ],
+        },
+        searchDescription: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.searchDescription,
+            },
+          ],
+        },
+        facebookTitle: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.facebookTitle,
+            },
+          ],
+        },
+        facebookDescription: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.facebookDescription,
+            },
+          ],
+        },
+        twitterTitle: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.twitterTitle,
+            },
+          ],
+        },
+        twitterDescription: {
+          values: [
+            {
+              locale: localeID,
+              value: seoData.twitterDescription,
+            },
+          ],
+        },
+      },
+    },
+  };
+
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  Logger.log(JSON.stringify(formData))
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  Logger.log(response.getContentText());
   return response;
 }
 
@@ -2111,11 +2415,27 @@ function setArticleMeta() {
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
+  var documentType = getDocumentType();
+
   // prefer custom headline (set in sidebar form) but fallback to document name
   var headline = getHeadline();
   if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
     headline = getDocumentName();
     storeHeadline(headline);
+  }
+
+  var slug = getArticleSlug();
+  if (slug === null || typeof(slug) === "undefined") {
+    if (documentType === "article") {
+      slug = createArticleSlug(categoryName, headline);
+    } else {
+      slug = slugify(headline);
+    }
+    storeArticleSlug(slug);
+  }
+
+  if (documentType !== "article") {
+    return null;
   }
 
   var categories = getCategories();
@@ -2127,12 +2447,6 @@ function setArticleMeta() {
   var categoryID = getCategoryID();
   var categoryName = getNameForCategoryID(categories, categoryID);
   Logger.log("article category name: ", categoryName);
-
-  var slug = getArticleSlug();
-  if (slug === null || typeof(slug) === "undefined") {
-    slug = createArticleSlug(categoryName, headline);
-    storeArticleSlug(slug);
-  }
 
   if (typeof(articleID) === "undefined" || articleID === null) {
     return null;
