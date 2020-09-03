@@ -2660,17 +2660,21 @@ function processForm(formObject) {
   var headline = formObject["article-headline"];
   storeHeadline(headline);
 
-  var customByline = formObject["article-custom-byline"];
-  storeCustomByline(customByline);
+  var documentType = getDocumentType();
 
-  var authors = formObject["article-authors"];
-  storeAuthors(authors);
+  if (documentType && documentType === "article") {
+    var customByline = formObject["article-custom-byline"];
+    storeCustomByline(customByline);
 
-  var tags = formObject["article-tags"];
-  storeTags(tags);
+    var authors = formObject["article-authors"];
+    storeAuthors(authors);
 
-  var categoryID = formObject["article-category"]
-  storeCategoryID(categoryID);
+    var tags = formObject["article-tags"];
+    storeTags(tags);
+
+    var categoryID = formObject["article-category"]
+    storeCategoryID(categoryID);
+  }
 
   var seoData = {
     searchTitle: formObject["article-search-title"],
@@ -2683,6 +2687,5 @@ function processForm(formObject) {
 
   storeSEO(seoData);
 
-  return "Updated article metadata. You still need to publish the article for these changes to go live!"
-
+  return "Updated document metadata. You still need to publish for these changes to go live!"
 }
