@@ -349,9 +349,11 @@ function storePublishingInfo(info) {
 function getPublishingInfo() {
   var publishingInfo = JSON.parse(getValue("PUBLISHING_INFO"));
   if (publishingInfo === null || typeof(publishingInfo) === 'undefined') {
+    let pubDate = new Date();
+    let pubDateString = pubDate.toISOString();
     publishingInfo = {
-      firstPublishedOn: "",
-      lastPublishedOn: "",
+      firstPublishedOn: pubDateString,
+      lastPublishedOn: pubDateString,
       latestVersionID: "",
       isLatestVersionPublished: false,
       publishedOn: ""
@@ -1808,6 +1810,22 @@ function createArticle(title, elements) {
               value: seoData.twitterDescription,
             },
           ],
+        },
+        firstPublishedOn: {
+          values:[
+            {
+              value: publishingInfo.firstPublishedOn,
+              locale: localeID
+            }
+          ]
+        },
+        lastPublishedOn: {
+          values:[
+            {
+              value: publishingInfo.lastPublishedOn,
+              locale: localeID
+            }
+          ]
         },
       },
     },
