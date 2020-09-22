@@ -1692,14 +1692,32 @@ function createArticle(title, elements) {
     authorSlugsValue = authorSlugs.join(' ');
   }
 
-  var allTags = getValueJSON('ALL_TAGS'); // don't look up in the DB again, too slow
-  var articleTags = getTags();
+  var articleTags = getTags(); // only id
+  Logger.log("createArticle articleTags: ", articleTags);
+  // create any new tags
+  const newTags = articleTags.filter(articleTag => articleTag.newTag === true);
+  Logger.log("createArticle newTags: ", newTags);
+  if (newTags.length > 0) {
+    newTags.forEach(newTag => {
+      Logger.log("createArticle creating new tag: ", newTag);
+      createTag(newTag.title);
+    })
+  }
 
+  var allTags = getAllTags(); // don't look up in the DB again, too slow
+  Logger.log("allTags:", allTags);
+
+  var articleTags = getTags(); // refresh list of tags for this article as some may have been created just above
+  Logger.log("articleTags:", articleTags);
   // compare all tags array to those selected for this article
   var tagsArrayForGraphQL = [];
   allTags.forEach(tag => {
     const result = articleTags.find( ({ id }) => id === tag.id );
     if (result !== undefined) {
+
+      // just try to publish it because the article won't publish with any unpublished tags :(
+      // TODO: see if there's a way to optimise this so we're not unnecessarily publishing tags
+      publishTag(tag.id);
       tagsArrayForGraphQL.push({
         locale: localeID,
         value: [
@@ -1711,6 +1729,8 @@ function createArticle(title, elements) {
       });
     }
   });
+
+  Logger.log("TAGS FOR GRAPHQL:", tagsArrayForGraphQL);
 
   var formData = {
     query:
@@ -2441,7 +2461,7 @@ function createTag(tagTitle) {
 
   // if we found this tag already in the articleTags, update it with the ID and mark it as no longer new
   const tagIndex = articleTags.findIndex( ({title}) => title === tagTitle);
-  if (tagIndex > 0) {
+  if (tagIndex >= 0) {
     Logger.log("created new tag, now updating articleTags data: ", articleTags[tagIndex]);
     articleTags[tagIndex].newTag = false;
     articleTags[tagIndex].id = newTagData.id;
@@ -2458,7 +2478,8 @@ function createTag(tagTitle) {
 
   // otherwise just append the new tag data
   } else {
-    Logger.log("created new tag, now appending it to articleTags data");
+    Logger.log("tagTitle is:", tagTitle);
+    Logger.log("created new tag, now appending it to articleTags data: ", articleTags);
     let tagData ={
       id: newTagData.id,
       newTag: false,
