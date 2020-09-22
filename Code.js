@@ -620,6 +620,7 @@ function getArticleMeta() {
   var awsAccessKey = scriptConfig['AWS_ACCESS_KEY_ID'];
   var awsSecretKey = scriptConfig['AWS_SECRET_KEY'];
   var awsBucket = scriptConfig['AWS_BUCKET'];
+  var republishUrl = scriptConfig['VERCEL_DEPLOY_HOOK_URL'];
 
   if (typeof(articleID) === "undefined" || articleID === null) {
     Logger.log("articleID is undefined, returning new doc state");
@@ -648,7 +649,8 @@ function getArticleMeta() {
       categoryID: categoryID,
       categoryName: categoryName,
       slug: slug,
-      seo: seoData
+      seo: seoData,
+      republishUrl: republishUrl
     }
   }
 
@@ -676,7 +678,8 @@ function getArticleMeta() {
     categoryID: categoryID,
     categoryName: categoryName,
     slug: slug,
-    seo: seoData
+    seo: seoData,
+    republishUrl: republishUrl
   };
 
   Logger.log("getArticleMeta END");
@@ -784,6 +787,11 @@ function getCurrentDocContents(formObject, publishFlag) {
 
       responseText += "<br>" + JSON.stringify(publishResponse);
     }
+    // hit vercel deploy hook to republish the site
+    var rebuildResponse = rebuildSite();
+    Logger.log(`Posted to deploy hook to rebuild: `, rebuildResponse);
+    responseText += "<br>Rebuilding site on vercel";
+    responseText += "<br>" + JSON.stringify(rebuildResponse);
   }
 
   // update published flag and latest version ID
@@ -2084,6 +2092,30 @@ function publishArticle() {
   } else {
     return responseData.data.content.error;
   }
+}
+
+/**
+ * Rebuilds the site by POSTing to deploy hook
+ */
+function rebuildSite() {
+  var scriptConfig = getScriptConfig();
+  var DEPLOY_HOOK = scriptConfig['VERCEL_DEPLOY_HOOK_URL'];
+
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json'
+  };
+
+  var response = UrlFetchApp.fetch(
+    DEPLOY_HOOK,
+    options
+  );
+  var responseText = response.getContentText();
+  Logger.log(responseText);
+  var responseData = JSON.parse(responseText);
+  Logger.log(responseData);
+  return responseData;
 }
 
 function listCategories() {
