@@ -3,7 +3,7 @@
  * @param {Event} e The onInstall event.
  */
 function onInstall(e) {
-  Logger.log("onInstall running in authMode: ", e.authMode);
+  // Logger.log("onInstall running in authMode: ", e.authMode);
   onOpen(e);
 }
 
@@ -14,7 +14,7 @@ function onInstall(e) {
  * This adds a "Webiny" menu option.
  */
 function onOpen(e) {
-  Logger.log("onOpen running in authMode: ", e.authMode);
+  // Logger.log("onOpen running in authMode: ", e.authMode);
   // if (e && e.authMode === ScriptApp.AuthMode.NONE) {
   //   Logger.log("AuthMode is NONE")
   // } else {
@@ -169,10 +169,8 @@ function uploadImageToS3(imageID, contentUri) {
 .* Gets the script configuration, data available to all users and docs for this add-on
 .*/
 function getScriptConfig() {
-  Logger.log("getScriptConfig START")
   var scriptProperties = PropertiesService.getScriptProperties();
   var data = scriptProperties.getProperties();
-  Logger.log("getScriptConfig END")
   return data;
 }
 
@@ -346,18 +344,20 @@ function storePublishingInfo(info) {
   storeValue("PUBLISHING_INFO", JSON.stringify(info));
 }
 
-function getPublishingInfo() {
+function getPublishingInfo(updateDates) {
   var publishingInfo = JSON.parse(getValue("PUBLISHING_INFO"));
-  if (publishingInfo === null || typeof(publishingInfo) === 'undefined') {
+  if (updateDates !== undefined) {
     let pubDate = new Date();
     let pubDateString = pubDate.toISOString();
-    publishingInfo = {
-      firstPublishedOn: pubDateString,
-      lastPublishedOn: pubDateString,
-      latestVersionID: "",
-      isLatestVersionPublished: false,
-      publishedOn: ""
-    }
+    Logger.log("setting published dates to:", pubDateString);
+    publishingInfo.firstPublishedOn = pubDateString;
+    publishingInfo.lastPublishedOn = pubDateString;
+  }
+
+  if (publishingInfo === null || typeof(publishingInfo) === 'undefined' || publishingInfo.latestVersionID === null) {
+    publishingInfo.latestVersionID = "";
+    publishingInfo.isLatestVersionPublished = false;
+    publishingInfo.publishedOn = "";
   }
   return publishingInfo;
 }
@@ -393,7 +393,6 @@ function storeAuthors(authors) {
   }
   var allAuthors = getAllAuthors(); // don't request from the DB again - too slow
   var storableAuthors = [];
-  Logger.log("storeAuthors typeof authors: ", typeof(authors), authors);
 
   // the form in the sidebar sends a string with a single ID when one author is selected 
   // **argh**
@@ -450,7 +449,6 @@ function storeTags(tags) {
   }
   var allTags = getAllTags(); // don't request from the DB again - too slow
   var storableTags = [];
-  Logger.log("storeTags typeof tags: ", typeof(tags), tags);
 
   // the form in the sidebar sends a string with a single ID when one tag is selected 
   // **argh**
@@ -467,10 +465,8 @@ function storeTags(tags) {
     } else {
       tagID = tag;
     }
-    Logger.log("looking for tagID", tagID, "in allTags:", allTags);
     var result = allTags.find( ({ id }) => id === tagID );
     if (result !== undefined) {
-      Logger.log(tagID, "succeeded finding it")
       storableTags.push({
         id: result.id,
         newTag: false,
@@ -478,7 +474,6 @@ function storeTags(tags) {
       });
     // treat this as a new tag
     } else {
-      Logger.log(tagID, "failed finding it, new tag")
       storableTags.push({
         id: null,
         newTag: true,
@@ -493,7 +488,6 @@ function storeTags(tags) {
 function getSEO() {
   seoValue = getValueJSON('ARTICLE_SEO');
   if (seoValue === null || seoValue.length <= 0) {
-    Logger.log("seoValue is null or empty array")
     seoValue = {
       searchTitle: "",
       searchDescription: "",
@@ -502,8 +496,6 @@ function getSEO() {
       twitterTitle: "",
       twitterDescription: ""
     }
-  } else {
-    Logger.log("seoValue is: ", seoValue);
   }
   return seoValue;
 }
@@ -513,13 +505,11 @@ function storeSEO(seoData) {
 }
 
 function storeDocumentType(value) {
-  Logger.log("storeDocumentType:", value);
   storeValue('DOCUMENT_TYPE', value);
 }
 
 function getDocumentType() {
   var val = getValue('DOCUMENT_TYPE');
-  Logger.log("getDocumentType:", val);
   return val;
 }
 
@@ -553,7 +543,6 @@ function getArticleMeta() {
   if (isStaticPage) {
     documentType = 'page';
   }
-  Logger.log("Storing document type: ", documentType);
   storeDocumentType(documentType);
 
   var articleID = getArticleID();
@@ -588,9 +577,7 @@ function getArticleMeta() {
 
   var categories = getCategories();
   if (categories === null || categories.length <= 0) {
-    Logger.log("categories are blank: ", categories);
     categories = listCategories();
-    Logger.log("loaded categories from webiny: ", categories);
     storeCategories(categories);
   }
 
@@ -623,7 +610,6 @@ function getArticleMeta() {
   var republishUrl = scriptConfig['VERCEL_DEPLOY_HOOK_URL'];
 
   if (typeof(articleID) === "undefined" || articleID === null) {
-    Logger.log("articleID is undefined, returning new doc state");
 
     return {
       awsAccessKey: awsAccessKey,
@@ -691,11 +677,10 @@ function getArticleMeta() {
  * @param {} formObject 
  */
 function handlePublish(formObject) {
-  Logger.log("Handling publish for formObject:", formObject);
+  Logger.log("START handlePublish:", formObject);
   // save the article - pass publishFlag as true
   var message = getCurrentDocContents(formObject, true);
-  Logger.log("message: ", message)
-
+  Logger.log("END handlePublish: ", message)
   return message;
 }
 
@@ -705,10 +690,9 @@ function handlePublish(formObject) {
  * @param {} formObject 
  */
 function handlePreview(formObject) {
-  Logger.log("Handling preview for formObject:", formObject);
+  Logger.log("START handlePreview:", formObject);
   // save the article - pass publishFlag as false
   var message = getCurrentDocContents(formObject, false);
-  Logger.log("message: ", message)
 
   // construct preview url
   var slug = getArticleSlug();
@@ -720,6 +704,8 @@ function handlePreview(formObject) {
 
   // open preview url in new window
   message += "<br><a href='" + fullPreviewUrl + "' target='_blank'>Preview article in new window</a>"
+
+  Logger.log("END handlePreview: ", message)
   return message;
 }
 
@@ -728,13 +714,9 @@ function handlePreview(formObject) {
 .  * posts them to webiny
 . */
 function getCurrentDocContents(formObject, publishFlag) {
-  Logger.log("getCurrentDocContents: ", formObject);
-
   var documentType = getDocumentType();
-  Logger.log("document is:", documentType);
 
   var propMessage = processForm(formObject);
-  Logger.log(propMessage);
 
   var title = getHeadline();
   var formattedElements = formatElements();
@@ -773,29 +755,29 @@ function getCurrentDocContents(formObject, publishFlag) {
   }
 
   if (publishFlag) {
-    Logger.log(`Publishing ${documentType}...`)
+    // Logger.log(`Publishing ${documentType}...`)
     if (documentType === "article") {
       // publish article
       var publishResponse = publishArticle();
-      Logger.log(`Done publishing ${documentType}:`, publishResponse);
+      // Logger.log(`Done publishing ${documentType}:`, publishResponse);
 
       responseText += "<br>" + JSON.stringify(publishResponse);
     } else {
       // publish page
       var publishResponse = publishPage();
-      Logger.log(`Done publishing ${documentType}:`, publishResponse);
+      // Logger.log(`Done publishing ${documentType}:`, publishResponse);
 
       responseText += "<br>" + JSON.stringify(publishResponse);
     }
     // hit vercel deploy hook to republish the site
     var rebuildResponse = rebuildSite();
-    Logger.log(`Posted to deploy hook to rebuild: `, rebuildResponse);
+    // Logger.log(`Posted to deploy hook to rebuild: `, rebuildResponse);
     responseText += "<br>Rebuilding site on vercel";
     responseText += "<br>" + JSON.stringify(rebuildResponse);
   }
 
-  // update published flag and latest version ID
-  setArticleMeta();
+  // // update published flag and latest version ID
+  // setArticleMeta();
 
   return responseText;
 }
@@ -1054,7 +1036,7 @@ function formatElements() {
  * @param elements
  */
 function createPageFrom(versionID, title, elements) {
-  Logger.log("createPageFrom versionID: ", versionID);
+  // Logger.log("createPageFrom versionID: ", versionID);
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
@@ -1185,7 +1167,7 @@ function createPageFrom(versionID, title, elements) {
       },
     },
   };
-  Logger.log("formData: ", formData);
+  // Logger.log("formData: ", formData);
   var options = {
     method: 'post',
     muteHttpExceptions: true,
@@ -1201,9 +1183,9 @@ function createPageFrom(versionID, title, elements) {
     options
   );
   var responseText = response.getContentText();
-  Logger.log("createPageFrom response:", responseText);
+  // Logger.log("createPageFrom response:", responseText);
   var responseData = JSON.parse(responseText);
-  Logger.log("createPageFrom responseData:", responseData);
+  // Logger.log("createPageFrom responseData:", responseData);
   var latestVersionID = responseData.data.content.data.id;
   storeArticleID(latestVersionID);
   return response;
@@ -1216,7 +1198,7 @@ function createPageFrom(versionID, title, elements) {
  * @param elements
  */
 function createArticleFrom(versionID, title, elements) {
-  Logger.log("createArticleFrom versionID: ", versionID);
+  Logger.log("START createArticleFrom");
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
@@ -1234,7 +1216,7 @@ function createArticleFrom(versionID, title, elements) {
 
   var customByline = getCustomByline();
 
-  var publishingInfo = getPublishingInfo();
+  var publishingInfo = getPublishingInfo(true);
   var seoData = getSEO();
 
   var categories = getCategories();
@@ -1245,7 +1227,7 @@ function createArticleFrom(versionID, title, elements) {
 
   var categoryID = getCategoryID();
   var categoryName = getNameForCategoryID(categories, categoryID);
-  Logger.log("article category name: ", categoryName);
+  // Logger.log("article category name: ", categoryName);
 
   var slug = getArticleSlug();
   if (slug === null || typeof(slug) === "undefined") {
@@ -1254,7 +1236,7 @@ function createArticleFrom(versionID, title, elements) {
   }
 
   var articleAuthors = getAuthors(); // only id
-  Logger.log("createArticleFrom articleAuthors: ", articleAuthors);
+  // Logger.log("createArticleFrom articleAuthors: ", articleAuthors);
 
   var allAuthors = getAllAuthors(); // don't request from the DB again - too slow
   let authorSlugsValue;
@@ -1286,22 +1268,22 @@ function createArticleFrom(versionID, title, elements) {
   }
 
   var articleTags = getTags(); // only id
-  Logger.log("createArticleFrom articleTags: ", articleTags);
+  // Logger.log("createArticleFrom articleTags: ", articleTags);
   // create any new tags
   const newTags = articleTags.filter(articleTag => articleTag.newTag === true);
-  Logger.log("createArticleFrom newTags: ", newTags);
+  // Logger.log("createArticleFrom newTags: ", newTags);
   if (newTags.length > 0) {
     newTags.forEach(newTag => {
-      Logger.log("createArticleFrom creating new tag: ", newTag);
+      // Logger.log("createArticleFrom creating new tag: ", newTag);
       createTag(newTag.title);
     })
   }
 
   var allTags = getAllTags(); // don't look up in the DB again, too slow
-  Logger.log("allTags:", allTags);
+  // Logger.log("allTags:", allTags);
 
   var articleTags = getTags(); // refresh list of tags for this article as some may have been created just above
-  Logger.log("articleTags:", articleTags);
+  // Logger.log("articleTags:", articleTags);
   // compare all tags array to those selected for this article
   var tagsArrayForGraphQL = [];
   allTags.forEach(tag => {
@@ -1310,7 +1292,10 @@ function createArticleFrom(versionID, title, elements) {
 
       // just try to publish it because the article won't publish with any unpublished tags :(
       // TODO: see if there's a way to optimise this so we're not unnecessarily publishing tags
-      publishTag(tag.id);
+      // UPDATE: commenting this out; publishTag is called from createTag; hopefully we can't end up here with unpublished tags.
+      // only way I can imagine that happening is by creating a draft tag directly in webiny admin or by something going wrong
+      // with the call to `publishTag` that happens within `createTag`
+      // publishTag(tag.id);
       tagsArrayForGraphQL.push({
         locale: localeID,
         value: [
@@ -1323,7 +1308,7 @@ function createArticleFrom(versionID, title, elements) {
     }
   });
 
-  Logger.log("TAGS FOR GRAPHQL:", tagsArrayForGraphQL);
+  // Logger.log("TAGS FOR GRAPHQL:", tagsArrayForGraphQL);
 
   var formData = {
     query: `mutation CreateBasicArticleFrom($revision: ID!, $data: BasicArticleInput) {
@@ -1478,7 +1463,7 @@ function createArticleFrom(versionID, title, elements) {
       },
     },
   };
-  Logger.log("formData: ", formData);
+  // Logger.log("formData: ", formData);
   var options = {
     method: 'post',
     muteHttpExceptions: true,
@@ -1494,11 +1479,12 @@ function createArticleFrom(versionID, title, elements) {
     options
   );
   var responseText = response.getContentText();
-  Logger.log("createArticleFrom response:", responseText);
+  // Logger.log("createArticleFrom response:", responseText);
   var responseData = JSON.parse(responseText);
-  Logger.log("createArticleFrom responseData:", responseData);
+  // Logger.log("createArticleFrom responseData:", responseData);
   var latestVersionID = responseData.data.content.data.id;
   storeArticleID(latestVersionID);
+  Logger.log("END createArticleFrom");
   return response;
 }
 
@@ -1620,12 +1606,12 @@ function createPage(title, elements) {
     payload: JSON.stringify(formData),
   };
 
-  Logger.log(JSON.stringify(formData))
+  // Logger.log(JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
   );
-  Logger.log(response.getContentText());
+  // Logger.log(response.getContentText());
   return response;
 }
 
@@ -1649,7 +1635,7 @@ function createArticle(title, elements) {
   }
 
   var customByline = getCustomByline();
-  var publishingInfo = getPublishingInfo();
+  var publishingInfo = getPublishingInfo(true);
   var seoData = getSEO();
 
   var categories = getCategories();
@@ -1668,7 +1654,7 @@ function createArticle(title, elements) {
   }
 
   var articleAuthors = getAuthors(); // only id
-  Logger.log("createArticle articleAuthors: ", articleAuthors);
+  // Logger.log("createArticle articleAuthors: ", articleAuthors);
 
   var allAuthors = getAllAuthors(); // don't request from the DB again - too slow
 
@@ -1701,22 +1687,22 @@ function createArticle(title, elements) {
   }
 
   var articleTags = getTags(); // only id
-  Logger.log("createArticle articleTags: ", articleTags);
+  // Logger.log("createArticle articleTags: ", articleTags);
   // create any new tags
   const newTags = articleTags.filter(articleTag => articleTag.newTag === true);
-  Logger.log("createArticle newTags: ", newTags);
+  // Logger.log("createArticle newTags: ", newTags);
   if (newTags.length > 0) {
     newTags.forEach(newTag => {
-      Logger.log("createArticle creating new tag: ", newTag);
+      // Logger.log("createArticle creating new tag: ", newTag);
       createTag(newTag.title);
     })
   }
 
   var allTags = getAllTags(); // don't look up in the DB again, too slow
-  Logger.log("allTags:", allTags);
+  // Logger.log("allTags:", allTags);
 
   var articleTags = getTags(); // refresh list of tags for this article as some may have been created just above
-  Logger.log("articleTags:", articleTags);
+  // Logger.log("articleTags:", articleTags);
   // compare all tags array to those selected for this article
   var tagsArrayForGraphQL = [];
   allTags.forEach(tag => {
@@ -1725,7 +1711,10 @@ function createArticle(title, elements) {
 
       // just try to publish it because the article won't publish with any unpublished tags :(
       // TODO: see if there's a way to optimise this so we're not unnecessarily publishing tags
-      publishTag(tag.id);
+      // UPDATE: commenting this out; publishTag is called from createTag; hopefully we can't end up here with unpublished tags.
+      // only way I can imagine that happening is by creating a draft tag directly in webiny admin or by something going wrong
+      // with the call to `publishTag` that happens within `createTag`
+      // publishTag(tag.id);
       tagsArrayForGraphQL.push({
         locale: localeID,
         value: [
@@ -1738,7 +1727,7 @@ function createArticle(title, elements) {
     }
   });
 
-  Logger.log("TAGS FOR GRAPHQL:", tagsArrayForGraphQL);
+  // Logger.log("TAGS FOR GRAPHQL:", tagsArrayForGraphQL);
 
   var formData = {
     query:
@@ -1877,12 +1866,12 @@ function createArticle(title, elements) {
     payload: JSON.stringify(formData),
   };
 
-  Logger.log(JSON.stringify(formData))
+  // Logger.log(JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
   );
-  Logger.log(response.getContentText());
+  // Logger.log(response.getContentText());
   return response;
 }
 
@@ -1891,7 +1880,7 @@ function createArticle(title, elements) {
  */
 function deleteArticle() {
   var versionID = getArticleID();
-  Logger.log("publishing article versionID: ", versionID);
+  // Logger.log("publishing article versionID: ", versionID);
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
@@ -1923,20 +1912,20 @@ function deleteArticle() {
     payload: JSON.stringify(formData),
   };
 
-  Logger.log(JSON.stringify(formData))
+  // Logger.log(JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log(responseData);
+  // Logger.log(responseData);
 
   if (responseData && responseData.data.content.data !== null) {
     // TODO wipe out all article metadata (ID, published dates)
     deleteArticleID();
     deletePublishingInfo();
-    Logger.log("Deleted ArticleID and PublishingInfo.")
+    // Logger.log("Deleted ArticleID and PublishingInfo.")
 
     return "Deleted article at revision " + versionID;
   } else {
@@ -1949,7 +1938,7 @@ function deleteArticle() {
  */
 function publishPage() {
   var versionID = getArticleID();
-  Logger.log("publishing page versionID: ", versionID);
+  // Logger.log("publishing page versionID: ", versionID);
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
@@ -2001,14 +1990,14 @@ function publishPage() {
     payload: JSON.stringify(formData),
   };
 
-  Logger.log(JSON.stringify(formData))
+  // Logger.log(JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log(responseData);
+  // Logger.log(responseData);
 
   // TODO update latestVersionPublished flag
 
@@ -2023,8 +2012,9 @@ function publishPage() {
  * Publishes the article
  */
 function publishArticle() {
+  Logger.log("START publishArticle");
   var versionID = getArticleID();
-  Logger.log("publishing article versionID: ", versionID);
+  // Logger.log("publishing article versionID: ", versionID);
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
@@ -2076,17 +2066,18 @@ function publishArticle() {
     payload: JSON.stringify(formData),
   };
 
-  Logger.log(JSON.stringify(formData))
+  // Logger.log(JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log(responseData);
+  // Logger.log(responseData);
 
   // TODO update latestVersionPublished flag
 
+  Logger.log("END publishArticle");
   if (responseData && responseData.data.content.data !== null) {
     return "Published article at revision " + versionID;
   } else {
@@ -2098,6 +2089,7 @@ function publishArticle() {
  * Rebuilds the site by POSTing to deploy hook
  */
 function rebuildSite() {
+  Logger.log("START rebuildSite");
   var scriptConfig = getScriptConfig();
   var DEPLOY_HOOK = scriptConfig['VERCEL_DEPLOY_HOOK_URL'];
 
@@ -2112,9 +2104,9 @@ function rebuildSite() {
     options
   );
   var responseText = response.getContentText();
-  Logger.log(responseText);
+  // Logger.log(responseText);
   var responseData = JSON.parse(responseText);
-  Logger.log(responseData);
+  Logger.log("END rebuildSite");
   return responseData;
 }
 
@@ -2147,14 +2139,14 @@ function listCategories() {
     payload: JSON.stringify(formData),
   };
 
-  Logger.log(JSON.stringify(formData))
+  // Logger.log(JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log(responseData);
+  // Logger.log(responseData);
 
   if (responseData && responseData.data && responseData.data.content && responseData.data.content.data !== null) {
     return responseData.data.content.data;
@@ -2192,14 +2184,14 @@ function loadAuthorsFromDB() {
     payload: JSON.stringify(formData),
   };
 
-  Logger.log(JSON.stringify(formData))
+  // Logger.log(JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log(responseData);
+  // Logger.log(responseData);
 
   if (responseData && responseData.data && responseData.data.content && responseData.data.content.data !== null) {
     return responseData.data.content.data;
@@ -2234,14 +2226,14 @@ function loadTagsFromDB() {
     payload: JSON.stringify(formData),
   };
 
-  Logger.log(JSON.stringify(formData))
+  // Logger.log(JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log(responseData);
+  // Logger.log(responseData);
 
   if (responseData && responseData.data && responseData.data.content && responseData.data.content.data !== null) {
     return responseData.data.content.data;
@@ -2260,7 +2252,7 @@ function addTagToLocalStore(formObject) {
   var articleTags = getTags();
   const result = articleTags.find( ({ title }) => title === tagTitle );
   if (result !== undefined) {
-    Logger.log("Tag already exists: ", result);
+    // Logger.log("Tag already exists: ", result);
     return "Tag already exists: ", tagTitle;
   } else {
     articleTags.push({
@@ -2308,7 +2300,7 @@ function publishAuthor(authorID) {
     payload: JSON.stringify(formData),
   };
 
-  Logger.log("formData: ", JSON.stringify(formData))
+  // Logger.log("formData: ", JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
@@ -2316,7 +2308,7 @@ function publishAuthor(authorID) {
 
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log("responseData: ", responseData);
+  // Logger.log("responseData: ", responseData);
 
   if (responseData && responseData.data && responseData.data.content.error !== null) {
     Logger.log("Error publishing author ", authorID, ": ", responseData.data.content.error);
@@ -2324,7 +2316,7 @@ function publishAuthor(authorID) {
   } else if (responseData && responseData.data && responseData.data.content && responseData.data.content.data) {
     var publishedSuccessfully = responseData.data.content.data.meta.published;
     if (publishedSuccessfully) {
-      Logger.log("Published author with id ", authorID, " successfully.")
+      // Logger.log("Published author with id ", authorID, " successfully.")
       return true;
     } else {
       Logger.log("Something went wrong publishing author with id ", authorID, ": ", responseData);
@@ -2372,7 +2364,7 @@ function publishTag(tagID) {
     payload: JSON.stringify(formData),
   };
 
-  Logger.log("formData: ", JSON.stringify(formData))
+  // Logger.log("formData: ", JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
@@ -2380,7 +2372,7 @@ function publishTag(tagID) {
 
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log("responseData: ", responseData);
+  // Logger.log("responseData: ", responseData);
 
   if (responseData && responseData.data && responseData.data.content.error !== null) {
     Logger.log("Error publishing tag ", tagID, ": ", responseData.data.content.error);
@@ -2388,7 +2380,7 @@ function publishTag(tagID) {
   } else if (responseData && responseData.data && responseData.data.content && responseData.data.content.data) {
     var publishedSuccessfully = responseData.data.content.data.meta.published;
     if (publishedSuccessfully) {
-      Logger.log("Published tag with id ", tagID, " successfully.")
+      // Logger.log("Published tag with id ", tagID, " successfully.")
       return true;
     } else {
       Logger.log("Something went wrong publishing tag with id ", tagID, ": ", responseData);
@@ -2401,7 +2393,7 @@ function publishTag(tagID) {
 }
 
 function createTag(tagTitle) {
-  Logger.log("creating tag: ", tagTitle);
+  // Logger.log("creating tag: ", tagTitle);
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
@@ -2409,7 +2401,7 @@ function createTag(tagTitle) {
   var articleTags = getTags();
   const result = articleTags.find( ({ title }) => title === tagTitle );
   if (result !== undefined && !result.newTag && result.id !== null) {
-    Logger.log("Tag already exists: ", result);
+    // Logger.log("Tag already exists: ", result);
     return;
   }
 
@@ -2463,7 +2455,7 @@ function createTag(tagTitle) {
         }
       }
   };
-  Logger.log("tag formData: ", formData);
+  // Logger.log("tag formData: ", formData);
   var options = {
     method: 'post',
     muteHttpExceptions: true,
@@ -2474,7 +2466,7 @@ function createTag(tagTitle) {
     payload: JSON.stringify(formData),
   };
 
-  Logger.log(JSON.stringify(formData))
+  // Logger.log(JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
@@ -2482,7 +2474,7 @@ function createTag(tagTitle) {
 
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log(responseData);
+  // Logger.log(responseData);
 
   var newTagData = responseData.data.content.data;
 
@@ -2494,10 +2486,10 @@ function createTag(tagTitle) {
   // if we found this tag already in the articleTags, update it with the ID and mark it as no longer new
   const tagIndex = articleTags.findIndex( ({title}) => title === tagTitle);
   if (tagIndex >= 0) {
-    Logger.log("created new tag, now updating articleTags data: ", articleTags[tagIndex]);
+    // Logger.log("created new tag, now updating articleTags data: ", articleTags[tagIndex]);
     articleTags[tagIndex].newTag = false;
     articleTags[tagIndex].id = newTagData.id;
-    Logger.log("created new tag, updated articleTags data is: ", articleTags[tagIndex]);
+    // Logger.log("created new tag, updated articleTags data is: ", articleTags[tagIndex]);
     var allTagsData = {
       title: {
         value: articleTags[tagIndex].title
@@ -2506,19 +2498,19 @@ function createTag(tagTitle) {
       id: articleTags[tagIndex].id
     }
     allTags.push(allTagsData);
-    Logger.log("updated allTags is: ", allTags);
+    // Logger.log("updated allTags is: ", allTags);
 
   // otherwise just append the new tag data
   } else {
-    Logger.log("tagTitle is:", tagTitle);
-    Logger.log("created new tag, now appending it to articleTags data: ", articleTags);
+    // Logger.log("tagTitle is:", tagTitle);
+    // Logger.log("created new tag, now appending it to articleTags data: ", articleTags);
     let tagData ={
       id: newTagData.id,
       newTag: false,
       title: newTagData.title
     }
     articleTags.push(tagData);
-    Logger.log("created new tag, appended it to articleTags data: ", articleTags);
+    // Logger.log("created new tag, appended it to articleTags data: ", articleTags);
     // append to ALL_TAGS
     var allTagsData = {
       title: {
@@ -2570,7 +2562,7 @@ function getLocales() {
     options
   );
   var responseText = response.getContentText();
-  Logger.log(responseText);
+  // Logger.log(responseText);
   var responseData = JSON.parse(responseText);
 
   var localeData = responseData.data.i18n.listI18NLocales.data;
@@ -2591,6 +2583,7 @@ function setDefaultLocale(locales) {
 }
 
 function setArticleMeta() {
+  Logger.log("START setArticleMeta")
   var articleID = getArticleID();
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
@@ -2627,7 +2620,7 @@ function setArticleMeta() {
 
   var categoryID = getCategoryID();
   var categoryName = getNameForCategoryID(categories, categoryID);
-  Logger.log("article category name: ", categoryName);
+  // Logger.log("article category name: ", categoryName);
 
   if (typeof(articleID) === "undefined" || articleID === null) {
     return null;
@@ -2688,7 +2681,7 @@ function setArticleMeta() {
     payload: JSON.stringify(formData),
   };
 
-  Logger.log(options);
+  // Logger.log(options);
 
   var response = UrlFetchApp.fetch(
     CONTENT_API,
@@ -2696,7 +2689,7 @@ function setArticleMeta() {
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log(responseData);
+  // Logger.log(responseData);
 
   var articleID = responseData.data.content.data.id;
   var revisions = responseData.data.content.data.meta.revisions;
@@ -2729,11 +2722,11 @@ function setArticleMeta() {
   // the ID of the most recent revision of the article should now be treated as its articleID
   // save this in the document properties store
   if (publishingInfo.latestVersionID !== null) {
-    Logger.log("storing article ID and publishingInfo: ", publishingInfo);
+    // Logger.log("storing article ID and publishingInfo: ", publishingInfo);
     storeArticleID(publishingInfo.latestVersionID);
     storePublishingInfo(publishingInfo);
   } else {
-    Logger.log("NOT storing article ID and publishingInfo: ", publishingInfo);
+    // Logger.log("NOT storing article ID and publishingInfo: ", publishingInfo);
   }
 
   var tagsData = responseData.data.content.data.tags.values;
@@ -2746,6 +2739,7 @@ function setArticleMeta() {
   var uniqueTags = tagIDs.filter(onlyUnique);
   storeTags(uniqueTags);
 
+  Logger.log("END setArticleMeta")
   return responseData;
 }
 
@@ -2767,10 +2761,14 @@ function processForm(formObject) {
     storeCustomByline(customByline);
 
     var authors = formObject["article-authors"];
-    storeAuthors(authors);
+    if (authors !== undefined) {
+      storeAuthors(authors);
+    }
 
     var tags = formObject["article-tags"];
-    storeTags(tags);
+    if (tags !== undefined) {
+      storeTags(tags);
+    }
 
     var categoryID = formObject["article-category"]
     storeCategoryID(categoryID);
