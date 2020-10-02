@@ -91,12 +91,15 @@
           })
 
           var articleAuthorsSelect = document.getElementById('article-authors');
+          console.log("data:", data);
+          console.log("data.allAuthors:", data.allAuthors);
           data.allAuthors.forEach(author => {
+            console.log("author:", author);
             // first check if this option already exists; don't add dupes!
             var selectorString = "#article-authors option[value='" + author.id + "']";
             if ( $(selectorString).length <= 0 ) {
               var option = document.createElement("option");
-              option.text = author.name.value;
+              option.text = author.name;
               option.value = author.id;
 
               const result = data.articleAuthors.find( ({ id }) => id === author.id );
@@ -114,7 +117,7 @@
           var selectorString = "#article-tags option[value='" + tag.id + "']";
           if ( $(selectorString).length <= 0 ) {
             var option = document.createElement("option");
-            option.text = tag.title.value;
+            option.text = tag.title.values[0].value;
             option.value = tag.id;
 
             const result = data.articleTags.find( ({ id }) => id === tag.id );
@@ -128,7 +131,7 @@
         var revisionIdSpan = document.getElementById('revision-id');
         revisionIdSpan.innerHTML = data.articleID;
 
-        setPublishedFlag(data.publishingInfo.isLatestVersionPublished);
+        setPublishedFlag(true); // todo: get rid of this?;
 
         var articleHeadline = document.getElementById('article-headline');
         articleHeadline.value = data.headline;

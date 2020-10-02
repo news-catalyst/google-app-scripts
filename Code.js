@@ -333,8 +333,8 @@ function storeCategories(categories) {
 
 function getNameForCategoryID(categories, categoryID) {
   var result = categories.find( ({ id }) => id === categoryID );
-  if (typeof(result) !== 'undefined') {
-    return result.title.value;
+  if (typeof(result) !== 'undefined' && result.title && result.title.values && result.title.values[0] && result.title.values[0].value) {
+    return result.title.values[0].value;
   } else {
     return null;
   }
@@ -346,19 +346,18 @@ function storePublishingInfo(info) {
 
 function getPublishingInfo(updateDates) {
   var publishingInfo = JSON.parse(getValue("PUBLISHING_INFO"));
-  if (updateDates !== undefined) {
+  if (updateDates || publishingInfo === null || publishingInfo === undefined) {
+    if (publishingInfo === null) {
+      publishingInfo = {};
+    }
     let pubDate = new Date();
     let pubDateString = pubDate.toISOString();
     Logger.log("setting published dates to:", pubDateString);
     publishingInfo.firstPublishedOn = pubDateString;
     publishingInfo.lastPublishedOn = pubDateString;
+    publishingInfo.publishedOn = pubDateString;
   }
 
-  if (publishingInfo === null || typeof(publishingInfo) === 'undefined' || publishingInfo.latestVersionID === null) {
-    publishingInfo.latestVersionID = "";
-    publishingInfo.isLatestVersionPublished = false;
-    publishingInfo.publishedOn = "";
-  }
   return publishingInfo;
 }
 
@@ -558,17 +557,21 @@ function getArticleMeta() {
   var customByline = getCustomByline();
 
   var authorSlugsValue;
-  var allAuthors = loadAuthorsFromDB();
-  storeAllAuthors(allAuthors);
-  var articleAuthors = getAuthors();
-
   var authorSlugs = [];
-  allAuthors.forEach(author => {
-    const result = articleAuthors.find( ({ id }) => id === author.id );
-    if (result !== undefined) {
-      authorSlugs.push(author.slug.value);
-    }
-  });
+  var articleAuthors = getAuthors();
+  var allAuthors = loadAuthorsFromDB();
+  Logger.log("Loaded authors from DB", allAuthors);
+  if (allAuthors) {
+    storeAllAuthors(allAuthors);
+    allAuthors.forEach(author => {
+      const result = articleAuthors.find( ({ id }) => id === author.id );
+      if (result !== undefined) {
+        Logger.log("storing author slug:", author.slug)
+        authorSlugs.push(author.slug);
+      }
+    });
+  }
+
 
   if (authorSlugs.length > 0) {
     authorSlugsValue = authorSlugs.join(' ');
@@ -591,7 +594,9 @@ function getArticleMeta() {
   // FYI: I've run into problems when this isn't done (e.g. a dupe tag is created elsewhere, which could be likely when actual orgs use this
   // or more likely, the document storage in Google Docs gets some data weird with new vs existing tags)
   var allTags = loadTagsFromDB();
-  storeAllTags(allTags);
+  if (allTags) {
+    storeAllTags(allTags);
+  }
 
   var articleTags = getTags();
 
@@ -724,26 +729,29 @@ function getCurrentDocContents(formObject, publishFlag) {
   var articleID = getArticleID();
 
   // first save the latest article content - either create a new article, or create a new revision on an existing article
-  var webinyResponse;
+  var responseData;
   // if we already have an articleID and latest version info, we need to create a new version of the article
   if (articleID !== null) {
     if (documentType === "article") {
-      webinyResponse = createArticleFrom(articleID, title, formattedElements);
+      Logger.log("updating article id", articleID)
+      responseData = createArticleFrom(articleID, title, formattedElements);
     } else {
-      webinyResponse = createPageFrom(articleID, title, formattedElements);
+      Logger.log("updating page id", articleID)
+      responseData = createPageFrom(articleID, title, formattedElements);
     }
   // otherwise, we create a new article
   } else {
     if (documentType === "article") {
-      webinyResponse = createArticle(title, formattedElements);
+      Logger.log("creating new article")
+      responseData = createArticle(title, formattedElements);
     } else {
-      webinyResponse = createPage(title, formattedElements);
+      Logger.log("creating new page")
+      responseData = createPage(title, formattedElements);
     }
   }
 
-  var responseText = webinyResponse.getContentText();
-  var responseData = JSON.parse(responseText);
-  var articleID = responseData.data.content.data.id;
+  Logger.log("responseData:", responseData);
+  var articleID = responseData.id;
   storeArticleID(articleID);
 
   var webinyResponseCode = webinyResponse.getResponseCode();
@@ -1061,31 +1069,60 @@ function createPageFrom(versionID, title, elements) {
   }
 
   var formData = {
-    query: `mutation CreatePageFrom($revision: ID!, $data: PageInput) {
-      content: createPageFrom(revision: $revision, data: $data) {
-        data {
-          id
-          savedOn
-          meta {
-            published
-            latestVersion
-            revisions {
-              id
-              meta {
-                latestVersion
-                published
+    query: `mutation UpdatePage($id: ID!, $data: PageInput!) {
+      pages { 
+        updatePage(id: $id, data: $data) {
+          data {
+            id
+            slug
+            headline {
+              values {
+                value
               }
             }
-            version
-            locked
-            parent
-            status
+            content {
+              values {
+                value
+                locale
+              }
+            }
+            searchTitle {
+              values {
+                value
+                locale
+              }
+            }
+            searchDescription {
+              values {
+                value
+                locale
+              }
+            }
+            facebookTitle {
+              values {
+                value
+                locale
+              }
+            }
+            facebookDescription {
+              values {
+                value
+                locale
+              }
+            }
+            twitterTitle {
+              values {
+                value
+                locale
+              }
+            }
+            twitterDescription {
+              values {
+                value
+                locale
+              }
+            }
           }
-        }
-        error {
-          message
-          code
-          data
         }
       }
     }`,
@@ -1100,14 +1137,7 @@ function createPageFrom(versionID, title, elements) {
             },
           ],
         },
-        slug: {
-          values:[
-            {
-              value: slug,
-              locale: localeID
-            }
-          ]
-        },
+        slug: slug,
         content: {
           values: [
             {
@@ -1186,13 +1216,13 @@ function createPageFrom(versionID, title, elements) {
   // Logger.log("createPageFrom response:", responseText);
   var responseData = JSON.parse(responseText);
   // Logger.log("createPageFrom responseData:", responseData);
-  var latestVersionID = responseData.data.content.data.id;
-  storeArticleID(latestVersionID);
-  return response;
+  // var latestVersionID = responseData.data.content.data.id;
+  // storeArticleID(latestVersionID);
+  return responseData.data.pages.updatePage.data;
 }
 
 /**
- * Creates a new revision of the article
+ * Updates the article; formerly called a mutation called CreateArticleFrom, hence the strange name
  * @param versionID
  * @param title
  * @param elements
@@ -1236,13 +1266,12 @@ function createArticleFrom(versionID, title, elements) {
   }
 
   var articleAuthors = getAuthors(); // only id
-  // Logger.log("createArticleFrom articleAuthors: ", articleAuthors);
 
   var allAuthors = getAllAuthors(); // don't request from the DB again - too slow
   let authorSlugsValue;
 
   // compare all tags array to those selected for this article
-  var authorsArrayForGraphQL = [];
+  var authorIDs = [];
   var authorSlugs = [];
   allAuthors.forEach(author => {
     const result = articleAuthors.find( ({ id }) => id === author.id );
@@ -1250,16 +1279,8 @@ function createArticleFrom(versionID, title, elements) {
       // just try to publish it because the article won't publish with any unpublished authors :(
       // TODO: see if there's a way to optimise this so we're not unnecessarily publishing authors
       publishAuthor(author.id);
-      authorsArrayForGraphQL.push({
-        locale: localeID,
-        value: [
-          {
-            id: author.id,
-            name: author.name.value
-          }
-        ]
-      });
-      authorSlugs.push(author.slug.value);
+      authorIDs.push(author.id);
+      authorSlugs.push(author.slug);
     }
   });
 
@@ -1285,63 +1306,56 @@ function createArticleFrom(versionID, title, elements) {
   var articleTags = getTags(); // refresh list of tags for this article as some may have been created just above
   // Logger.log("articleTags:", articleTags);
   // compare all tags array to those selected for this article
-  var tagsArrayForGraphQL = [];
+  var tagIDs = [];
   allTags.forEach(tag => {
     const result = articleTags.find( ({ id }) => id === tag.id );
     if (result !== undefined) {
-
-      // just try to publish it because the article won't publish with any unpublished tags :(
-      // TODO: see if there's a way to optimise this so we're not unnecessarily publishing tags
-      // UPDATE: commenting this out; publishTag is called from createTag; hopefully we can't end up here with unpublished tags.
-      // only way I can imagine that happening is by creating a draft tag directly in webiny admin or by something going wrong
-      // with the call to `publishTag` that happens within `createTag`
-      // publishTag(tag.id);
-      tagsArrayForGraphQL.push({
-        locale: localeID,
-        value: [
-          {
-            id: tag.id,
-            name: tag.title.value
-          }
-        ]
-      });
+      tagIDs.push(tag.id);
     }
   });
 
-  // Logger.log("TAGS FOR GRAPHQL:", tagsArrayForGraphQL);
-
   var formData = {
-    query: `mutation CreateBasicArticleFrom($revision: ID!, $data: BasicArticleInput) {
-      content: createBasicArticleFrom(revision: $revision, data: $data) {
-        data {
-          id
-          savedOn
-          meta {
-            published
-            latestVersion
-            revisions {
-              id
-              meta {
-                latestVersion
-                published
+    query: `mutation UpdateArticle($id: ID!, $data: ArticleInput!) {
+      articles { 
+        updateArticle(id: $id, data: $data) {
+          data {
+            id
+            headline {
+              values {
+                value
               }
             }
-            version
-            locked
-            parent
-            status
+            authors {
+              id
+              name
+            }
+            category {
+              slug
+            }
+            tags {
+              id
+              title {
+                values {
+                  value
+                }
+              }
+              slug
+            }
           }
-        }
-        error {
-          message
-          code
-          data
         }
       }
     }`,
     variables: {
-      revision: versionID,
+      id: versionID,
       data: {
+        slug: slug,
+        category: categoryID,
+        firstPublishedOn: publishingInfo.firstPublishedOn,
+        lastPublishedOn: publishingInfo.lastPublishedOn,
+        customByline: customByline,
+        authors: authorIDs,
+        authorSlugs: authorSlugsValue,
+    		tags: tagIDs,
         headline: {
           values: [
             {
@@ -1350,38 +1364,6 @@ function createArticleFrom(versionID, title, elements) {
             },
           ],
         },
-        slug: {
-          values:[
-            {
-              value: slug,
-              locale: localeID
-            }
-          ]
-        },
-        category: {
-          values: [
-            {
-              value: categoryID,
-              locale: localeID
-            }
-          ]
-        },
-        firstPublishedOn: {
-          values:[
-            {
-              value: publishingInfo.firstPublishedOn,
-              locale: localeID
-            }
-          ]
-        },
-        lastPublishedOn: {
-          values:[
-            {
-              value: publishingInfo.lastPublishedOn,
-              locale: localeID
-            }
-          ]
-        },
         content: {
           values: [
             {
@@ -1389,28 +1371,6 @@ function createArticleFrom(versionID, title, elements) {
               value: JSON.stringify(elements),
             },
           ],
-        },
-        byline: {
-          values: [
-            {
-              locale: localeID,
-              value: customByline,
-            },
-          ],
-        },
-        authors: {
-          values: authorsArrayForGraphQL
-        },
-        authorSlugs: {
-          values: [
-            {
-              locale: localeID,
-              value: authorSlugsValue,
-            },
-          ],
-        },
-    		tags: {
-          values: tagsArrayForGraphQL
         },
         searchTitle: {
           values: [
@@ -1482,10 +1442,8 @@ function createArticleFrom(versionID, title, elements) {
   // Logger.log("createArticleFrom response:", responseText);
   var responseData = JSON.parse(responseText);
   // Logger.log("createArticleFrom responseData:", responseData);
-  var latestVersionID = responseData.data.content.data.id;
-  storeArticleID(latestVersionID);
   Logger.log("END createArticleFrom");
-  return response;
+  return responseData.data.articles.updateArticle.data;
 }
 
 /**
@@ -1517,7 +1475,68 @@ function createPage(title, elements) {
 
   var formData = {
     query:
-      'mutation CreatePage($data: PageInput!) {\n  content: createPage(data: $data) {\n    data {\n      id\n      headline {\n        values {\n          value\n          locale\n        }\n      }\n      content {\n        values {\n          value\n          locale\n        }\n      }\n      }\n    error {\n      message\n      code\n      data\n    }\n  }\n}',
+      `mutation CreatePage($data: PageInput!) {
+        pages {
+            createPage(data: $data) {
+                data {
+                    id
+                    slug
+                    headline {
+                      values {
+                        value                    
+                      }
+                    }
+                    content {
+                      values {
+                        value
+                        locale
+                      }
+                    }
+                    searchTitle {
+                      values {
+                        value
+                        locale
+                      }
+                    }
+                    searchDescription {
+                      values {
+                        value
+                        locale
+                      }
+                    }
+                    facebookTitle {
+                      values {
+                        value
+                        locale
+                      }
+                    }
+                    facebookDescription {
+                      values {
+                        value
+                        locale
+                      }
+                    }
+                    twitterTitle {
+                      values {
+                        value
+                        locale
+                      }
+                    }
+                    twitterDescription {
+                      values {
+                        value
+                        locale
+                      }
+                    }
+                }
+                error  {
+                  code
+                  message
+                  data
+              }
+            }
+        }
+    }`,
     variables: {
       data: {
         headline: {
@@ -1528,14 +1547,7 @@ function createPage(title, elements) {
             },
           ],
         },
-        slug: {
-          values:[
-            {
-              value: slug,
-              locale: localeID
-            }
-          ]
-        },
+        slug: slug,
         content: {
           values: [
             {
@@ -1606,13 +1618,13 @@ function createPage(title, elements) {
     payload: JSON.stringify(formData),
   };
 
-  // Logger.log(JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
   );
-  // Logger.log(response.getContentText());
-  return response;
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  return responseData.data.pages.createPage.data;
 }
 
 /**
@@ -1661,24 +1673,13 @@ function createArticle(title, elements) {
   let authorSlugsValue;
 
   // compare all tags array to those selected for this article
-  var authorsArrayForGraphQL = [];
+  var authorIDs = [];
   var authorSlugs = [];
   allAuthors.forEach(author => {
     const result = articleAuthors.find( ({ id }) => id === author.id );
     if (result !== undefined) {
-      // just try to publish it because the article won't publish with any unpublished authors :(
-      // TODO: see if there's a way to optimise this so we're not unnecessarily publishing authors
-      publishAuthor(author.id);
-      authorsArrayForGraphQL.push({
-        locale: localeID,
-        value: [
-          {
-            id: author.id,
-            name: author.name.value
-          }
-        ]
-      });
-      authorSlugs.push(author.slug.value);
+      authorIDs.push(author.id);
+      authorSlugs.push(author.slug);
     }
   });
 
@@ -1704,34 +1705,45 @@ function createArticle(title, elements) {
   var articleTags = getTags(); // refresh list of tags for this article as some may have been created just above
   // Logger.log("articleTags:", articleTags);
   // compare all tags array to those selected for this article
-  var tagsArrayForGraphQL = [];
+  var tagIDs = [];
   allTags.forEach(tag => {
     const result = articleTags.find( ({ id }) => id === tag.id );
     if (result !== undefined) {
-
-      // just try to publish it because the article won't publish with any unpublished tags :(
-      // TODO: see if there's a way to optimise this so we're not unnecessarily publishing tags
-      // UPDATE: commenting this out; publishTag is called from createTag; hopefully we can't end up here with unpublished tags.
-      // only way I can imagine that happening is by creating a draft tag directly in webiny admin or by something going wrong
-      // with the call to `publishTag` that happens within `createTag`
-      // publishTag(tag.id);
-      tagsArrayForGraphQL.push({
-        locale: localeID,
-        value: [
-          {
-            id: tag.id,
-            name: tag.title.value
-          }
-        ]
-      });
+      tagIDs.push(tag.id);
     }
   });
 
-  // Logger.log("TAGS FOR GRAPHQL:", tagsArrayForGraphQL);
-
   var formData = {
     query:
-      'mutation CreateBasicArticle($data: BasicArticleInput!) {\n  content: createBasicArticle(data: $data) {\n    data {\n      id\n      headline {\n        values {\n          value\n          locale\n        }\n      }\n      content {\n        values {\n          value\n          locale\n        }\n      }\n      byline {\n        values {\n          value\n          locale\n        }\n      }\n    }\n    error {\n      message\n      code\n      data\n    }\n  }\n}',
+    `mutation CreateArticle($data: ArticleInput!) {
+      articles { 
+        createArticle(data: $data) {
+          error {
+            message
+            code
+            data
+          }
+          data {
+            id
+            headline {
+              values {
+                value
+              }
+            }
+            authors {
+              id
+              name
+            }
+            category {
+              slug
+            }
+            tags {
+              slug
+            }
+          }
+        }
+      }
+    }`,
     variables: {
       data: {
         headline: {
@@ -1742,22 +1754,8 @@ function createArticle(title, elements) {
             },
           ],
         },
-        slug: {
-          values:[
-            {
-              value: slug,
-              locale: localeID
-            }
-          ]
-        },
-        category: {
-          values: [
-            {
-              value: categoryID,
-              locale: localeID
-            }
-          ]
-        },
+        slug: slug,
+        category: categoryID,
         content: {
           values: [
             {
@@ -1766,28 +1764,10 @@ function createArticle(title, elements) {
             },
           ],
         },
-        byline: {
-          values: [
-            {
-              locale: localeID,
-              value: customByline,
-            },
-          ],
-        },
-    		tags: {
-          values: tagsArrayForGraphQL
-        },
-    		authors: {
-          values: authorsArrayForGraphQL
-        },
-        authorSlugs: {
-          values: [
-            {
-              locale: localeID,
-              value: authorSlugsValue,
-            },
-          ],
-        },
+        customByline: customByline,
+    		tags: tagIDs,
+    		authors: authorIDs,
+        authorSlugs: authorSlugsValue,
         searchTitle: {
           values: [
             {
@@ -1836,22 +1816,8 @@ function createArticle(title, elements) {
             },
           ],
         },
-        firstPublishedOn: {
-          values:[
-            {
-              value: publishingInfo.firstPublishedOn,
-              locale: localeID
-            }
-          ]
-        },
-        lastPublishedOn: {
-          values:[
-            {
-              value: publishingInfo.lastPublishedOn,
-              locale: localeID
-            }
-          ]
-        },
+        firstPublishedOn: publishingInfo.firstPublishedOn,
+        lastPublishedOn: publishingInfo.lastPublishedOn,
       },
     },
   };
@@ -1871,8 +1837,12 @@ function createArticle(title, elements) {
     CONTENT_API,
     options
   );
-  // Logger.log(response.getContentText());
-  return response;
+
+  var responseText = response.getContentText();
+  Logger.log("response text: ", responseText);
+  var responseData = JSON.parse(responseText);
+  Logger.log("responseData: ", responseData);
+  return responseData.data.articles.createArticle.data;
 }
 
 /**
@@ -2020,41 +1990,28 @@ function publishArticle() {
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
+  var publishingInfo = getPublishingInfo(true);
   var formData = {
-    query: `mutation PublishBasicArticle($revision: ID!) {
-      content: publishBasicArticle(revision: $revision) {
-        data {
-          id
-          meta {
+    query: `mutation UpdateArticle($id: ID!, $data: ArticleInput!) {
+      articles { 
+        updateArticle(id: $id, data: $data) {
+          data {
+            id
+            firstPublishedOn
+            lastPublishedOn
             published
-            latestVersion
-            version
-            locked
-            parent
-            status
-            revisions {
-              id
-              meta {
-                latestVersion
-                published
-                version
-                locked
-                parent
-                status
-              }
-            }
           }
-        }
-        error {
-          message
-          code
-          data
         }
       }
     }`,
     variables: {
-      revision: versionID,
-    }
+      id: versionID,
+      data: {
+        published: true,
+        firstPublishedOn: publishingInfo.firstPublishedOn,
+        lastPublishedOn: publishingInfo.lastPublishedOn,
+      },
+    },
   };
   var options = {
     method: 'post',
@@ -2078,10 +2035,10 @@ function publishArticle() {
   // TODO update latestVersionPublished flag
 
   Logger.log("END publishArticle");
-  if (responseData && responseData.data.content.data !== null) {
+  if (responseData && responseData.data && response.data.articles && response.data.articles.updateArticle && response.data.articles.updateArticle.data) {
     return "Published article at revision " + versionID;
   } else {
-    return responseData.data.content.error;
+    return responseData.data.articles.updateArticle.error;
   }
 }
 
@@ -2115,60 +2072,21 @@ function listCategories() {
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
   var formData = {
-    query: `query listCategories {
-      content: listCategories {
-        data {
-          id
-          title {
-            value
+    query: `{
+      categories	{
+        listCategories {
+          error {
+            code
+            message
           }
-          slug {
-            value
-          }
-        } 
-      }
-    }`
-  };
-  var options = {
-    method: 'post',
-    muteHttpExceptions: true,
-    contentType: 'application/json',
-    headers: {
-      authorization: ACCESS_TOKEN,
-    },
-    payload: JSON.stringify(formData),
-  };
-
-  // Logger.log(JSON.stringify(formData))
-  var response = UrlFetchApp.fetch(
-    CONTENT_API,
-    options
-  );
-  var responseText = response.getContentText();
-  var responseData = JSON.parse(responseText);
-  // Logger.log(responseData);
-
-  if (responseData && responseData.data && responseData.data.content && responseData.data.content.data !== null) {
-    return responseData.data.content.data;
-  } else {
-    return responseData.data.content.error;
-  }
-}
-
-function loadAuthorsFromDB() {
-  var scriptConfig = getScriptConfig();
-  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
-  var CONTENT_API = scriptConfig['CONTENT_API'];
-  var formData = {
-    query: `query listAuthors {
-      content: listAuthors {
-        data {
-          id
-          name {
-            value
-          }
-          slug {
-            value
+          data {
+            id
+            title {
+              values {
+                value
+              }
+            }
+            slug
           }
         }
       }
@@ -2193,10 +2111,71 @@ function loadAuthorsFromDB() {
   var responseData = JSON.parse(responseText);
   // Logger.log(responseData);
 
-  if (responseData && responseData.data && responseData.data.content && responseData.data.content.data !== null) {
-    return responseData.data.content.data;
+  if (responseData && responseData.data && responseData.data.categories && responseData.data.categories.listCategories && responseData.data.categories.listCategories.data !== null) {
+    return responseData.data.categories.listCategories.data;
   } else {
-    return responseData.data.content.error;
+    return responseData.data.categories.listCategories.error;
+  }
+}
+
+function loadAuthorsFromDB() {
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+  Logger.log("CONTENT_API:", CONTENT_API, "ACCESS_TOKEN:", ACCESS_TOKEN);
+  var formData = {
+    query: `
+    {
+      authors {
+        listAuthors {
+          error {
+            code
+            message
+          }
+          data {
+            id
+            name
+            bio {
+              values {
+                value
+              }
+            }
+            twitter
+            title {
+              values {
+                value
+              }
+            }
+            slug
+            photoUrl
+          }
+    
+        }
+      }
+    }`
+  };
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  Logger.log(responseData);
+
+  if (responseData && responseData.data && responseData.data.authors && responseData.data.authors.listAuthors && responseData.data.authors.listAuthors.data !== null) {
+    return responseData.data.authors.listAuthors.data;
+  } else if (responseData && responseData.data && responseData.data.authors && responseData.data.authors.listAuthors && responseData.data.authors.listAuthors.error) {
+    return responseData.data.authors.listAuthors.error;
   }
 }
 
@@ -2205,12 +2184,22 @@ function loadTagsFromDB() {
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
   var formData = {
-    query: `query listTags {
-      content: listTags {
-        data {
-          id
-          title {
-            value
+    query: `{
+      tags	{
+        listTags {
+          error {
+            code
+            data
+            message
+          }
+          data {
+            id
+            title {
+              values {
+                value
+              }
+            }
+            slug
           }
         }
       }
@@ -2233,12 +2222,12 @@ function loadTagsFromDB() {
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  // Logger.log(responseData);
+  Logger.log("tag response:", responseData);
 
-  if (responseData && responseData.data && responseData.data.content && responseData.data.content.data !== null) {
-    return responseData.data.content.data;
-  } else {
-    return responseData.data.content.error;
+  if (responseData && responseData.data && responseData.data.tags && responseData.data.tags.listTags && responseData.data.tags.listTags.data !== null) {
+    return responseData.data.tags.listTags.data;
+  } else if (responseData && responseData.data && responseData.data.tags && responseData.data.tags.listTags && responseData.data.tags.listTags.error) {
+    return responseData.data.tags.listTags.error;
   }
 }
 
@@ -2416,22 +2405,25 @@ function createTag(tagTitle) {
   }
 
   var formData = {
-    query: `mutation CreateTag($data: TagInput!) {
-      content: createTag(data: $data) {
-        data {
-          id
-          title {
-            value
+    query: ` mutation CreateTag($data: TagInput!) {
+      tags {
+          createTag(data: $data) {
+            data {
+              id
+              title {
+                values {
+                  value                
+                }
+  
+              }
+              slug
+            }
+            error  {
+              code
+              message
+              data
+            }
           }
-          slug {
-            value
-          }
-        }
-        error {
-          message
-          code
-          data
-        }
       }
     }`,
     variables: {
@@ -2444,14 +2436,7 @@ function createTag(tagTitle) {
               }
             ]
           },
-          slug: {
-            values: [
-              {
-                value: slugify(tagTitle),
-                locale: localeID
-              }
-            ]
-          }
+          slug: slugify(tagTitle),
         }
       }
   };
@@ -2476,7 +2461,7 @@ function createTag(tagTitle) {
   var responseData = JSON.parse(responseText);
   // Logger.log(responseData);
 
-  var newTagData = responseData.data.content.data;
+  var newTagData = responseData.data.tags.createTag.data;
 
   // after creating the tag we have to publish it
   publishTag(newTagData.id);
@@ -2541,7 +2526,6 @@ function getLocales() {
           code
           default
         }
-
       }
     }
   }`;
@@ -2627,43 +2611,95 @@ function setArticleMeta() {
   }
 
   var formData = {
-    query: `query getBasicArticle($id: ID!) {
-      content: getBasicArticle(where: {id: $id}) {
-        data {
-          id
-          savedOn
-          tags {
-            values {
-              value {
-                id
-                title {
+    query: `{
+      articles {
+        getArticle(id: "5f7536413b4f94000752c423") {
+          error {
+            message
+            code
+            data
+          }
+          data {
+            id
+            firstPublishedOn
+            lastPublishedOn
+            headline {
+              values {
+                value
+                locale
+              }
+            }
+            content {
+              values {
+                value
+                locale
+              }
+            }
+            searchTitle {
+              values {
+                value
+                locale
+              }
+            }
+            searchDescription {
+              values {
+                value
+                locale
+              }
+            }
+            facebookTitle {
+              values {
+                value
+                locale
+              }
+            }
+            facebookDescription {
+              values {
+                value
+                locale
+              }
+            }
+            twitterTitle {
+              values {
+                value
+                locale
+              }
+            }
+            twitterDescription {
+              values {
+                value
+                locale
+              }
+            }
+            authorSlugs
+            customByline
+            slug
+            authors {
+              id
+              name
+              slug
+            }
+            category {
+              id
+              title {
+                values {
                   value
+                  locale
                 }
               }
+              slug
             }
-          }
-          meta {
-            published
-            publishedOn
-            version
-            locked
-            parent
-            status
-            latestVersion
-            revisions {
+            tags {
               id
-              meta {
-                latestVersion
-                published
-                publishedOn
+              title {
+                values {
+                  value
+                  locale
+                }
               }
+              slug
             }
           }
-        }
-        error {
-          message
-          code
-          data
         }
       }
     }`,
@@ -2691,50 +2727,19 @@ function setArticleMeta() {
   var responseData = JSON.parse(responseText);
   // Logger.log(responseData);
 
-  var articleID = responseData.data.content.data.id;
-  var revisions = responseData.data.content.data.meta.revisions;
+  let articleData = responseData.data.articles.getArticle.data;
+  var articleID = articleData.id;
 
   // store publishing info like first & last dates published, latest version ID and whether or not it's been published
   var publishingInfo = {};
+  publishingInfo.firstPublishedOn = articleData.firstPublishedOn;
+  publishingInfo.lastPublishedOn = articleData.lastPublishedOn;
+  publishingInfo.publishedOn = articleData.lastPublishedOn;
 
-  revisions.forEach(revision => {
-    if (revision.meta.latestVersion) {
-      publishingInfo.latestVersionID = revision.id;
-      publishingInfo.isLatestVersionPublished = revision.meta.published;
-      publishingInfo.publishedOn = revision.meta.publishedOn;
-    }
-  })
-  // weed out revisions with no published date, sort them and put in reverse chronological order
-  var nonNullRevisions = revisions.filter(revision => revision.meta.publishedOn !== null);
-  nonNullRevisions.sort(function (a, b) {
-    var aDate = new Date(a.meta.publishedOn);
-    var bDate = new Date(b.meta.publishedOn);
-    return aDate > bDate;
-  });
-  nonNullRevisions.reverse();
-  if (nonNullRevisions && nonNullRevisions[0] && nonNullRevisions[0].meta) {
-    publishingInfo.firstPublishedOn = nonNullRevisions[0].meta.publishedOn;
-  }
-  if (nonNullRevisions && nonNullRevisions[nonNullRevisions.length - 1] && nonNullRevisions[nonNullRevisions.length - 1].meta) {
-    publishingInfo.lastPublishedOn = nonNullRevisions[nonNullRevisions.length - 1].meta.publishedOn;
-  }
-
-  // the ID of the most recent revision of the article should now be treated as its articleID
-  // save this in the document properties store
-  if (publishingInfo.latestVersionID !== null) {
-    // Logger.log("storing article ID and publishingInfo: ", publishingInfo);
-    storeArticleID(publishingInfo.latestVersionID);
-    storePublishingInfo(publishingInfo);
-  } else {
-    // Logger.log("NOT storing article ID and publishingInfo: ", publishingInfo);
-  }
-
-  var tagsData = responseData.data.content.data.tags.values;
+  var tagsData = responseData.data.articles.getArticle.data.tags;
   var tagIDs = [];
   tagsData.forEach(tagData => {
-    tagData.value.forEach(tagValue => {
-      tagIDs.push(tagValue.id)
-    })
+    tagIDs.push(tagData.id)
   });
   var uniqueTags = tagIDs.filter(onlyUnique);
   storeTags(uniqueTags);
