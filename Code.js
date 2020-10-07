@@ -756,13 +756,13 @@ function getCurrentDocContents(formObject, publishFlag) {
   var articleID = responseData.id;
   storeArticleID(articleID);
 
-  var webinyResponseCode = webinyResponse.getResponseCode();
-  var responseText;
-  if (webinyResponseCode === 200) {
+  // var webinyResponseCode = webinyResponse.getResponseCode();
+  // var responseText;
+  // if (webinyResponseCode === 200) {
     responseText = `Successfully stored ${documentType} in webiny.`;
-  } else {
-    responseText = 'Webiny responded with code ' + webinyResponseCode;
-  }
+  // } else {
+  //   responseText = 'Webiny responded with code ' + webinyResponseCode;
+  // }
 
   if (publishFlag) {
     // Logger.log(`Publishing ${documentType}...`)
@@ -1983,6 +1983,10 @@ function publishArticle() {
     query: `mutation UpdateArticle($id: ID!, $data: ArticleInput!) {
       articles { 
         updateArticle(id: $id, data: $data) {
+          error {
+            code
+            message
+          }
           data {
             id
             firstPublishedOn
@@ -2018,12 +2022,12 @@ function publishArticle() {
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  // Logger.log(responseData);
+  Logger.log("publish response:", responseData);
 
   // TODO update latestVersionPublished flag
 
   Logger.log("END publishArticle");
-  if (responseData && responseData.data && response.data.articles && response.data.articles.updateArticle && response.data.articles.updateArticle.data) {
+  if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.updateArticle && responseData.data.articles.updateArticle.data) {
     return "Published article at revision " + versionID;
   } else {
     return responseData.data.articles.updateArticle.error;
