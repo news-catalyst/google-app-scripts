@@ -798,7 +798,8 @@ function getCurrentDocContents(formObject, publishFlag) {
 .* Preserves order, indicates that order with `index` attribute
 .*/
 function getElements() {
-  var documentID = DocumentApp.getActiveDocument().getId();
+  var activeDoc = DocumentApp.getActiveDocument();
+  var documentID = activeDoc.getId();
   var document = Docs.Documents.get(documentID);
 
   var elements = document.body.content;
@@ -847,7 +848,7 @@ function getElements() {
   }
 
   var listInfo = {};
-  var listItems = DocumentApp.getActiveDocument().getListItems();
+  var listItems = activeDoc.getListItems();
   listItems.forEach(li => {
     var id = li.getListId();
     var glyphType = li.getGlyphType();
