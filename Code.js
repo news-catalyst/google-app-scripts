@@ -369,6 +369,14 @@ function deletePublishingInfo() {
   deleteValue('PUBLISHING_INFO');
 }
 
+function deleteTags() {
+  deleteValue('ARTICLE_TAGS');
+}
+
+function deleteCategories() {
+  return deleteValue('ALL_CATEGORIES');
+}
+
 // space delimited string of author slugs
 function getAuthorSlugs() {
   return getValue('ARTICLE_AUTHOR_SLUGS');
@@ -607,8 +615,6 @@ function getArticleMeta() {
   var previewSecret = scriptConfig['PREVIEW_SECRET'];
   var accessToken = scriptConfig['ACCESS_TOKEN'];
   var contentApi = scriptConfig['CONTENT_API'];
-  var personalAccessToken = scriptConfig['PERSONAL_ACCESS_TOKEN'];
-  var graphqlApi = scriptConfig['GRAPHQL_API'];
   var awsAccessKey = scriptConfig['AWS_ACCESS_KEY_ID'];
   var awsSecretKey = scriptConfig['AWS_SECRET_KEY'];
   var awsBucket = scriptConfig['AWS_BUCKET'];
@@ -621,8 +627,6 @@ function getArticleMeta() {
       awsSecretKey: awsSecretKey,
       awsBucket: awsBucket,
       documentType: documentType,
-      graphqlApi: graphqlApi,
-      personalAccessToken: personalAccessToken,
       accessToken: accessToken,
       contentApi: contentApi,
       previewUrl: previewUrl,
@@ -650,8 +654,6 @@ function getArticleMeta() {
     awsSecretKey: awsSecretKey,
     awsBucket: awsBucket,
     documentType: documentType,
-    graphqlApi: graphqlApi,
-    personalAccessToken: personalAccessToken,
     accessToken: accessToken,
     contentApi: contentApi,
     previewUrl: previewUrl,
@@ -1850,25 +1852,25 @@ function createArticle(title, elements) {
  */
 function deleteArticle() {
   var versionID = getArticleID();
-  // Logger.log("publishing article versionID: ", versionID);
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
   var formData = {
-    query: `mutation DeleteBasicArticle($revision: ID!) {
-      content: deleteBasicArticle(where: {id: $revision}) {
-        data
-        error {
-          message
-          code
+    query: `mutation DeleteArticle($id: ID!) {
+      articles {
+        deleteArticle(id: $id) {
           data
+          error {
+            code
+            message
+          }
         }
       }
     }`,
     variables: {
-      revision: versionID,
+      id: versionID,
     }
   };
 
@@ -1891,64 +1893,48 @@ function deleteArticle() {
   var responseData = JSON.parse(responseText);
   // Logger.log(responseData);
 
-  if (responseData && responseData.data.content.data !== null) {
-    // TODO wipe out all article metadata (ID, published dates)
-    deleteArticleID();
-    deletePublishingInfo();
-    // Logger.log("Deleted ArticleID and PublishingInfo.")
-
+  deleteArticleID();
+  deletePublishingInfo();
+  deleteTags();
+  deleteCategories();
+  if (responseData && responseData.data.articles.deleteArticle.error === null) {
     return "Deleted article at revision " + versionID;
   } else {
-    return responseData.data.content.error;
+    return responseData.data.articles.deleteArticle.error;
   }
 }
 
-/**
- * Publishes the page
- */
 function publishPage() {
+  Logger.log("START publishPage");
   var versionID = getArticleID();
-  // Logger.log("publishing page versionID: ", versionID);
+  // Logger.log("publishing article versionID: ", versionID);
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
+  var publishingInfo = getPublishingInfo(true);
   var formData = {
-    query: `mutation PublishPage($revision: ID!) {
-      content: publishPage(revision: $revision) {
-        data {
-          id
-          meta {
+    query: `mutation UpdatePage($id: ID!, $data: PageInput!) {
+      pages { 
+        updatePage(id: $id, data: $data) {
+          data {
+            id
+            firstPublishedOn
+            lastPublishedOn
             published
-            latestVersion
-            version
-            locked
-            parent
-            status
-            revisions {
-              id
-              meta {
-                latestVersion
-                published
-                version
-                locked
-                parent
-                status
-              }
-            }
           }
-        }
-        error {
-          message
-          code
-          data
         }
       }
     }`,
     variables: {
-      revision: versionID,
-    }
+      id: versionID,
+      data: {
+        published: true,
+        firstPublishedOn: publishingInfo.firstPublishedOn,
+        lastPublishedOn: publishingInfo.lastPublishedOn,
+      },
+    },
   };
   var options = {
     method: 'post',
@@ -1971,12 +1957,14 @@ function publishPage() {
 
   // TODO update latestVersionPublished flag
 
-  if (responseData && responseData.data.content.data !== null) {
+  Logger.log("END publishPage");
+  if (responseData && responseData.data && response.data.pages && response.data.pages.updatePage && response.data.pages.updatePage.data) {
     return "Published page at revision " + versionID;
   } else {
-    return responseData.data.content.error;
+    return responseData.data.pages.updatePage.error;
   }
 }
+
 
 /**
  * Publishes the article
@@ -2317,70 +2305,6 @@ function publishAuthor(authorID) {
   }
 }
 
-function publishTag(tagID) {
-  var scriptConfig = getScriptConfig();
-  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
-  var CONTENT_API = scriptConfig['CONTENT_API'];
-
-  var formData = {
-      query: `mutation PublishTag($revision: ID!) {
-      content: publishTag(revision: $revision) {
-        data {
-          id
-          meta {
-            publishedOn
-            published
-          }
-        }
-        error {
-          message
-          code
-          data
-        }
-      }
-    }`,
-    variables: {
-      revision: tagID
-    }
-  };
-  var options = {
-    method: 'post',
-    muteHttpExceptions: true,
-    contentType: 'application/json',
-    headers: {
-      authorization: ACCESS_TOKEN,
-    },
-    payload: JSON.stringify(formData),
-  };
-
-  // Logger.log("formData: ", JSON.stringify(formData))
-  var response = UrlFetchApp.fetch(
-    CONTENT_API,
-    options
-  );
-
-  var responseText = response.getContentText();
-  var responseData = JSON.parse(responseText);
-  // Logger.log("responseData: ", responseData);
-
-  if (responseData && responseData.data && responseData.data.content.error !== null) {
-    Logger.log("Error publishing tag ", tagID, ": ", responseData.data.content.error);
-    return false;
-  } else if (responseData && responseData.data && responseData.data.content && responseData.data.content.data) {
-    var publishedSuccessfully = responseData.data.content.data.meta.published;
-    if (publishedSuccessfully) {
-      // Logger.log("Published tag with id ", tagID, " successfully.")
-      return true;
-    } else {
-      Logger.log("Something went wrong publishing tag with id ", tagID, ": ", responseData);
-      return false;
-    }
-  } else {
-    Logger.log("Something went wrong publishing tag with id ", tagID, ": ", responseData);
-    return false;
-  }
-}
-
 function createTag(tagTitle) {
   // Logger.log("creating tag: ", tagTitle);
   var scriptConfig = getScriptConfig();
@@ -2414,9 +2338,9 @@ function createTag(tagTitle) {
                 values {
                   value                
                 }
-  
               }
               slug
+              published
             }
             error  {
               code
@@ -2437,6 +2361,7 @@ function createTag(tagTitle) {
             ]
           },
           slug: slugify(tagTitle),
+          published: true
         }
       }
   };
@@ -2462,9 +2387,6 @@ function createTag(tagTitle) {
   // Logger.log(responseData);
 
   var newTagData = responseData.data.tags.createTag.data;
-
-  // after creating the tag we have to publish it
-  publishTag(newTagData.id);
 
   var allTags = getAllTags();
 
@@ -2515,8 +2437,8 @@ function createTag(tagTitle) {
 
 function getLocales() {
   var scriptConfig = getScriptConfig();
-  var PERSONAL_ACCESS_TOKEN = scriptConfig['PERSONAL_ACCESS_TOKEN'];
-  var GRAPHQL_API = scriptConfig['GRAPHQL_API'];
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
 
   query = `{
     i18n {
@@ -2536,13 +2458,13 @@ function getLocales() {
     contentType: 'application/json',
     headers: {
       authorization:
-        PERSONAL_ACCESS_TOKEN,
+        ACCESS_TOKEN,
     },
     payload: JSON.stringify({ query: query }),
   };
 
   var response = UrlFetchApp.fetch(
-    GRAPHQL_API,
+    CONTENT_API,
     options
   );
   var responseText = response.getContentText();
