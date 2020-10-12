@@ -1328,6 +1328,7 @@ function createArticleFrom(versionID, title, elements) {
                 value
               }
             }
+            headlineSearch
             authors {
               id
               name
@@ -1367,6 +1368,7 @@ function createArticleFrom(versionID, title, elements) {
             },
           ],
         },
+        headlineSearch: title,
         content: {
           values: [
             {
@@ -1733,6 +1735,7 @@ function createArticle(title, elements) {
                 value
               }
             }
+            headlineSearch
             authors {
               id
               name
@@ -1757,6 +1760,7 @@ function createArticle(title, elements) {
             },
           ],
         },
+        headlineSearch: title,
         slug: slug,
         category: categoryID,
         content: {
