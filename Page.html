@@ -65,12 +65,24 @@
         }
 
         if (data.documentType === 'article') {
+          console.log(data.categories);
           var articleCategorySelect = document.getElementById('article-category');
           var categoriesSorted = data.categories.sort(function (a, b) {
             let comparison = 0;
-            if (a.title.values[0].value > b.title.values[0].value) {
+            let aTitle, bTitle;
+            if (a.title && a.title.values && a.title.values[0].value) {
+              aTitle = a.title.values[0].value;
+            } else {
+              console.log("categoryA unknown title");
+            }
+            if (b.title && b.title.values && b.title.values[0].value) {
+              bTitle = b.title.values[0].value;
+            } else {
+              console.log("categoryB unknown title");
+            }
+            if (aTitle > bTitle) {
               comparison = 1;
-            } else if (a.title.values[0].value < b.title.values[0].value) {
+            } else if (aTitle < bTitle) {
               comparison = -1;
             }
             return comparison;
@@ -80,7 +92,15 @@
             var selectorString = "#article-category option[value='" + category.id + "']";
             if ( $(selectorString).length <= 0 ) {
               var option = document.createElement("option");
-              option.text = category.title.values[0].value;
+              // console.log("category.title:", category.title);
+              // console.log("category.title.values:", category.title.values);
+              // console.log("category.title.values[0]:", category.title.values[0]);
+              // console.log("category.title.values[0].value:", category.title.values[0].value);
+              if (category.title && category.title.values && category.title.values[0].value) {
+                option.text = category.title.values[0].value;
+              } else {
+                option.text = "(BUG) unknown title";
+              }
               option.value = category.id;
 
               if (data.categoryID !== null && data.categoryID == category.id) {
@@ -114,7 +134,11 @@
           var selectorString = "#article-tags option[value='" + tag.id + "']";
           if ( $(selectorString).length <= 0 ) {
             var option = document.createElement("option");
-            option.text = tag.title.values[0].value;
+            if (tag.title && tag.title.values && tag.title.values[0].value) {
+              option.text = tag.title.values[0].value;
+            } else {
+              option.text = "(BUG) unknown title";
+            }
             option.value = tag.id;
 
             const result = data.articleTags.find( ({ id }) => id === tag.id );
