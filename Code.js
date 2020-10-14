@@ -489,6 +489,7 @@ function storeTags(tags) {
     }
   })
 
+  Logger.log("storableTags:", storableTags);
   storeValueJSON("ARTICLE_TAGS", storableTags);
 }
 
@@ -942,7 +943,7 @@ function getElements() {
             eleData.link = linkUrl;
             orderedElements.push(eleData);
           } else {
-            Logger.log("url not embeddable: ", linkUrl);
+            // Logger.log("url not embeddable: ", linkUrl);
           }
         } else {
           // Logger.log("linkUrl is null: ", subElements[0].textRun.content);
@@ -1279,9 +1280,6 @@ function createArticleFrom(versionID, title, elements) {
   allAuthors.forEach(author => {
     const result = articleAuthors.find( ({ id }) => id === author.id );
     if (result !== undefined) {
-      // just try to publish it because the article won't publish with any unpublished authors :(
-      // TODO: see if there's a way to optimise this so we're not unnecessarily publishing authors
-      publishAuthor(author.id);
       authorIDs.push(author.id);
       authorSlugs.push(author.slug);
     }
@@ -1295,10 +1293,10 @@ function createArticleFrom(versionID, title, elements) {
   // Logger.log("createArticleFrom articleTags: ", articleTags);
   // create any new tags
   const newTags = articleTags.filter(articleTag => articleTag.newTag === true);
-  // Logger.log("createArticleFrom newTags: ", newTags);
+  Logger.log("createArticleFrom newTags: ", newTags);
   if (newTags.length > 0) {
     newTags.forEach(newTag => {
-      // Logger.log("createArticleFrom creating new tag: ", newTag);
+      Logger.log("createArticleFrom creating new tag: ", newTag);
       createTag(newTag.title);
     })
   }
@@ -1307,49 +1305,19 @@ function createArticleFrom(versionID, title, elements) {
   // Logger.log("allTags:", allTags);
 
   var articleTags = getTags(); // refresh list of tags for this article as some may have been created just above
-  // Logger.log("articleTags:", articleTags);
+  // Logger.log("2 articleTags:", articleTags);
   // compare all tags array to those selected for this article
   var tagIDs = [];
   allTags.forEach(tag => {
     const result = articleTags.find( ({ id }) => id === tag.id );
     if (result !== undefined) {
+      Logger.log("found tag: ", tag);
       tagIDs.push(tag.id);
     }
   });
 
-  var formData = {
-    query: `mutation UpdateArticle($id: ID!, $data: ArticleInput!) {
-      articles { 
-        updateArticle(id: $id, data: $data) {
-          data {
-            id
-            headline {
-              values {
-                value
-              }
-            }
-            headlineSearch
-            authors {
-              id
-              name
-            }
-            category {
-              slug
-            }
-            tags {
-              id
-              title {
-                values {
-                  value
-                }
-              }
-              slug
-            }
-          }
-        }
-      }
-    }`,
-    variables: {
+  Logger.log("tagIDs: ", tagIDs);
+  var variables = {
       id: versionID,
       data: {
         slug: slug,
@@ -1425,8 +1393,47 @@ function createArticleFrom(versionID, title, elements) {
             },
           ],
         },
-      },
-    },
+      }
+  };
+  Logger.log("variables:", variables);
+
+  var formData = {
+    query: `mutation UpdateArticle($id: ID!, $data: ArticleInput!) {
+      articles { 
+        updateArticle(id: $id, data: $data) {
+          error {
+            code
+            message
+          }
+          data {
+            id
+            headline {
+              values {
+                value
+              }
+            }
+            headlineSearch
+            authors {
+              id
+              name
+            }
+            category {
+              slug
+            }
+            tags {
+              id
+              title {
+                values {
+                  value
+                }
+              }
+              slug
+            }
+          }
+        }
+      }
+    }`,
+    variables: variables
   };
   // Logger.log("formData: ", formData);
   var options = {
@@ -1447,7 +1454,7 @@ function createArticleFrom(versionID, title, elements) {
   // Logger.log("createArticleFrom response:", responseText);
   var responseData = JSON.parse(responseText);
   // Logger.log("createArticleFrom responseData:", responseData);
-  Logger.log("END createArticleFrom");
+  Logger.log("END createArticleFrom:", responseText);
   return responseData.data.articles.updateArticle.data;
 }
 
@@ -1629,6 +1636,7 @@ function createPage(title, elements) {
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
+  Logger.log("responseData:", responseData);
   return responseData.data.pages.createPage.data;
 }
 
@@ -2250,70 +2258,6 @@ function addTagToLocalStore(formObject) {
   }
 }
 
-function publishAuthor(authorID) {
-  var scriptConfig = getScriptConfig();
-  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
-  var CONTENT_API = scriptConfig['CONTENT_API'];
-
-  var formData = {
-      query: `mutation PublishAuthor($revision: ID!) {
-      content: publishAuthor(revision: $revision) {
-        data {
-          id
-          meta {
-            publishedOn
-            published
-          }
-        }
-        error {
-          message
-          code
-          data
-        }
-      }
-    }`,
-    variables: {
-      revision: authorID
-    }
-  };
-  var options = {
-    method: 'post',
-    muteHttpExceptions: true,
-    contentType: 'application/json',
-    headers: {
-      authorization: ACCESS_TOKEN,
-    },
-    payload: JSON.stringify(formData),
-  };
-
-  // Logger.log("formData: ", JSON.stringify(formData))
-  var response = UrlFetchApp.fetch(
-    CONTENT_API,
-    options
-  );
-
-  var responseText = response.getContentText();
-  var responseData = JSON.parse(responseText);
-  // Logger.log("responseData: ", responseData);
-
-  if (responseData && responseData.data && responseData.data.content.error !== null) {
-    Logger.log("Error publishing author ", authorID, ": ", responseData.data.content.error);
-    return false;
-  } else if (responseData && responseData.data && responseData.data.content && responseData.data.content.data) {
-    var publishedSuccessfully = responseData.data.content.data.meta.published;
-    if (publishedSuccessfully) {
-      // Logger.log("Published author with id ", authorID, " successfully.")
-      return true;
-    } else {
-      Logger.log("Something went wrong publishing author with id ", authorID, ": ", responseData);
-      return false;
-    }
-  } else {
-    Logger.log("Something went wrong publishing author with id ", authorID, ": ", responseData);
-    return false;
-  }
-}
-
 function createTag(tagTitle) {
   // Logger.log("creating tag: ", tagTitle);
   var scriptConfig = getScriptConfig();
@@ -2402,6 +2346,8 @@ function createTag(tagTitle) {
   // if we found this tag already in the articleTags, update it with the ID and mark it as no longer new
   const tagIndex = articleTags.findIndex( ({title}) => title === tagTitle);
   if (tagIndex >= 0) {
+    console.log("articleTags:", articleTags);
+    console.log("Found tag at index:", tagIndex, articleTags[tagIndex]);
     // Logger.log("created new tag, now updating articleTags data: ", articleTags[tagIndex]);
     articleTags[tagIndex].newTag = false;
     articleTags[tagIndex].id = newTagData.id;

@@ -65,7 +65,6 @@
         }
 
         if (data.documentType === 'article') {
-          console.log(data.categories);
           var articleCategorySelect = document.getElementById('article-category');
           var categoriesSorted = data.categories.sort(function (a, b) {
             let comparison = 0;
@@ -92,10 +91,6 @@
             var selectorString = "#article-category option[value='" + category.id + "']";
             if ( $(selectorString).length <= 0 ) {
               var option = document.createElement("option");
-              // console.log("category.title:", category.title);
-              // console.log("category.title.values:", category.title.values);
-              // console.log("category.title.values[0]:", category.title.values[0]);
-              // console.log("category.title.values[0].value:", category.title.values[0].value);
               if (category.title && category.title.values && category.title.values[0].value) {
                 option.text = category.title.values[0].value;
               } else {
