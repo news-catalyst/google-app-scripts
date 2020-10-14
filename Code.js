@@ -1131,7 +1131,7 @@ function createPageFrom(versionID, title, elements) {
       }
     }`,
     variables: {
-      revision: versionID,
+      id: versionID,
       data: {
         headline: {
           values: [
@@ -1219,7 +1219,7 @@ function createPageFrom(versionID, title, elements) {
   var responseText = response.getContentText();
   // Logger.log("createPageFrom response:", responseText);
   var responseData = JSON.parse(responseText);
-  // Logger.log("createPageFrom responseData:", responseData);
+  Logger.log("createPageFrom responseData:", responseData);
   // var latestVersionID = responseData.data.content.data.id;
   // storeArticleID(latestVersionID);
   return responseData.data.pages.updatePage.data;
@@ -1966,12 +1966,12 @@ function publishPage() {
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  // Logger.log(responseData);
+  Logger.log("publish page responseData:", responseData);
 
   // TODO update latestVersionPublished flag
 
   Logger.log("END publishPage");
-  if (responseData && responseData.data && response.data.pages && response.data.pages.updatePage && response.data.pages.updatePage.data) {
+  if (responseData && responseData.data && responseData.data.pages && responseData.data.pages.updatePage && responseData.data.pages.updatePage.data) {
     return "Published page at revision " + versionID;
   } else {
     return responseData.data.pages.updatePage.error;
