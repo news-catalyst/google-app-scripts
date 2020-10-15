@@ -809,46 +809,6 @@ function getElements() {
 
   var orderedElements = [];
 
-  var headers = document.headers;
-
-  // Look for a main article image in the header
-  if (headers !== null && headers !== undefined) {
-    if (Object.keys(headers).length === 1) {
-      var headerKey = Object.keys(headers)[0];
-      var header = headers[headerKey];
-      var headerContent = header.content;
-      headerContent.forEach(content => {
-        content.paragraph.elements.forEach(element => {
-          var headerElement = {
-            type: null,
-            children: []
-          };
-          if ( element.inlineObjectElement && element.inlineObjectElement.inlineObjectId) {
-            headerElement.type = "mainImage";
-            var imageID = element.inlineObjectElement.inlineObjectId;
-            var fullImageData = inlineObjects[imageID];
-            if (fullImageData) {
-              var s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri);
-
-              var childImage = {
-                index: element.endIndex,
-                height: fullImageData.inlineObjectProperties.embeddedObject.size.height.magnitude,
-                width: fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude,
-                imageId: element.inlineObjectElement.inlineObjectId,
-                imageUrl: s3Url,
-                imageAlt: cleanContent(fullImageData.inlineObjectProperties.embeddedObject.title)
-              };
-              headerElement.children.push(childImage);
-            }
-          }
-          if (headerElement.type !== null) {
-            orderedElements.push(headerElement);
-          }
-        });
-      });
-    }
-  }
-
   var listInfo = {};
   var listItems = activeDoc.getListItems();
   listItems.forEach(li => {
@@ -856,6 +816,8 @@ function getElements() {
     var glyphType = li.getGlyphType();
     listInfo[id] = glyphType;
   })
+
+  var foundMainImage = false;
 
   elements.forEach(element => {
     if (element.paragraph && element.paragraph.elements) {
@@ -976,8 +938,19 @@ function getElements() {
 
           // found an image
           if ( subElement.inlineObjectElement && subElement.inlineObjectElement.inlineObjectId) {
-            eleData.type = "image";
+
             var imageID = subElement.inlineObjectElement.inlineObjectId;
+            eleData.type = "image";
+
+            // treat the first image as the main article image used in featured links
+            if (!foundMainImage) {
+              // Logger.log("treating this image as the main image:", imageID)
+              eleData.type = "mainImage";
+              foundMainImage = true;
+            // } else {
+            //   Logger.log("treating this image as a regular image:", imageID)
+            }
+
             var fullImageData = inlineObjects[imageID];
             if (fullImageData) {
 
