@@ -374,6 +374,7 @@ function deleteTags() {
 }
 
 function deleteCategories() {
+  deleteValue('ARTICLE_CATEGORY_ID');
   return deleteValue('ALL_CATEGORIES');
 }
 
@@ -1726,9 +1727,7 @@ function createArticle(title, elements) {
     }
   });
 
-  var formData = {
-    query:
-    `mutation CreateArticle($data: ArticleInput!) {
+  var queryString = `mutation CreateArticle($data: ArticleInput!) {
       articles { 
         createArticle(data: $data) {
           error {
@@ -1757,8 +1756,8 @@ function createArticle(title, elements) {
           }
         }
       }
-    }`,
-    variables: {
+    }`;
+  var gqlVariables = {
       data: {
         headline: {
           values: [
@@ -1832,11 +1831,15 @@ function createArticle(title, elements) {
           ],
         },
         firstPublishedOn: publishingInfo.firstPublishedOn,
-        lastPublishedOn: publishingInfo.lastPublishedOn,
-      },
-    },
+        lastPublishedOn: publishingInfo.lastPublishedOn
+      }
+  };
+  var formData = {
+    query: queryString,
+    variables: gqlVariables
   };
 
+  Logger.log("vars: ", gqlVariables);
   var options = {
     method: 'post',
     muteHttpExceptions: true,
@@ -1904,15 +1907,15 @@ function deleteArticle() {
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  // Logger.log(responseData);
+  Logger.log(responseData);
 
   deleteArticleID();
   deletePublishingInfo();
   deleteTags();
   deleteCategories();
-  if (responseData && responseData.data.articles.deleteArticle.error === null) {
+  if (responseData && responseData.data && responseData.data.articles.deleteArticle.error === null) {
     return "Deleted article at revision " + versionID;
-  } else {
+  } else if (responseData && responseData.data && responseData.data.articles.deleteArticle.error !== null) {
     return responseData.data.articles.deleteArticle.error;
   }
 }
@@ -2653,7 +2656,9 @@ function processForm(formObject) {
     }
 
     var categoryID = formObject["article-category"]
-    storeCategoryID(categoryID);
+    if (categoryID !== undefined) {
+      storeCategoryID(categoryID);
+    }
   }
 
   var seoData = {
