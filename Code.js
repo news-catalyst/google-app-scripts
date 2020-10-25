@@ -588,11 +588,11 @@ function getArticleMeta() {
     storeAuthorSlugs(authorSlugsValue);
   }
 
-  var categories = getCategories();
-  if (categories === null || categories.length <= 0) {
-    categories = listCategories();
+  // var categories = getCategories();
+  // if (categories === null || categories.length <= 0) {
+    var categories = listCategories();
     storeCategories(categories);
-  }
+  // }
 
   var categoryID = getCategoryID();
   var categoryName = getNameForCategoryID(categories, categoryID);
