@@ -10,20 +10,55 @@
 
     <script>
       function onSuccessSearch(contents) {
+
+        console.log("contents:", contents);
+
         hideConfigForm();
         hideLoading();
 
         var div = document.getElementById('search-results');
         div.style.display = 'block';
 
-        console.log("contents:", contents);
-        var items = [];
-        contents.map(article => {
-          items.push('<li onClick="associateArticle(\'' + article.id + '\')" data-article-id="' + article.id + '">' + article.headline.values[0].value + '</li>');
+        if (contents.articles.length <= 0) {
+          div.innerHTML = "<p>No matching articles found. Try again, or perhaps you want to <a href='TODO'>publish this as a new article</a>?</p>";
+        }
+
+        var articleSelect = document.getElementById('article-id');
+
+        contents.articles.forEach(article => {
+          // first check if this option already exists; don't add dupes!
+          var selectorString = "#article-id option[value='" + article.id + "']";
+          if ( $(selectorString).length <= 0 ) {
+            var option = document.createElement("option");
+            if (article.headlineSearch) {
+              option.text = article.headlineSearch;
+            } else {
+              option.text = "(BUG) unknown article headline";
+            }
+            option.value = article.id;
+
+            articleSelect.add(option);
+          }
         })
-        console.log("items:", items);
-        var list = '<ul>' + items.join('') + '<ul>';
-        div.innerHTML = list;
+        var articleLocaleSelect = document.getElementById('article-locale');
+
+        contents.locales.forEach(locale => {
+          // first check if this option already exists; don't add dupes!
+          var selectorString = "#article-locale option[value='" + locale.id + "']";
+          if ( $(selectorString).length <= 0 ) {
+            var option = document.createElement("option");
+            if (locale.code) {
+              option.text = locale.code;
+            } else {
+              option.text = "(BUG) unknown locale";
+            }
+            option.value = locale.id;
+
+            articleLocaleSelect.add(option);
+          }
+        })
+
+        showArticleForm();
       }
 
       function onSuccess(contents) {
@@ -31,7 +66,14 @@
         var div = document.getElementById('loading');
         div.style.display = 'block';
         console.log(contents);
-        div.innerHTML = '<p style="color: #48C774;">' + contents + "</p>";
+        div.innerHTML = '<p style="color: #48C774;">Success! This document is now associated with article ID#' + contents.id + '. You should now <input type="button" value="close" onclick="google.script.host.close()" /> this sidebar and open the Publishing Tools menu item to work with the article.</p>';
+      }
+
+      function onFailureMeta(error) {
+        var loadingDiv = document.getElementById('loading');
+        console.log(error);
+        loadingDiv.style.display = "block";
+        loadingDiv.innerHTML = "<p class='error'>An error occurred while trying to look up this document's metadata: " + error + "</p>";
       }
 
       function onFailure(error) {
@@ -76,6 +118,16 @@
         hideSearchForm();
         showConfigForm();
         google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessConfigFormValues).getArticleMeta();
+      }
+
+      function showArticleForm() {
+        var scriptForm = document.getElementById('associate-article-form')
+        scriptForm.style.display = "block";
+      }
+
+      function hideArticleForm() {
+        var scriptForm = document.getElementById('associate-article-form')
+        scriptForm.style.display = "none";
       }
 
       function showConfigForm() {
@@ -138,9 +190,9 @@
         google.script.run.withSuccessHandler(onSuccessSearch).withFailureHandler(onFailure).handleSearch(formObject);
       }
       
-      function associateArticle(articleId) {
+      function handleAssociate(formObject) {
         hideLoading();
-        console.log("associating article...", articleId);
+        console.log("associating article...", formObject);
         // var articleId = $(this).data('article-id');
         // console.log("articleId:", articleId);
 
@@ -148,18 +200,26 @@
         hideConfigForm();
 
         showLoading();
-        google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).associateArticle(articleId);
+        google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).associateArticle(formObject);
       }
-
-      window.onload = (function(){
-        hideSearchForm();
-        hideConfigForm();
-        
-        handleScriptConfig();
-      });
 
       function handleScriptConfigSubmit(formObject) {
         google.script.run.withSuccessHandler(displayConfigFormMessage).setScriptConfig(formObject);
+      }
+
+      function onSuccessMeta(data) {
+        var loadingDiv = document.getElementById('loading');
+
+        console.log(data);
+        if ( data.articleID !== null && data.articleID !== undefined) {
+          loadingDiv.innerHTML = "<p>This document is already associated with an article in Webiny (ID #" + data.articleID +").</p>\n<p>Open the Publishing Tools to work with it. Or, stay here to change which article this document is linked to.</p>"
+        } else {
+          loadingDiv.innerHTML = "<p>You can link this document to an existing article in Webiny to publish it to the web and mobile.</p>"
+        }
+      }
+
+      function handleMeta() {
+         google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessMeta).getArticleMeta();
       }
 
       // Prevent forms from submitting.
@@ -173,6 +233,15 @@
       }
       window.addEventListener('load', preventFormSubmit);
 
+      window.onload = (function(){
+        hideSearchForm();
+        hideArticleForm();
+        hideConfigForm();
+        
+        handleScriptConfig();
+
+        handleMeta();
+      });
 
     </script>
     <style>
@@ -192,7 +261,7 @@
   <body>
     <a id='top' href="#"></a>
     <div id="sidebar-wrapper" class="sidebar branding-below">
-      <h1 class="title">Associate this Doc</h1>
+      <h1 class="title">Admin this Document</h1>
 
       <div class="block gray" id="loading">Loading...</div>
 
@@ -265,7 +334,28 @@
         </form>
       </div>
 
-      <div id="search-results" class="block"></div>
+      <div id="associate-article-form">
+        <form onsubmit="handleAssociate(this)">
+          <div class="block form-group">
+            <label for="article-id">
+              <b>Select article</b>
+            </label>
+            <div id="search-results" class="block"></div>
+            <select style="width: 100%" id="article-id" name="article-id"></select>
+          </div>
+          <div class="block form-group">
+            <label for="article-locale">
+              <b>Select locale</b>
+            </label>
+            <select style="width: 100%" id="article-locale" name="article-locale"></select>
+            <!-- <div id="locale-results" class="block"></div> -->
+          </div>
+          <div class="block">
+            <input type="submit" name="link" id="link-button" class="blue" value="Link" />
+          </div>
+        </form>
+      </div>
+
 
       <div class="block">
         <button onclick="getConfigAndDisplayForm()">Show Config</button>

@@ -24,8 +24,8 @@ function onOpen(e) {
   // display sidebar
   DocumentApp.getUi()
     .createMenu('Webiny')
-    .addItem('Publish this doc', 'showSidebar')
-    .addItem('Associate with published article', 'showSidebarManualAssociate')
+    .addItem('Publishing Tools', 'showSidebar')
+    .addItem('Administrator Tools', 'showSidebarManualAssociate')
     .addToUi();
 }
 
@@ -2741,18 +2741,28 @@ function handleSearch(formObject) {
     var responseText = response.getContentText();
     var responseData = JSON.parse(responseText);
     Logger.log("handleSearch responseData:", responseData);
-    return responseData.data.articles.listArticles.data;
+    var locales = getLocales();
+
+    var searchResults = {
+      locales: locales,
+      articles: responseData.data.articles.listArticles.data
+    }
+    return searchResults;
 }
 
 /*
 .* called from ManualPage.html, this function associates the google doc with the selected article
 .*/
-function associateArticle(articleId) {
+function associateArticle(formObject) {
+  
   // var scriptConfig = getScriptConfig();
   // var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   // var CONTENT_API = scriptConfig['CONTENT_API'];
 
-  Logger.log("associateArticle:", articleId);
+  Logger.log("associateArticle:", formObject);
+
+  var articleID  = formObject["article-id"];
+  var localeID  = formObject["article-locale"];
   // var documentType = getDocumentType();
 
   var headline = getHeadline();
@@ -2762,8 +2772,12 @@ function associateArticle(articleId) {
   }
 
   var formattedElements = formatElements();
-  var responseData = createArticleFrom(articleId, headline, formattedElements);
+  var responseData = createArticleFrom(articleID, headline, formattedElements);
   Logger.log("response:", responseData);
+
+  // finally store the articleID so we know whether to freshly associate the doc going forward.
+  var articleID = responseData.id;
+  storeArticleID(articleID);
 
   return responseData;
 }
