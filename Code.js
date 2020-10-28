@@ -24,7 +24,8 @@ function onOpen(e) {
   // display sidebar
   DocumentApp.getUi()
     .createMenu('Webiny')
-    .addItem('Show sidebar', 'showSidebar')
+    .addItem('Publish this doc', 'showSidebar')
+    .addItem('Associate with published article', 'showSidebarManualAssociate')
     .addToUi();
 }
 
@@ -33,6 +34,18 @@ function onOpen(e) {
  */
 function showSidebar() {
   var html = HtmlService.createHtmlOutputFromFile('Page')
+    .setTitle('CMS Integration')
+    .setWidth(300);
+  DocumentApp.getUi() // Or DocumentApp or SlidesApp or FormApp.
+    .showSidebar(html);
+}
+
+/**
+ * Displays a sidebar letting you manually associate this doc with an article
+ * in Webiny.
+ */
+function showSidebarManualAssociate() {
+  var html = HtmlService.createHtmlOutputFromFile('ManualPage')
     .setTitle('CMS Integration')
     .setWidth(300);
   DocumentApp.getUi() // Or DocumentApp or SlidesApp or FormApp.
@@ -724,7 +737,6 @@ function handlePreview(formObject) {
 . */
 function getCurrentDocContents(formObject, publishFlag) {
   var documentType = getDocumentType();
-
   var propMessage = processForm(formObject);
 
   var title = getHeadline();
@@ -2646,4 +2658,112 @@ function processForm(formObject) {
   storeSEO(seoData);
 
   return "Updated document metadata. You still need to publish for these changes to go live!"
+}
+
+/*
+.* called from ManualPage.html, this function searches for a matching article by headline
+.*/
+function handleSearch(formObject) {
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  Logger.log("handleSearch:", formObject);
+  var SEARCH_ARTICLES = `
+    query SearchArticles($where: ArticleListWhere) {
+      articles {
+        listArticles(where: $where) {
+          data {
+            id
+            headlineSearch
+            firstPublishedOn
+            slug
+            headline {
+              values {
+                value
+              }
+            }
+            content {
+              values {
+                value
+              }
+            }
+            category {
+              id
+              title {
+                values {
+                  value
+                }
+              }
+              slug
+            }
+            tags {
+              id
+              title{
+                values {
+                  value
+                }
+              }
+              slug
+            }
+            authors {
+              id
+              name
+            }
+            authorSlugs
+          }
+        }
+      }
+    }`;
+    var formData = {
+      query: SEARCH_ARTICLES,
+      variables: {
+        where: {
+          headline_contains: formObject['article-search'],
+        },
+      }
+    };
+    Logger.log("formData: ", formData);
+    var options = {
+      method: 'post',
+      muteHttpExceptions: true,
+      contentType: 'application/json',
+      headers: {
+        authorization: ACCESS_TOKEN,
+      },
+      payload: JSON.stringify(formData),
+    };
+
+    var response = UrlFetchApp.fetch(
+      CONTENT_API,
+      options
+    );
+    var responseText = response.getContentText();
+    var responseData = JSON.parse(responseText);
+    Logger.log("handleSearch responseData:", responseData);
+    return responseData.data.articles.listArticles.data;
+}
+
+/*
+.* called from ManualPage.html, this function associates the google doc with the selected article
+.*/
+function associateArticle(articleId) {
+  // var scriptConfig = getScriptConfig();
+  // var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  // var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  Logger.log("associateArticle:", articleId);
+  // var documentType = getDocumentType();
+
+  var headline = getHeadline();
+  if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
+    headline = getDocumentName();
+    storeHeadline(headline);
+  }
+
+  var formattedElements = formatElements();
+  var responseData = createArticleFrom(articleId, headline, formattedElements);
+  Logger.log("response:", responseData);
+
+  return responseData;
 }
