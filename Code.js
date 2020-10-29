@@ -547,6 +547,118 @@ function getDocumentType() {
   return val;
 }
 
+function getArticleDataByID(articleID) {
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  var formData = {
+    query: `query GetArticle($id: ID!) {
+      articles {
+        getArticle(id: $id) {
+          data {
+            id
+            headline {
+              values {
+                value
+                locale
+              }
+            }
+            searchTitle {
+              values {
+                value
+                locale
+              }
+            }
+            searchDescription {
+              values {
+                value
+                locale
+              }
+            }
+            facebookTitle {
+              values {
+                value
+                locale
+              }
+            }
+            facebookDescription {
+              values {
+                value
+                locale
+              }
+            }
+            twitterTitle {
+              values {
+                value
+                locale
+              }
+            }
+            twitterDescription {
+              values {
+                value
+                locale
+              }
+            }
+            authorSlugs
+            customByline
+            slug
+            published
+            firstPublishedOn
+            lastPublishedOn
+            authors {
+              id
+              name
+              slug
+            }
+            category {
+              id
+              title {
+                values {
+                  value
+                  locale
+                }
+              }
+              slug
+            }
+            tags {
+              id
+              title {
+                values {
+                  value
+                  locale
+                }
+              }
+              slug
+            }
+          }
+        }
+      }
+    }`,
+    variables: {
+      id: articleID,
+    }
+  };
+  // Logger.log("formData: ", formData);
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  return responseData.data.articles.getArticle.data;
+}
+
 //
 // Functions for retrieving and formatting document contents
 //
@@ -572,6 +684,8 @@ function getArticleMeta() {
       isStaticPage = true;
     }
   }
+  var authorSlugsValue;
+  var authorSlugs = [];
 
   var documentType = 'article';
   if (isStaticPage) {
@@ -580,6 +694,67 @@ function getArticleMeta() {
   storeDocumentType(documentType);
 
   var articleID = getArticleID();
+
+  // TODO: getArticle if articleID not null
+  if (articleID !== null && articleID !== undefined) {
+
+  }
+  var latestArticleData = getArticleDataByID(articleID);
+
+  if (latestArticleData) {
+    if (latestArticleData.published !== undefined) {
+      storeIsPublished(latestArticleData.published);
+    }
+    if (latestArticleData.headline && latestArticleData.headline.values && latestArticleData.headline.values[0].value) {
+      storeHeadline(latestArticleData.headline.values[0].value);
+    }
+    if (latestArticleData.customByline) {
+      storeCustomByline(latestArticleData.customByline);
+    }
+
+    if (latestArticleData.authors) {
+      latestArticleData.authors.forEach(author => {
+          authorSlugs.push(author.slug);
+      });
+      if (authorSlugs.length > 0) {
+        authorSlugsValue = authorSlugs.join(' ');
+        storeAuthorSlugs(authorSlugsValue);
+      }
+    }
+    if (latestArticleData.category) {
+      storeCategoryID(latestArticleData.category.id);
+    }
+    if (latestArticleData.tags) {
+      storeTags(latestArticleData.tags);
+    }
+    if (latestArticleData.slug) {
+      storeArticleSlug(latestArticleData.slug);
+    }
+
+    var seoData = {}
+    if (latestArticleData.searchTitle && latestArticleData.searchTitle.values && latestArticleData.searchTitle.values[0] && latestArticleData.searchTitle.values[0].value) {
+      seoData.searchTitle = latestArticleData.searchTitle.values[0].value;
+    }
+    if (latestArticleData.searchDescription && latestArticleData.searchDescription.values && latestArticleData.searchDescription.values[0] && latestArticleData.searchDescription.values[0].value) {
+      seoData.searchDescription = latestArticleData.searchDescription.values[0].value;
+    }
+    if (latestArticleData.facebookTitle && latestArticleData.facebookTitle.values && latestArticleData.facebookTitle.values[0] && latestArticleData.facebookTitle.values[0].value) {
+      seoData.facebookTitle = latestArticleData.facebookTitle.values[0].value;
+    }
+    if (latestArticleData.facebookDescription && latestArticleData.facebookDescription.values && latestArticleData.facebookDescription.values[0] && latestArticleData.facebookDescription.values[0].value) {
+      seoData.facebookDescription = latestArticleData.facebookDescription.values[0].value;
+    }
+    if (latestArticleData.twitterTitle && latestArticleData.twitterTitle.values && latestArticleData.twitterTitle.values[0] && latestArticleData.twitterTitle.values[0].value) {
+      seoData.twitterTitle = latestArticleData.twitterTitle.values[0].value;
+    }
+    if (latestArticleData.twitterDescription && latestArticleData.twitterDescription.values && latestArticleData.twitterDescription.values[0] && latestArticleData.twitterDescription.values[0].value) {
+      seoData.twitterDescription = latestArticleData.twitterDescription.values[0].value;
+    }
+
+    if (Object.values(seoData).length > 0) {
+      storeSEO(seoData);
+    }
+  }
 
   var publishingInfo = getPublishingInfo();
   var published = getIsPublished();
@@ -596,8 +771,6 @@ function getArticleMeta() {
 
   var customByline = getCustomByline();
 
-  var authorSlugsValue;
-  var authorSlugs = [];
   var articleAuthors = getAuthors();
   var allAuthors = loadAuthorsFromDB();
   Logger.log("Loaded authors from DB", allAuthors);
@@ -611,7 +784,6 @@ function getArticleMeta() {
       }
     });
   }
-
 
   if (authorSlugs.length > 0) {
     authorSlugsValue = authorSlugs.join(' ');
@@ -764,10 +936,16 @@ function getCurrentDocContents(formObject, publishFlag) {
   articleData.formattedElements = formattedElements;
   articleData.localeID = formObject['article-locale'];
   articleData.published = publishFlag;
+  articleData.categoryID = formObject['article-category'];
 
   if (articleData.localeID === null) {
     articleData.localeID = getLocaleID();
   }
+
+  if (articleData.categoryID !== null) {
+    storeCategoryID(articleData.categoryID);
+  }
+
   Logger.log("articleData:", articleData);
 
   // first save the latest article content - either create a new article, or create a new revision on an existing article
