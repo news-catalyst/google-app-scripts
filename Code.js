@@ -1246,7 +1246,7 @@ function createPageFrom(articleData) {
 
   var versionID = articleData.id;
   var title = articleData.headline;
-  var elements = articleData.formatElements;
+  var elements = articleData.formattedElements;
 
 
   var scriptConfig = getScriptConfig();
@@ -1435,7 +1435,7 @@ function createArticleFrom(articleData) {
 
   var versionID = articleData.id;
   var title = articleData.headline;
-  var elements = articleData.formatElements;
+  var elements = articleData.formattedElements;
   var localeID = articleData.localeID;
 
   var scriptConfig = getScriptConfig();
