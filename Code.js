@@ -281,6 +281,14 @@ function getLatestVersionPublished() {
   return isLatestVersionPublished;
 }
 
+function getIsPublished() {
+  return getValue('IS_PUBLISHED');
+}
+
+function storeIsPublished(value) {
+  storeValue("IS_PUBLISHED", value);
+}
+
 /**
  * Retrieves the ID of the document's locale from local doc storage
  */
@@ -302,6 +310,10 @@ function getArticleSlug() {
 
 function storeArticleSlug(slug) {
   storeValue("ARTICLE_SLUG", slug);
+}
+
+function deleteArticleSlug() {
+  deleteValue('ARTICLE_SLUG');
 }
 
 function getCustomByline() {
@@ -570,6 +582,11 @@ function getArticleMeta() {
   var articleID = getArticleID();
 
   var publishingInfo = getPublishingInfo();
+  var published = getIsPublished();
+  // obviously it isn't published if we don't have a webiny article ID
+  if (articleID === null || articleID === undefined) {
+    published = false;``
+  }
 
   var headline = getHeadline();
   if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
@@ -601,17 +618,13 @@ function getArticleMeta() {
     storeAuthorSlugs(authorSlugsValue);
   }
 
-  // var categories = getCategories();
-  // if (categories === null || categories.length <= 0) {
-    var categories = listCategories();
-    storeCategories(categories);
-  // }
+  var categories = listCategories();
+  storeCategories(categories);
 
   var categoryID = getCategoryID();
   var categoryName = getNameForCategoryID(categories, categoryID);
 
-  var slug = createArticleSlug(categoryName, headline);
-  storeArticleSlug(slug);
+  var slug = getArticleSlug();
 
   // always load the latest tags from webiny to avoid issues being out of sync
   // FYI: I've run into problems when this isn't done (e.g. a dupe tag is created elsewhere, which could be likely when actual orgs use this
@@ -651,6 +664,7 @@ function getArticleMeta() {
       customByline: customByline,
       authorSlugs: authorSlugsValue,
       publishingInfo: publishingInfo,
+      published: published,
       allAuthors: allAuthors,
       articleAuthors: articleAuthors,
       allTags: allTags,
@@ -678,6 +692,7 @@ function getArticleMeta() {
     customByline: customByline,
     authorSlugs: authorSlugsValue,
     publishingInfo: publishingInfo,
+    published: published,
     allAuthors: allAuthors,
     articleAuthors: articleAuthors,
     allTags: allTags,
@@ -737,7 +752,6 @@ function handlePreview(formObject) {
 . */
 function getCurrentDocContents(formObject, publishFlag) {
   var documentType = getDocumentType();
-  var propMessage = processForm(formObject);
 
   var title = getHeadline();
   var formattedElements = formatElements();
@@ -749,6 +763,8 @@ function getCurrentDocContents(formObject, publishFlag) {
   articleData.headline = title;
   articleData.formattedElements = formattedElements;
   articleData.localeID = formObject['article-locale'];
+  articleData.published = publishFlag;
+
   if (articleData.localeID === null) {
     articleData.localeID = getLocaleID();
   }
@@ -809,6 +825,9 @@ function getCurrentDocContents(formObject, publishFlag) {
     // // Logger.log(`Posted to deploy hook to rebuild: `, rebuildResponse);
     // responseText += "<br>Rebuilding site on vercel";
     // responseText += "<br>" + JSON.stringify(rebuildResponse);
+
+  } else {
+    storeIsPublished(false);
   }
 
   // // update published flag and latest version ID
@@ -1234,7 +1253,7 @@ function createPageFrom(articleData) {
  * @param elements
  */
 function createArticleFrom(articleData) {
-  Logger.log("createArticleFrom data: ", articleData);
+  Logger.log("createArticleFrom data.published: ", articleData.published);
 
   var versionID = articleData.id;
   var title = articleData.headline;
@@ -1270,14 +1289,7 @@ function createArticleFrom(articleData) {
   }
 
   var categoryID = getCategoryID();
-  var categoryName = getNameForCategoryID(categories, categoryID);
-  // Logger.log("article category name: ", categoryName);
-
-  // var slug = getArticleSlug();
-  // if (slug === null || typeof(slug) === "undefined") {
-  //   slug = createArticleSlug(categoryName, title);
-  //   storeArticleSlug(slug);
-  // }
+  // var categoryName = getNameForCategoryID(categories, categoryID);
 
   var articleAuthors = getAuthors(); // only id
 
@@ -1330,6 +1342,7 @@ function createArticleFrom(articleData) {
   if (articleData !== undefined && articleData.published === false) {
     published = false;
   }
+  storeIsPublished(published);
   Logger.log("setting published to:", published);
 
   var data = {
@@ -1959,6 +1972,8 @@ function deleteArticle() {
   var responseData = JSON.parse(responseText);
   Logger.log(responseData);
 
+  storeIsPublished(false);
+  deleteArticleSlug();
   deleteArticleID();
   deletePublishingInfo();
   deleteTags();
@@ -2094,8 +2109,10 @@ function publishArticle() {
 
   Logger.log("END publishArticle");
   if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.updateArticle && responseData.data.articles.updateArticle.data) {
+    storeIsPublished(true);
     return "Published article at revision " + versionID;
   } else {
+    storeIsPublished(false);
     return responseData.data.articles.updateArticle.error;
   }
 }

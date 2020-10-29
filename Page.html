@@ -54,6 +54,7 @@
       }
 
       function onSuccessMetaPreserveLoading(data) {
+        console.log(data);
         var form = document.getElementById('article-meta-form');
         form.style.display = "block";
 
@@ -147,7 +148,7 @@
         var revisionIdSpan = document.getElementById('revision-id');
         revisionIdSpan.innerHTML = data.articleID;
 
-        setPublishedFlag(true); // todo: get rid of this?;
+        setPublishedFlag(data.published);
 
         var articleHeadline = document.getElementById('article-headline');
         articleHeadline.value = data.headline;
