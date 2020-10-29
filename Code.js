@@ -503,7 +503,7 @@ function storeTags(tags) {
     }
   })
 
-  Logger.log("storableTags:", storableTags);
+  // Logger.log("storableTags:", storableTags);
   storeValueJSON("ARTICLE_TAGS", storableTags);
 }
 
@@ -744,16 +744,26 @@ function getCurrentDocContents(formObject, publishFlag) {
 
   var articleID = getArticleID();
 
+  var articleData = {};
+  articleData.id = articleID;
+  articleData.headline = title;
+  articleData.formattedElements = formattedElements;
+  articleData.localeID = formObject['article-locale'];
+  if (articleData.localeID === null) {
+    articleData.localeID = getLocaleID();
+  }
+  Logger.log("articleData:", articleData);
+
   // first save the latest article content - either create a new article, or create a new revision on an existing article
   var responseData;
   // if we already have an articleID and latest version info, we need to create a new version of the article
   if (articleID !== null) {
     if (documentType === "article") {
-      Logger.log("updating article id", articleID)
-      responseData = createArticleFrom(articleID, title, formattedElements);
+      Logger.log("updating article id#", articleID)
+      responseData = createArticleFrom(articleData);
     } else {
-      Logger.log("updating page id", articleID)
-      responseData = createPageFrom(articleID, title, formattedElements);
+      Logger.log("updating page id#", articleID)
+      responseData = createPageFrom(articleData);
     }
   // otherwise, we create a new article
   } else {
@@ -764,19 +774,20 @@ function getCurrentDocContents(formObject, publishFlag) {
       Logger.log("creating new page")
       responseData = createPage(title, formattedElements);
     }
+
+    if (responseData && responseData.status === "success" && responseData.id) {
+      var articleID = responseData.id;
+      storeArticleID(articleID);
+    }
   }
 
   Logger.log("responseData:", responseData);
-  var articleID = responseData.id;
-  storeArticleID(articleID);
 
-  // var webinyResponseCode = webinyResponse.getResponseCode();
-  // var responseText;
-  // if (webinyResponseCode === 200) {
-    responseText = `Successfully stored ${documentType} in webiny.`;
-  // } else {
-  //   responseText = 'Webiny responded with code ' + webinyResponseCode;
-  // }
+  if (responseData === null || responseData.status !== "success") {
+    return `An error occurred trying to save this article: ${responseData.message}`
+  }
+
+  responseText = `Successfully stored ${documentType} in webiny.`;
 
   if (publishFlag) {
     // Logger.log(`Publishing ${documentType}...`)
@@ -793,11 +804,11 @@ function getCurrentDocContents(formObject, publishFlag) {
 
       responseText += "<br>" + JSON.stringify(publishResponse);
     }
-    // hit vercel deploy hook to republish the site
-    var rebuildResponse = rebuildSite();
-    // Logger.log(`Posted to deploy hook to rebuild: `, rebuildResponse);
-    responseText += "<br>Rebuilding site on vercel";
-    responseText += "<br>" + JSON.stringify(rebuildResponse);
+    // // hit vercel deploy hook to republish the site
+    // var rebuildResponse = rebuildSite();
+    // // Logger.log(`Posted to deploy hook to rebuild: `, rebuildResponse);
+    // responseText += "<br>Rebuilding site on vercel";
+    // responseText += "<br>" + JSON.stringify(rebuildResponse);
   }
 
   // // update published flag and latest version ID
@@ -1033,8 +1044,13 @@ function formatElements() {
  * @param title
  * @param elements
  */
-function createPageFrom(versionID, title, elements) {
-  // Logger.log("createPageFrom versionID: ", versionID);
+function createPageFrom(articleData) {
+  Logger.log("createPageFrom data: ", articleData);
+
+  var versionID = articleData.id;
+  var title = articleData.headline;
+  var elements = articleData.formatElements;
+
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
@@ -1217,21 +1233,29 @@ function createPageFrom(versionID, title, elements) {
  * @param title
  * @param elements
  */
-function createArticleFrom(versionID, title, elements) {
-  Logger.log("START createArticleFrom");
+function createArticleFrom(articleData) {
+  Logger.log("createArticleFrom data: ", articleData);
+
+  var versionID = articleData.id;
+  var title = articleData.headline;
+  var elements = articleData.formatElements;
+  var localeID = articleData.localeID;
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
-  var localeID = getLocaleID();
-  if (localeID === null) {
+  if (localeID === null || localeID === undefined) {
+    Logger.log("grabbing default locale as articleData lacked it")
     var locales = getLocales();
     setDefaultLocale(locales);
     localeID = getLocaleID();
+    Logger.log("localeID is now:", localeID);
     if (localeID === null) {
       return 'Failed updating article: unable to find a default locale';
     }
+  } else {
+    Logger.log("articleData had locale:", localeID);
   }
 
   var customByline = getCustomByline();
@@ -1279,10 +1303,10 @@ function createArticleFrom(versionID, title, elements) {
   // Logger.log("createArticleFrom articleTags: ", articleTags);
   // create any new tags
   const newTags = articleTags.filter(articleTag => articleTag.newTag === true);
-  Logger.log("createArticleFrom newTags: ", newTags);
+  // Logger.log("createArticleFrom newTags: ", newTags);
   if (newTags.length > 0) {
     newTags.forEach(newTag => {
-      Logger.log("createArticleFrom creating new tag: ", newTag);
+      // Logger.log("createArticleFrom creating new tag: ", newTag);
       createTag(newTag.title);
     })
   }
@@ -1297,12 +1321,12 @@ function createArticleFrom(versionID, title, elements) {
   allTags.forEach(tag => {
     const result = articleTags.find( ({ id }) => id === tag.id );
     if (result !== undefined) {
-      Logger.log("found tag: ", tag);
+      // Logger.log("found tag: ", tag);
       tagIDs.push(tag.id);
     }
   });
 
-  Logger.log("tagIDs: ", tagIDs);
+  // Logger.log("tagIDs: ", tagIDs);
   var variables = {
       id: versionID,
       data: {
@@ -1381,7 +1405,7 @@ function createArticleFrom(versionID, title, elements) {
         },
       }
   };
-  Logger.log("variables:", variables);
+  // Logger.log("variables:", variables);
 
   var formData = {
     query: `mutation UpdateArticle($id: ID!, $data: ArticleInput!) {
@@ -1436,12 +1460,26 @@ function createArticleFrom(versionID, title, elements) {
     CONTENT_API,
     options
   );
+  Logger.log("createArticleFrom response:", response);
   var responseText = response.getContentText();
-  // Logger.log("createArticleFrom response:", responseText);
   var responseData = JSON.parse(responseText);
   // Logger.log("createArticleFrom responseData:", responseData);
   Logger.log("END createArticleFrom:", responseText);
-  return responseData.data.articles.updateArticle.data;
+
+  var returnValue = {
+    status: "",
+    message: ""
+  };
+  if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.updateArticle && responseData.data.articles.updateArticle.error === null) {
+    returnValue.status = "success";
+    returnValue.id = responseData.data.articles.updateArticle.data.id;
+    returnValue.message = "Updated article with ID " +  returnValue.id;
+  } else if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.updateArticle && responseData.data.articles.updateArticle.error !== null) {
+    returnValue.status = "error";
+    returnValue.message = responseData.data.articles.updateArticle.error;
+  }
+
+  return returnValue;
 }
 
 /**
@@ -1845,7 +1883,22 @@ function createArticle(title, elements) {
   Logger.log("response text: ", responseText);
   var responseData = JSON.parse(responseText);
   Logger.log("responseData: ", responseData);
-  return responseData.data.articles.createArticle.data;
+
+  var returnValue = {
+    status: "",
+    message: ""
+  };
+  if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.createArticle && responseData.data.articles.createArticle.error !== null) {
+    returnValue.status = "error";
+    returnValue.id = null;
+    returnValue.message = responseData.data.articles.createArticle.error;
+  } else {
+    returnValue.message = "Created article with ID " +  returnValue.id;
+    returnValue.status = "success";
+    returnValue.id = responseData.data.articles.createArticle.data.id;
+
+  }
+  return returnValue;
 }
 
 /**
@@ -2772,12 +2825,26 @@ function associateArticle(formObject) {
   }
 
   var formattedElements = formatElements();
-  var responseData = createArticleFrom(articleID, headline, formattedElements);
+
+  var articleData = {};
+  articleData.id = articleID;
+  articleData.headline = headline;
+  articleData.formattedElements = formattedElements;
+  articleData.localeID = localeID;
+
+  var responseData = createArticleFrom(articleData);
   Logger.log("response:", responseData);
 
-  // finally store the articleID so we know whether to freshly associate the doc going forward.
-  var articleID = responseData.id;
-  storeArticleID(articleID);
+  if (responseData && responseData.status === "error") {
+    Logger.log("ERROR:", responseData.message);
+  } else {
+    Logger.log("SUCCESS:", responseData.message);
+
+    // finally store the articleID so we know whether to freshly associate the doc going forward.
+    var articleID = responseData.id;
+    storeArticleID(articleID);
+
+  }
 
   return responseData;
 }
