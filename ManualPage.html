@@ -192,16 +192,18 @@
       }
       
       function handleAssociate(formObject) {
-        hideLoading();
-        console.log("associating article...", formObject);
-        // var articleId = $(this).data('article-id');
-        // console.log("articleId:", articleId);
+        if (window.confirm("Are you sure you want to do this? It will overwrite the article with this document's contents, and there's no undo!")) { 
+          hideLoading();
+          console.log("associating article...", formObject);
+          // var articleId = $(this).data('article-id');
+          // console.log("articleId:", articleId);
 
-        // hideSearchForm();
-        hideConfigForm();
+          // hideSearchForm();
+          hideConfigForm();
 
-        showLoading();
-        google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).associateArticle(formObject);
+          showLoading();
+          google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).associateArticle(formObject);
+        }
       }
 
       function handleScriptConfigSubmit(formObject) {
