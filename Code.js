@@ -1273,11 +1273,11 @@ function createArticleFrom(articleData) {
   var categoryName = getNameForCategoryID(categories, categoryID);
   // Logger.log("article category name: ", categoryName);
 
-  var slug = getArticleSlug();
-  if (slug === null || typeof(slug) === "undefined") {
-    slug = createArticleSlug(categoryName, title);
-    storeArticleSlug(slug);
-  }
+  // var slug = getArticleSlug();
+  // if (slug === null || typeof(slug) === "undefined") {
+  //   slug = createArticleSlug(categoryName, title);
+  //   storeArticleSlug(slug);
+  // }
 
   var articleAuthors = getAuthors(); // only id
 
@@ -1330,7 +1330,7 @@ function createArticleFrom(articleData) {
   var variables = {
       id: versionID,
       data: {
-        slug: slug,
+        // slug: slug,
         category: categoryID,
         firstPublishedOn: publishingInfo.firstPublishedOn,
         lastPublishedOn: publishingInfo.lastPublishedOn,
