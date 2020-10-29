@@ -1326,84 +1326,96 @@ function createArticleFrom(articleData) {
     }
   });
 
+  var published = true;
+  if (articleData !== undefined && articleData.published === false) {
+    published = false;
+  }
+  Logger.log("setting published to:", published);
+
+  var data = {
+    published: published,
+    category: categoryID,
+    customByline: customByline,
+    authors: authorIDs,
+    authorSlugs: authorSlugsValue,
+    tags: tagIDs,
+    headline: {
+      values: [
+        {
+          locale: localeID,
+          value: title,
+        },
+      ],
+    },
+    headlineSearch: title,
+    content: {
+      values: [
+        {
+          locale: localeID,
+          value: JSON.stringify(elements),
+        },
+      ],
+    },
+    searchTitle: {
+      values: [
+        {
+          locale: localeID,
+          value: seoData.searchTitle,
+        },
+      ],
+    },
+    searchDescription: {
+      values: [
+        {
+          locale: localeID,
+          value: seoData.searchDescription,
+        },
+      ],
+    },
+    facebookTitle: {
+      values: [
+        {
+          locale: localeID,
+          value: seoData.facebookTitle,
+        },
+      ],
+    },
+    facebookDescription: {
+      values: [
+        {
+          locale: localeID,
+          value: seoData.facebookDescription,
+        },
+      ],
+    },
+    twitterTitle: {
+      values: [
+        {
+          locale: localeID,
+          value: seoData.twitterTitle,
+        },
+      ],
+    },
+    twitterDescription: {
+      values: [
+        {
+          locale: localeID,
+          value: seoData.twitterDescription,
+        },
+      ],
+    },
+  };
+
+  // only update or set these if we're publishing the article
+  if (published) {
+    data.firstPublishedOn = publishingInfo.firstPublishedOn;
+    data.lastPublishedOn = publishingInfo.lastPublishedOn;
+  }
+
   // Logger.log("tagIDs: ", tagIDs);
   var variables = {
-      id: versionID,
-      data: {
-        // slug: slug,
-        category: categoryID,
-        firstPublishedOn: publishingInfo.firstPublishedOn,
-        lastPublishedOn: publishingInfo.lastPublishedOn,
-        customByline: customByline,
-        authors: authorIDs,
-        authorSlugs: authorSlugsValue,
-    		tags: tagIDs,
-        headline: {
-          values: [
-            {
-              locale: localeID,
-              value: title,
-            },
-          ],
-        },
-        headlineSearch: title,
-        content: {
-          values: [
-            {
-              locale: localeID,
-              value: JSON.stringify(elements),
-            },
-          ],
-        },
-        searchTitle: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.searchTitle,
-            },
-          ],
-        },
-        searchDescription: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.searchDescription,
-            },
-          ],
-        },
-        facebookTitle: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.facebookTitle,
-            },
-          ],
-        },
-        facebookDescription: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.facebookDescription,
-            },
-          ],
-        },
-        twitterTitle: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.twitterTitle,
-            },
-          ],
-        },
-        twitterDescription: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.twitterDescription,
-            },
-          ],
-        },
-      }
+    id: versionID,
+    data:  data
   };
   // Logger.log("variables:", variables);
 
@@ -2831,6 +2843,7 @@ function associateArticle(formObject) {
   articleData.headline = headline;
   articleData.formattedElements = formattedElements;
   articleData.localeID = localeID;
+  articleData.published = false;
 
   var responseData = createArticleFrom(articleData);
   Logger.log("response:", responseData);
