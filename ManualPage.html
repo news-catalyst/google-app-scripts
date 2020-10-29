@@ -16,49 +16,50 @@
         hideConfigForm();
         hideLoading();
 
-        var div = document.getElementById('search-results');
+        var div = document.getElementById('loading');
         div.style.display = 'block';
 
         if (contents.articles.length <= 0) {
           div.innerHTML = "<p>No matching articles found. Try again, or perhaps you want to <a href='TODO'>publish this as a new article</a>?</p>";
+        } else {
+          var articleSelect = document.getElementById('article-id');
+
+          contents.articles.forEach(article => {
+            // first check if this option already exists; don't add dupes!
+            var selectorString = "#article-id option[value='" + article.id + "']";
+            if ( $(selectorString).length <= 0 ) {
+              var option = document.createElement("option");
+              if (article.headlineSearch) {
+                option.text = article.headlineSearch;
+              } else {
+                option.text = "(BUG) unknown article headline";
+              }
+              option.value = article.id;
+
+              articleSelect.add(option);
+            }
+          })
+          var articleLocaleSelect = document.getElementById('article-locale');
+
+          contents.locales.forEach(locale => {
+            // first check if this option already exists; don't add dupes!
+            var selectorString = "#article-locale option[value='" + locale.id + "']";
+            if ( $(selectorString).length <= 0 ) {
+              var option = document.createElement("option");
+              if (locale.code) {
+                option.text = locale.code;
+              } else {
+                option.text = "(BUG) unknown locale";
+              }
+              option.value = locale.id;
+
+              articleLocaleSelect.add(option);
+            }
+          })
+
+          showArticleForm();
         }
 
-        var articleSelect = document.getElementById('article-id');
-
-        contents.articles.forEach(article => {
-          // first check if this option already exists; don't add dupes!
-          var selectorString = "#article-id option[value='" + article.id + "']";
-          if ( $(selectorString).length <= 0 ) {
-            var option = document.createElement("option");
-            if (article.headlineSearch) {
-              option.text = article.headlineSearch;
-            } else {
-              option.text = "(BUG) unknown article headline";
-            }
-            option.value = article.id;
-
-            articleSelect.add(option);
-          }
-        })
-        var articleLocaleSelect = document.getElementById('article-locale');
-
-        contents.locales.forEach(locale => {
-          // first check if this option already exists; don't add dupes!
-          var selectorString = "#article-locale option[value='" + locale.id + "']";
-          if ( $(selectorString).length <= 0 ) {
-            var option = document.createElement("option");
-            if (locale.code) {
-              option.text = locale.code;
-            } else {
-              option.text = "(BUG) unknown locale";
-            }
-            option.value = locale.id;
-
-            articleLocaleSelect.add(option);
-          }
-        })
-
-        showArticleForm();
       }
 
       function onSuccess(contents) {
