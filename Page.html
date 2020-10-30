@@ -9,6 +9,16 @@
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/js/select2.min.js"></script>
 
     <script>
+      function showConfigForm() {
+        var scriptForm = document.getElementById('script-config-form')
+        scriptForm.style.display = "block";
+      }
+
+      function hideConfigForm() {
+        var scriptForm = document.getElementById('script-config-form')
+        scriptForm.style.display = "none";
+      }
+
       function onSuccess(contents) {
         // first, switch the "published" text to say "No"
         // because the headline and/or byline has likely changed.
@@ -21,25 +31,6 @@
         handleMetaPreserveLoading();
       }
       
-      function onSuccessDelete(contents) {
-        // first, switch the "published" text to say "No"
-        setPublishedFlag(false);
-        var configDiv = document.getElementById('config');
-        configDiv.style.display = 'none';
-
-        var loadingDiv = document.getElementById('loading');
-        loadingDiv.innerHTML = '<p style="color: #48C774;">' + contents + "</p>";
-        loadingDiv.style.display = "block";
-
-        handleMeta();
-      }
-
-      function onFailureDelete(error) {
-        var loadingDiv = document.getElementById('loading');
-        console.log(error);
-        loadingDiv.innerHTML = "<p class='error'>An error occurred while deleting this article from the database: " + error + "</p>";
-      }
-
       function onFailureMeta(error) {
         var loadingDiv = document.getElementById('loading');
         console.log(error);
@@ -54,6 +45,7 @@
       }
 
       function onSuccessMetaPreserveLoading(data) {
+        console.log(data);
         var form = document.getElementById('article-meta-form');
         form.style.display = "block";
 
@@ -147,7 +139,7 @@
         var revisionIdSpan = document.getElementById('revision-id');
         revisionIdSpan.innerHTML = data.articleID;
 
-        setPublishedFlag(true); // todo: get rid of this?;
+        setPublishedFlag(data.published);
 
         var articleHeadline = document.getElementById('article-headline');
         articleHeadline.value = data.headline;
@@ -247,56 +239,6 @@
         onSuccessMetaPreserveLoading(data);
       }
 
-      function displayConfigFormMessage(text) {
-        var configDiv = document.getElementById('config');
-        configDiv.innerHTML = text;
-
-        hideConfigForm();
-
-        var articleMetaForm = document.getElementById('article-meta-form');
-        articleMetaForm.style.display = 'block';
-      }
-
-      function onSuccessConfigFormValues(data) {
-        var accessToken = document.getElementById('access-token');
-        accessToken.value = data.accessToken;
-
-        var contentApi = document.getElementById('content-api');
-        contentApi.value = data.contentApi;
-
-        var previewUrl = document.getElementById('preview-url');
-        previewUrl.value = data.previewUrl;
-
-        var previewSecret = document.getElementById('preview-secret');
-        previewSecret.value = data.previewSecret;
-
-        var awsAccessKey = document.getElementById('aws-access-key');
-        awsAccessKey.value = data.awsAccessKey;
-
-        var awsSecretKey = document.getElementById('aws-secret-key');
-        awsSecretKey.value = data.awsSecretKey;
-
-        var awsBucket = document.getElementById('aws-bucket');
-        awsBucket.value = data.awsBucket;
-      }
-
-      function getConfigAndDisplayForm() {
-        var articleMetaForm = document.getElementById('article-meta-form');
-        articleMetaForm.style.display = 'none';
-        showConfigForm();
-        google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessConfigFormValues).getArticleMeta();
-      }
-
-      function showConfigForm() {
-        var scriptForm = document.getElementById('script-config-form')
-        scriptForm.style.display = "block";
-      }
-
-      function hideConfigForm() {
-        var scriptForm = document.getElementById('script-config-form')
-        scriptForm.style.display = "none";
-      }
-
       function setPublishedFlag(value) {
         var isPublishedSpan = document.getElementById('is-published');
         var isPublishedYesNo = "no";
@@ -307,20 +249,19 @@
       }
 
       function onSuccessConfig(data) {
-        var configDiv = document.getElementById('config');
+        // hideLoading();
+        var loadingDiv = document.getElementById('loading');
         if (data !== null && data !== {} && Object.keys(data).length > 0) {
-          configDiv.innerHTML = "<div class='success'>Configuration loaded.</div><hr/>"
+          loadingDiv.innerHTML = "<div class='success'>Configuration loaded.</div><hr/>"
           hideConfigForm();
-          var articleMetaForm = document.getElementById('article-meta-form');
-          articleMetaForm.style.display = 'block';
         } else {
           showConfigForm();
-          configDiv.innerHTML = "<div class='error'>No script config found. Fill in the form to use publishing tools.</div><hr/>"
+          loadingDiv.innerHTML = "<div class='error'>No script config found. Fill in the form to use publishing tools.</div><hr/>"
         }
       }
 
       function onFailureConfig(error) {
-        var configDiv = document.getElementById('config');
+        var configDiv = document.getElementById('loading');
         configDiv.innerHTML = "<p class='error'>An error occurred. This may be due to being logged into multiple google accounts at once. Try opening this doc in an incognito window.</p>";
       }
 
@@ -355,23 +296,6 @@
         }
       }
       
-      function deleteArticle() {
-        if (window.confirm("Are you sure you want to delete this article?")) { 
-          console.log("proceeding with delete")
-          var configDiv = document.getElementById('config');
-          configDiv.style.display = "none";
-          var loadingDiv = document.getElementById('loading');
-          loadingDiv.innerHTML = "Deleting article...";
-          loadingDiv.style.display = "block";
-
-          var articleMetaForm = document.getElementById('article-meta-form');
-          articleMetaForm.style.display = 'none';
-          google.script.run.withFailureHandler(onFailureDelete).withSuccessHandler(onSuccessDelete).deleteArticle();
-        } else {
-          console.log("cancelled delete")
-        }
-      }
-
       window.onload = (function(){
         var form = document.getElementById('article-meta-form');
         form.style.display = "none";
@@ -396,6 +320,13 @@
 
         handleMeta();
       });
+
+      function displayConfigFormMessage(text) {
+        var configDiv = document.getElementById('loading');
+        configDiv.innerHTML = text;
+
+        hideConfigForm();
+      }
 
       function handleScriptConfigSubmit(formObject) {
         google.script.run.withSuccessHandler(displayConfigFormMessage).setScriptConfig(formObject);
@@ -598,13 +529,6 @@
 
       <div id="output" class="block"></div>
 
-      <div class="block">
-        <button onclick="getConfigAndDisplayForm()">Show Config</button>
-        <button onclick="hideConfigForm()">Hide Config</button>
-      </div>
-      <div class="block">
-        <button class="create" onclick="deleteArticle()">Delete Article</button>
-      </div>
     </div>
 
     <div class="sidebar bottom">

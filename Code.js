@@ -24,7 +24,8 @@ function onOpen(e) {
   // display sidebar
   DocumentApp.getUi()
     .createMenu('Webiny')
-    .addItem('Show sidebar', 'showSidebar')
+    .addItem('Publishing Tools', 'showSidebar')
+    .addItem('Administrator Tools', 'showSidebarManualAssociate')
     .addToUi();
 }
 
@@ -33,6 +34,18 @@ function onOpen(e) {
  */
 function showSidebar() {
   var html = HtmlService.createHtmlOutputFromFile('Page')
+    .setTitle('CMS Integration')
+    .setWidth(300);
+  DocumentApp.getUi() // Or DocumentApp or SlidesApp or FormApp.
+    .showSidebar(html);
+}
+
+/**
+ * Displays a sidebar letting you manually associate this doc with an article
+ * in Webiny.
+ */
+function showSidebarManualAssociate() {
+  var html = HtmlService.createHtmlOutputFromFile('ManualPage')
     .setTitle('CMS Integration')
     .setWidth(300);
   DocumentApp.getUi() // Or DocumentApp or SlidesApp or FormApp.
@@ -268,6 +281,14 @@ function getLatestVersionPublished() {
   return isLatestVersionPublished;
 }
 
+function getIsPublished() {
+  return getValue('IS_PUBLISHED');
+}
+
+function storeIsPublished(value) {
+  storeValue("IS_PUBLISHED", value);
+}
+
 /**
  * Retrieves the ID of the document's locale from local doc storage
  */
@@ -289,6 +310,10 @@ function getArticleSlug() {
 
 function storeArticleSlug(slug) {
   storeValue("ARTICLE_SLUG", slug);
+}
+
+function deleteArticleSlug() {
+  deleteValue('ARTICLE_SLUG');
 }
 
 function getCustomByline() {
@@ -490,7 +515,7 @@ function storeTags(tags) {
     }
   })
 
-  Logger.log("storableTags:", storableTags);
+  // Logger.log("storableTags:", storableTags);
   storeValueJSON("ARTICLE_TAGS", storableTags);
 }
 
@@ -522,6 +547,118 @@ function getDocumentType() {
   return val;
 }
 
+function getArticleDataByID(articleID) {
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  var formData = {
+    query: `query GetArticle($id: ID!) {
+      articles {
+        getArticle(id: $id) {
+          data {
+            id
+            headline {
+              values {
+                value
+                locale
+              }
+            }
+            searchTitle {
+              values {
+                value
+                locale
+              }
+            }
+            searchDescription {
+              values {
+                value
+                locale
+              }
+            }
+            facebookTitle {
+              values {
+                value
+                locale
+              }
+            }
+            facebookDescription {
+              values {
+                value
+                locale
+              }
+            }
+            twitterTitle {
+              values {
+                value
+                locale
+              }
+            }
+            twitterDescription {
+              values {
+                value
+                locale
+              }
+            }
+            authorSlugs
+            customByline
+            slug
+            published
+            firstPublishedOn
+            lastPublishedOn
+            authors {
+              id
+              name
+              slug
+            }
+            category {
+              id
+              title {
+                values {
+                  value
+                  locale
+                }
+              }
+              slug
+            }
+            tags {
+              id
+              title {
+                values {
+                  value
+                  locale
+                }
+              }
+              slug
+            }
+          }
+        }
+      }
+    }`,
+    variables: {
+      id: articleID,
+    }
+  };
+  // Logger.log("formData: ", formData);
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  return responseData.data.articles.getArticle.data;
+}
+
 //
 // Functions for retrieving and formatting document contents
 //
@@ -547,6 +684,8 @@ function getArticleMeta() {
       isStaticPage = true;
     }
   }
+  var authorSlugsValue;
+  var authorSlugs = [];
 
   var documentType = 'article';
   if (isStaticPage) {
@@ -556,7 +695,73 @@ function getArticleMeta() {
 
   var articleID = getArticleID();
 
+  // TODO: getArticle if articleID not null
+  if (articleID !== null && articleID !== undefined) {
+
+  }
+  var latestArticleData = getArticleDataByID(articleID);
+
+  if (latestArticleData) {
+    if (latestArticleData.published !== undefined) {
+      storeIsPublished(latestArticleData.published);
+    }
+    if (latestArticleData.headline && latestArticleData.headline.values && latestArticleData.headline.values[0].value) {
+      storeHeadline(latestArticleData.headline.values[0].value);
+    }
+    if (latestArticleData.customByline) {
+      storeCustomByline(latestArticleData.customByline);
+    }
+
+    if (latestArticleData.authors) {
+      latestArticleData.authors.forEach(author => {
+          authorSlugs.push(author.slug);
+      });
+      if (authorSlugs.length > 0) {
+        authorSlugsValue = authorSlugs.join(' ');
+        storeAuthorSlugs(authorSlugsValue);
+      }
+    }
+    if (latestArticleData.category) {
+      storeCategoryID(latestArticleData.category.id);
+    }
+    if (latestArticleData.tags) {
+      storeTags(latestArticleData.tags);
+    }
+    if (latestArticleData.slug) {
+      storeArticleSlug(latestArticleData.slug);
+    }
+
+    var seoData = {}
+    if (latestArticleData.searchTitle && latestArticleData.searchTitle.values && latestArticleData.searchTitle.values[0] && latestArticleData.searchTitle.values[0].value) {
+      seoData.searchTitle = latestArticleData.searchTitle.values[0].value;
+    }
+    if (latestArticleData.searchDescription && latestArticleData.searchDescription.values && latestArticleData.searchDescription.values[0] && latestArticleData.searchDescription.values[0].value) {
+      seoData.searchDescription = latestArticleData.searchDescription.values[0].value;
+    }
+    if (latestArticleData.facebookTitle && latestArticleData.facebookTitle.values && latestArticleData.facebookTitle.values[0] && latestArticleData.facebookTitle.values[0].value) {
+      seoData.facebookTitle = latestArticleData.facebookTitle.values[0].value;
+    }
+    if (latestArticleData.facebookDescription && latestArticleData.facebookDescription.values && latestArticleData.facebookDescription.values[0] && latestArticleData.facebookDescription.values[0].value) {
+      seoData.facebookDescription = latestArticleData.facebookDescription.values[0].value;
+    }
+    if (latestArticleData.twitterTitle && latestArticleData.twitterTitle.values && latestArticleData.twitterTitle.values[0] && latestArticleData.twitterTitle.values[0].value) {
+      seoData.twitterTitle = latestArticleData.twitterTitle.values[0].value;
+    }
+    if (latestArticleData.twitterDescription && latestArticleData.twitterDescription.values && latestArticleData.twitterDescription.values[0] && latestArticleData.twitterDescription.values[0].value) {
+      seoData.twitterDescription = latestArticleData.twitterDescription.values[0].value;
+    }
+
+    if (Object.values(seoData).length > 0) {
+      storeSEO(seoData);
+    }
+  }
+
   var publishingInfo = getPublishingInfo();
+  var published = getIsPublished();
+  // obviously it isn't published if we don't have a webiny article ID
+  if (articleID === null || articleID === undefined) {
+    published = false;``
+  }
 
   var headline = getHeadline();
   if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
@@ -566,8 +771,6 @@ function getArticleMeta() {
 
   var customByline = getCustomByline();
 
-  var authorSlugsValue;
-  var authorSlugs = [];
   var articleAuthors = getAuthors();
   var allAuthors = loadAuthorsFromDB();
   Logger.log("Loaded authors from DB", allAuthors);
@@ -582,23 +785,18 @@ function getArticleMeta() {
     });
   }
 
-
   if (authorSlugs.length > 0) {
     authorSlugsValue = authorSlugs.join(' ');
     storeAuthorSlugs(authorSlugsValue);
   }
 
-  // var categories = getCategories();
-  // if (categories === null || categories.length <= 0) {
-    var categories = listCategories();
-    storeCategories(categories);
-  // }
+  var categories = listCategories();
+  storeCategories(categories);
 
   var categoryID = getCategoryID();
   var categoryName = getNameForCategoryID(categories, categoryID);
 
-  var slug = createArticleSlug(categoryName, headline);
-  storeArticleSlug(slug);
+  var slug = getArticleSlug();
 
   // always load the latest tags from webiny to avoid issues being out of sync
   // FYI: I've run into problems when this isn't done (e.g. a dupe tag is created elsewhere, which could be likely when actual orgs use this
@@ -638,6 +836,7 @@ function getArticleMeta() {
       customByline: customByline,
       authorSlugs: authorSlugsValue,
       publishingInfo: publishingInfo,
+      published: published,
       allAuthors: allAuthors,
       articleAuthors: articleAuthors,
       allTags: allTags,
@@ -665,6 +864,7 @@ function getArticleMeta() {
     customByline: customByline,
     authorSlugs: authorSlugsValue,
     publishingInfo: publishingInfo,
+    published: published,
     allAuthors: allAuthors,
     articleAuthors: articleAuthors,
     allTags: allTags,
@@ -725,23 +925,39 @@ function handlePreview(formObject) {
 function getCurrentDocContents(formObject, publishFlag) {
   var documentType = getDocumentType();
 
-  var propMessage = processForm(formObject);
-
   var title = getHeadline();
   var formattedElements = formatElements();
 
   var articleID = getArticleID();
+
+  var articleData = {};
+  articleData.id = articleID;
+  articleData.headline = title;
+  articleData.formattedElements = formattedElements;
+  articleData.localeID = formObject['article-locale'];
+  articleData.published = publishFlag;
+  articleData.categoryID = formObject['article-category'];
+
+  if (articleData.localeID === null) {
+    articleData.localeID = getLocaleID();
+  }
+
+  if (articleData.categoryID !== null) {
+    storeCategoryID(articleData.categoryID);
+  }
+
+  Logger.log("articleData:", articleData);
 
   // first save the latest article content - either create a new article, or create a new revision on an existing article
   var responseData;
   // if we already have an articleID and latest version info, we need to create a new version of the article
   if (articleID !== null) {
     if (documentType === "article") {
-      Logger.log("updating article id", articleID)
-      responseData = createArticleFrom(articleID, title, formattedElements);
+      Logger.log("updating article id#", articleID)
+      responseData = createArticleFrom(articleData);
     } else {
-      Logger.log("updating page id", articleID)
-      responseData = createPageFrom(articleID, title, formattedElements);
+      Logger.log("updating page id#", articleID)
+      responseData = createPageFrom(articleData);
     }
   // otherwise, we create a new article
   } else {
@@ -752,19 +968,20 @@ function getCurrentDocContents(formObject, publishFlag) {
       Logger.log("creating new page")
       responseData = createPage(title, formattedElements);
     }
+
+    if (responseData && responseData.status === "success" && responseData.id) {
+      var articleID = responseData.id;
+      storeArticleID(articleID);
+    }
   }
 
   Logger.log("responseData:", responseData);
-  var articleID = responseData.id;
-  storeArticleID(articleID);
 
-  // var webinyResponseCode = webinyResponse.getResponseCode();
-  // var responseText;
-  // if (webinyResponseCode === 200) {
-    responseText = `Successfully stored ${documentType} in webiny.`;
-  // } else {
-  //   responseText = 'Webiny responded with code ' + webinyResponseCode;
-  // }
+  if (responseData === null || responseData.status !== "success") {
+    return `An error occurred trying to save this article: ${responseData.message}`
+  }
+
+  responseText = `Successfully stored ${documentType} in webiny.`;
 
   if (publishFlag) {
     // Logger.log(`Publishing ${documentType}...`)
@@ -781,11 +998,14 @@ function getCurrentDocContents(formObject, publishFlag) {
 
       responseText += "<br>" + JSON.stringify(publishResponse);
     }
-    // hit vercel deploy hook to republish the site
-    var rebuildResponse = rebuildSite();
-    // Logger.log(`Posted to deploy hook to rebuild: `, rebuildResponse);
-    responseText += "<br>Rebuilding site on vercel";
-    responseText += "<br>" + JSON.stringify(rebuildResponse);
+    // // hit vercel deploy hook to republish the site
+    // var rebuildResponse = rebuildSite();
+    // // Logger.log(`Posted to deploy hook to rebuild: `, rebuildResponse);
+    // responseText += "<br>Rebuilding site on vercel";
+    // responseText += "<br>" + JSON.stringify(rebuildResponse);
+
+  } else {
+    storeIsPublished(false);
   }
 
   // // update published flag and latest version ID
@@ -1021,8 +1241,13 @@ function formatElements() {
  * @param title
  * @param elements
  */
-function createPageFrom(versionID, title, elements) {
-  // Logger.log("createPageFrom versionID: ", versionID);
+function createPageFrom(articleData) {
+  Logger.log("createPageFrom data: ", articleData);
+
+  var versionID = articleData.id;
+  var title = articleData.headline;
+  var elements = articleData.formattedElements;
+
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
@@ -1205,21 +1430,29 @@ function createPageFrom(versionID, title, elements) {
  * @param title
  * @param elements
  */
-function createArticleFrom(versionID, title, elements) {
-  Logger.log("START createArticleFrom");
+function createArticleFrom(articleData) {
+  Logger.log("createArticleFrom data.published: ", articleData.published);
+
+  var versionID = articleData.id;
+  var title = articleData.headline;
+  var elements = articleData.formattedElements;
+  var localeID = articleData.localeID;
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
-  var localeID = getLocaleID();
-  if (localeID === null) {
+  if (localeID === null || localeID === undefined) {
+    Logger.log("grabbing default locale as articleData lacked it")
     var locales = getLocales();
     setDefaultLocale(locales);
     localeID = getLocaleID();
+    Logger.log("localeID is now:", localeID);
     if (localeID === null) {
       return 'Failed updating article: unable to find a default locale';
     }
+  } else {
+    Logger.log("articleData had locale:", localeID);
   }
 
   var customByline = getCustomByline();
@@ -1234,14 +1467,7 @@ function createArticleFrom(versionID, title, elements) {
   }
 
   var categoryID = getCategoryID();
-  var categoryName = getNameForCategoryID(categories, categoryID);
-  // Logger.log("article category name: ", categoryName);
-
-  var slug = getArticleSlug();
-  if (slug === null || typeof(slug) === "undefined") {
-    slug = createArticleSlug(categoryName, title);
-    storeArticleSlug(slug);
-  }
+  // var categoryName = getNameForCategoryID(categories, categoryID);
 
   var articleAuthors = getAuthors(); // only id
 
@@ -1267,10 +1493,10 @@ function createArticleFrom(versionID, title, elements) {
   // Logger.log("createArticleFrom articleTags: ", articleTags);
   // create any new tags
   const newTags = articleTags.filter(articleTag => articleTag.newTag === true);
-  Logger.log("createArticleFrom newTags: ", newTags);
+  // Logger.log("createArticleFrom newTags: ", newTags);
   if (newTags.length > 0) {
     newTags.forEach(newTag => {
-      Logger.log("createArticleFrom creating new tag: ", newTag);
+      // Logger.log("createArticleFrom creating new tag: ", newTag);
       createTag(newTag.title);
     })
   }
@@ -1285,91 +1511,104 @@ function createArticleFrom(versionID, title, elements) {
   allTags.forEach(tag => {
     const result = articleTags.find( ({ id }) => id === tag.id );
     if (result !== undefined) {
-      Logger.log("found tag: ", tag);
+      // Logger.log("found tag: ", tag);
       tagIDs.push(tag.id);
     }
   });
 
-  Logger.log("tagIDs: ", tagIDs);
-  var variables = {
-      id: versionID,
-      data: {
-        slug: slug,
-        category: categoryID,
-        firstPublishedOn: publishingInfo.firstPublishedOn,
-        lastPublishedOn: publishingInfo.lastPublishedOn,
-        customByline: customByline,
-        authors: authorIDs,
-        authorSlugs: authorSlugsValue,
-    		tags: tagIDs,
-        headline: {
-          values: [
-            {
-              locale: localeID,
-              value: title,
-            },
-          ],
+  var published = true;
+  if (articleData !== undefined && articleData.published === false) {
+    published = false;
+  }
+  storeIsPublished(published);
+  Logger.log("setting published to:", published);
+
+  var data = {
+    published: published,
+    category: categoryID,
+    customByline: customByline,
+    authors: authorIDs,
+    authorSlugs: authorSlugsValue,
+    tags: tagIDs,
+    headline: {
+      values: [
+        {
+          locale: localeID,
+          value: title,
         },
-        headlineSearch: title,
-        content: {
-          values: [
-            {
-              locale: localeID,
-              value: JSON.stringify(elements),
-            },
-          ],
+      ],
+    },
+    headlineSearch: title,
+    content: {
+      values: [
+        {
+          locale: localeID,
+          value: JSON.stringify(elements),
         },
-        searchTitle: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.searchTitle,
-            },
-          ],
+      ],
+    },
+    searchTitle: {
+      values: [
+        {
+          locale: localeID,
+          value: seoData.searchTitle,
         },
-        searchDescription: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.searchDescription,
-            },
-          ],
+      ],
+    },
+    searchDescription: {
+      values: [
+        {
+          locale: localeID,
+          value: seoData.searchDescription,
         },
-        facebookTitle: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.facebookTitle,
-            },
-          ],
+      ],
+    },
+    facebookTitle: {
+      values: [
+        {
+          locale: localeID,
+          value: seoData.facebookTitle,
         },
-        facebookDescription: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.facebookDescription,
-            },
-          ],
+      ],
+    },
+    facebookDescription: {
+      values: [
+        {
+          locale: localeID,
+          value: seoData.facebookDescription,
         },
-        twitterTitle: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.twitterTitle,
-            },
-          ],
+      ],
+    },
+    twitterTitle: {
+      values: [
+        {
+          locale: localeID,
+          value: seoData.twitterTitle,
         },
-        twitterDescription: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.twitterDescription,
-            },
-          ],
+      ],
+    },
+    twitterDescription: {
+      values: [
+        {
+          locale: localeID,
+          value: seoData.twitterDescription,
         },
-      }
+      ],
+    },
   };
-  Logger.log("variables:", variables);
+
+  // only update or set these if we're publishing the article
+  if (published) {
+    data.firstPublishedOn = publishingInfo.firstPublishedOn;
+    data.lastPublishedOn = publishingInfo.lastPublishedOn;
+  }
+
+  // Logger.log("tagIDs: ", tagIDs);
+  var variables = {
+    id: versionID,
+    data:  data
+  };
+  // Logger.log("variables:", variables);
 
   var formData = {
     query: `mutation UpdateArticle($id: ID!, $data: ArticleInput!) {
@@ -1424,12 +1663,26 @@ function createArticleFrom(versionID, title, elements) {
     CONTENT_API,
     options
   );
+  Logger.log("createArticleFrom response:", response);
   var responseText = response.getContentText();
-  // Logger.log("createArticleFrom response:", responseText);
   var responseData = JSON.parse(responseText);
   // Logger.log("createArticleFrom responseData:", responseData);
   Logger.log("END createArticleFrom:", responseText);
-  return responseData.data.articles.updateArticle.data;
+
+  var returnValue = {
+    status: "",
+    message: ""
+  };
+  if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.updateArticle && responseData.data.articles.updateArticle.error === null) {
+    returnValue.status = "success";
+    returnValue.id = responseData.data.articles.updateArticle.data.id;
+    returnValue.message = "Updated article with ID " +  returnValue.id;
+  } else if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.updateArticle && responseData.data.articles.updateArticle.error !== null) {
+    returnValue.status = "error";
+    returnValue.message = responseData.data.articles.updateArticle.error;
+  }
+
+  return returnValue;
 }
 
 /**
@@ -1833,7 +2086,22 @@ function createArticle(title, elements) {
   Logger.log("response text: ", responseText);
   var responseData = JSON.parse(responseText);
   Logger.log("responseData: ", responseData);
-  return responseData.data.articles.createArticle.data;
+
+  var returnValue = {
+    status: "",
+    message: ""
+  };
+  if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.createArticle && responseData.data.articles.createArticle.error !== null) {
+    returnValue.status = "error";
+    returnValue.id = null;
+    returnValue.message = responseData.data.articles.createArticle.error;
+  } else {
+    returnValue.message = "Created article with ID " +  returnValue.id;
+    returnValue.status = "success";
+    returnValue.id = responseData.data.articles.createArticle.data.id;
+
+  }
+  return returnValue;
 }
 
 /**
@@ -1882,6 +2150,8 @@ function deleteArticle() {
   var responseData = JSON.parse(responseText);
   Logger.log(responseData);
 
+  storeIsPublished(false);
+  deleteArticleSlug();
   deleteArticleID();
   deletePublishingInfo();
   deleteTags();
@@ -2017,8 +2287,10 @@ function publishArticle() {
 
   Logger.log("END publishArticle");
   if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.updateArticle && responseData.data.articles.updateArticle.data) {
+    storeIsPublished(true);
     return "Published article at revision " + versionID;
   } else {
+    storeIsPublished(false);
     return responseData.data.articles.updateArticle.error;
   }
 }
@@ -2646,4 +2918,141 @@ function processForm(formObject) {
   storeSEO(seoData);
 
   return "Updated document metadata. You still need to publish for these changes to go live!"
+}
+
+/*
+.* called from ManualPage.html, this function searches for a matching article by headline
+.*/
+function handleSearch(formObject) {
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  Logger.log("handleSearch:", formObject);
+  var SEARCH_ARTICLES = `
+    query SearchArticles($where: ArticleListWhere) {
+      articles {
+        listArticles(where: $where) {
+          data {
+            id
+            headlineSearch
+            firstPublishedOn
+            slug
+            headline {
+              values {
+                value
+              }
+            }
+            content {
+              values {
+                value
+              }
+            }
+            category {
+              id
+              title {
+                values {
+                  value
+                }
+              }
+              slug
+            }
+            tags {
+              id
+              title{
+                values {
+                  value
+                }
+              }
+              slug
+            }
+            authors {
+              id
+              name
+            }
+            authorSlugs
+          }
+        }
+      }
+    }`;
+    var formData = {
+      query: SEARCH_ARTICLES,
+      variables: {
+        where: {
+          headline_contains: formObject['article-search'],
+        },
+      }
+    };
+    Logger.log("formData: ", formData);
+    var options = {
+      method: 'post',
+      muteHttpExceptions: true,
+      contentType: 'application/json',
+      headers: {
+        authorization: ACCESS_TOKEN,
+      },
+      payload: JSON.stringify(formData),
+    };
+
+    var response = UrlFetchApp.fetch(
+      CONTENT_API,
+      options
+    );
+    var responseText = response.getContentText();
+    var responseData = JSON.parse(responseText);
+    Logger.log("handleSearch responseData:", responseData);
+    var locales = getLocales();
+
+    var searchResults = {
+      locales: locales,
+      articles: responseData.data.articles.listArticles.data
+    }
+    return searchResults;
+}
+
+/*
+.* called from ManualPage.html, this function associates the google doc with the selected article
+.*/
+function associateArticle(formObject) {
+  
+  // var scriptConfig = getScriptConfig();
+  // var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  // var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  Logger.log("associateArticle:", formObject);
+
+  var articleID  = formObject["article-id"];
+  var localeID  = formObject["article-locale"];
+  // var documentType = getDocumentType();
+
+  var headline = getHeadline();
+  if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
+    headline = getDocumentName();
+    storeHeadline(headline);
+  }
+
+  var formattedElements = formatElements();
+
+  var articleData = {};
+  articleData.id = articleID;
+  articleData.headline = headline;
+  articleData.formattedElements = formattedElements;
+  articleData.localeID = localeID;
+  articleData.published = false;
+
+  var responseData = createArticleFrom(articleData);
+  Logger.log("response:", responseData);
+
+  if (responseData && responseData.status === "error") {
+    Logger.log("ERROR:", responseData.message);
+  } else {
+    Logger.log("SUCCESS:", responseData.message);
+
+    // finally store the articleID so we know whether to freshly associate the doc going forward.
+    var articleID = responseData.id;
+    storeArticleID(articleID);
+
+  }
+
+  return responseData;
 }
