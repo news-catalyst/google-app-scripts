@@ -693,9 +693,10 @@ function getArticleMeta() {
   }
   storeDocumentType(documentType);
 
+  var locales = getLocales();
+
   var articleID = getArticleID();
 
-  // TODO: getArticle if articleID not null
   if (articleID !== null && articleID !== undefined) {
     var latestArticleData = getArticleDataByID(articleID);
 
@@ -822,55 +823,57 @@ function getArticleMeta() {
   if (typeof(articleID) === "undefined" || articleID === null) {
 
     return {
+      accessToken: accessToken,
+      allAuthors: allAuthors,
+      allTags: allTags,
+      articleAuthors: articleAuthors,
+      articleID: null,
+      articleTags: articleTags,
+      authorSlugs: authorSlugsValue,
       awsAccessKey: awsAccessKey,
       awsSecretKey: awsSecretKey,
       awsBucket: awsBucket,
-      documentType: documentType,
-      accessToken: accessToken,
-      contentApi: contentApi,
-      previewUrl: previewUrl,
-      previewSecret: previewSecret,
-      articleID: null,
-      headline: headline,
-      customByline: customByline,
-      authorSlugs: authorSlugsValue,
-      publishingInfo: publishingInfo,
-      published: published,
-      allAuthors: allAuthors,
-      articleAuthors: articleAuthors,
-      allTags: allTags,
-      articleTags: articleTags,
       categories: categories,
       categoryID: categoryID,
       categoryName: categoryName,
-      slug: slug,
+      contentApi: contentApi,
+      customByline: customByline,
+      documentType: documentType,
+      headline: headline,
+      locales: locales,
+      previewSecret: previewSecret,
+      previewUrl: previewUrl,
+      published: published,
+      publishingInfo: publishingInfo,
       seo: seoData,
+      slug: slug,
       republishUrl: republishUrl
     }
   }
 
   var articleMetadata = {
+    accessToken: accessToken,
+    allAuthors: allAuthors,
+    allTags: allTags,
+    articleAuthors: articleAuthors,
+    articleID: articleID,
+    articleTags: articleTags,
+    authorSlugs: authorSlugsValue,
     awsAccessKey: awsAccessKey,
     awsSecretKey: awsSecretKey,
     awsBucket: awsBucket,
-    documentType: documentType,
-    accessToken: accessToken,
-    contentApi: contentApi,
-    previewUrl: previewUrl,
-    previewSecret: previewSecret,
-    articleID: articleID,
-    headline: headline,
-    customByline: customByline,
-    authorSlugs: authorSlugsValue,
-    publishingInfo: publishingInfo,
-    published: published,
-    allAuthors: allAuthors,
-    articleAuthors: articleAuthors,
-    allTags: allTags,
-    articleTags: articleTags,
     categories: categories,
     categoryID: categoryID,
     categoryName: categoryName,
+    contentApi: contentApi,
+    customByline: customByline,
+    documentType: documentType,
+    previewUrl: previewUrl,
+    previewSecret: previewSecret,
+    headline: headline,
+    locales: locales,
+    published: published,
+    publishingInfo: publishingInfo,
     slug: slug,
     seo: seoData,
     republishUrl: republishUrl
