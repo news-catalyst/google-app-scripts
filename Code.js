@@ -926,9 +926,8 @@ function handlePreview(formObject) {
     response.message += "<br><a href='" + fullPreviewUrl + "' target='_blank'>Preview article in new window</a>"
 
     Logger.log("END handlePreview: ", response)
-    return response;
-
   }
+  return response;
 }
 
 /**
@@ -956,11 +955,11 @@ function getCurrentDocContents(formObject, publishFlag) {
   // prefer locale in incoming form data
   var selectedLocale = formObject['article-locale'];
   // otherwise, look for a previously-set locale on the document
-  if (selectedLocale === null) {
+  if (selectedLocale === null || selectedLocale === undefined) {
     selectedLocale = getLocaleID();
   }
   // if no locale was settled, refuse to try publishing the article
-  if (selectedLocale === null) {
+  if (selectedLocale === null || selectedLocale === undefined) {
     Logger.log("FAILED FINDING A LOCALE FOR THIS ARTICLE, ERROR");
     returnValue.status = "error";
     returnValue.message = "Please select a locale for this content."
@@ -992,10 +991,11 @@ function getCurrentDocContents(formObject, publishFlag) {
   } else {
     if (documentType === "article") {
       Logger.log("creating new article")
-      responseData = createArticle(title, formattedElements);
+      responseData = createArticle(articleData);
     } else {
       Logger.log("creating new page")
-      responseData = createPage(title, formattedElements);
+      responseData = createPage(articleData);
+      // title, formattedElements);
     }
 
     if (responseData && responseData.status === "success" && responseData.id) {
@@ -1292,17 +1292,6 @@ function createPageFrom(articleData) {
   var elements = articleData.formattedElements;
   var localeID = articleData.localeID;
 
-  if (localeID === null) {
-    var locales = getLocales();
-    var defaultLocale = locales.find( ({ locale }) => locale.default );
-    setDefaultLocale(defaultLocale);
-    storeLocaleID(defaultLocale.id);
-    localeID = getLocaleID();
-    if (localeID === null) {
-      return 'Failed updating page: unable to find a default locale';
-    }
-  }
-
   var seoData = getSEO();
 
   var slug = getArticleSlug();
@@ -1481,19 +1470,6 @@ function createArticleFrom(articleData) {
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
-
-  if (localeID === null || localeID === undefined) {
-    Logger.log("grabbing default locale as articleData lacked it")
-    var locales = getLocales();
-    setDefaultLocale(locales);
-    localeID = getLocaleID();
-    Logger.log("localeID is now:", localeID);
-    if (localeID === null) {
-      return 'Failed updating article: unable to find a default locale';
-    }
-  } else {
-    Logger.log("articleData had locale:", localeID);
-  }
 
   var customByline = getCustomByline();
 
@@ -1728,21 +1704,14 @@ function createArticleFrom(articleData) {
 /**
 . * Posts document contents to graphql, creating a new page
 . */
-function createPage(title, elements) {
+function createPage(articleData) {
+  var title = articleData.title;
+  var elements = articleData.formattedElements;
+  var localeID = articleData.localeID;
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
-
-  var localeID = getLocaleID();
-  if (localeID === null) {
-    var locales = getLocales();
-    setDefaultLocale(locales);
-    localeID = getLocaleID();
-    if (localeID === null) {
-      return 'Failed updating article: unable to find a default locale';
-    }
-  }
 
   var seoData = getSEO();
 
@@ -1910,21 +1879,14 @@ function createPage(title, elements) {
 /**
 . * Posts document contents to graphql, creating a new article
 . */
-function createArticle(title, elements) {
+function createArticle(articleData) {
+  var title = articleData.title;
+  var elements = articleData.formattedElements;
+  var localeID = articleData.localeID;
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
-
-  var localeID = getLocaleID();
-  if (localeID === null) {
-    var locales = getLocales();
-    setDefaultLocale(locales);
-    localeID = getLocaleID();
-    if (localeID === null) {
-      return 'Failed updating article: unable to find a default locale';
-    }
-  }
 
   var customByline = getCustomByline();
   var publishingInfo = getPublishingInfo(true);
@@ -3094,7 +3056,6 @@ function associateArticle(formObject) {
     // finally store the articleID so we know whether to freshly associate the doc going forward.
     var articleID = responseData.id;
     storeArticleID(articleID);
-
   }
 
   return responseData;
