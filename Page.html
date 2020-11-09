@@ -20,6 +20,7 @@
       }
 
       function onSuccess(contents) {
+        console.log("onSuccess response:", contents);
         // first, switch the "published" text to say "No"
         // because the headline and/or byline has likely changed.
         setPublishedFlag(false);
@@ -27,7 +28,11 @@
         configDiv.style.display = 'none';
         var div = document.getElementById('loading');
         div.style.display = 'block';
-        div.innerHTML = '<p style="color: #48C774;">' + contents + "</p>";
+        if (contents && contents.status && contents.status === "error") {
+          div.innerHTML = "<p class='error'>An error occurred: " + contents.message + '</p>';
+        } else {
+          div.innerHTML = '<p style="color: #48C774;">' + contents.message + "</p>";
+        }
         handleMetaPreserveLoading();
       }
       
@@ -38,6 +43,7 @@
       }
 
       function onFailure(error) {
+        console.log("onFailure contents:", error);
         var loadingDiv = document.getElementById('loading');
         console.log(error);
         loadingDiv.style.display = "block";
@@ -58,28 +64,37 @@
 
         if (data.documentType === 'article') {
           var articleLocaleSelect = document.getElementById('article-locale');
+          if (data.localeName !== null && data.localeName !== undefined) {
+            articleLocaleSelect.style.display = 'none';
+            articleLocaleSelect.style.visibility = 'hidden';
 
-          data.locales.forEach(locale => {
-            // first check if this option already exists; don't add dupes!
-            var selectorString = "#article-locale option[value='" + locale.id + "']";
-            if ( $(selectorString).length <= 0 ) {
-              var option = document.createElement("option");
-              if (locale.code) {
-                option.text = locale.code;
-              } else {
-                option.text = "(BUG) unknown locale";
-              }
-              // mark this locale as selected if it's the article's locale ID -or- is the default locale
-              if (data.locale !== null && data.locale === locale.id) {
-                option.selected = true;
-              } else if (locale.default) {
-                option.selected = true;
-              }
-              option.value = locale.id;
+            var selectedLocaleDiv = document.getElementById('selected-locale');
+            selectedLocaleDiv.innerHTML = "<b>" + data.localeName + "</b>";
 
-              articleLocaleSelect.add(option);
-            }
-          })
+          } else {
+
+            data.locales.forEach(locale => {
+              // first check if this option already exists; don't add dupes!
+              var selectorString = "#article-locale option[value='" + locale.id + "']";
+              if ( $(selectorString).length <= 0 ) {
+                var option = document.createElement("option");
+                if (locale.code) {
+                  option.text = locale.code;
+                } else {
+                  option.text = "(BUG) unknown locale";
+                }
+                // mark this locale as selected if it's the article's locale ID -or- is the default locale
+                if (data.localeID !== null && data.localeID === locale.id) {
+                  option.selected = true;
+                } else if (locale.default) {
+                  option.selected = true;
+                }
+                option.value = locale.id;
+
+                articleLocaleSelect.add(option);
+              }
+            })
+          }
 
           var articleCategorySelect = document.getElementById('article-category');
           var categoriesSorted = data.categories.sort(function (a, b) {
@@ -455,8 +470,9 @@
 
           <div class="block form-group">
             <label for="article-locale">
-              <b>Select locale</b>
+              <b>Locale</b>
             </label>
+            <div id="selected-locale"></div>
             <select style="width: 100%" id="article-locale" name="article-locale"></select>
           </div>
 

@@ -694,7 +694,9 @@ function getArticleMeta() {
   storeDocumentType(documentType);
 
   var locales = getLocales();
-  var selectedLocale = getLocaleID();
+  var selectedLocaleID = getLocaleID();
+  var selectedLocale = locales.find((locale) => locale.id === selectedLocaleID);
+  var selectedLocaleName = selectedLocale.code;
 
   var articleID = getArticleID();
 
@@ -842,7 +844,8 @@ function getArticleMeta() {
       customByline: customByline,
       documentType: documentType,
       headline: headline,
-      locale: null,
+      localeID: null,
+      localeName: null,
       locales: locales,
       previewSecret: previewSecret,
       previewUrl: previewUrl,
@@ -871,11 +874,12 @@ function getArticleMeta() {
     contentApi: contentApi,
     customByline: customByline,
     documentType: documentType,
+    localeID: selectedLocaleID,
+    localeName: selectedLocaleName,
+    locales: locales,
     previewUrl: previewUrl,
     previewSecret: previewSecret,
     headline: headline,
-    locale: selectedLocale,
-    locales: locales,
     published: published,
     publishingInfo: publishingInfo,
     slug: slug,
@@ -894,9 +898,9 @@ function getArticleMeta() {
 function handlePublish(formObject) {
   Logger.log("START handlePublish:", formObject);
   // save the article - pass publishFlag as true
-  var message = getCurrentDocContents(formObject, true);
-  Logger.log("END handlePublish: ", message)
-  return message;
+  var response = getCurrentDocContents(formObject, true);
+  Logger.log("END handlePublish: ", response)
+  return response;
 }
 
 /**
@@ -907,21 +911,24 @@ function handlePublish(formObject) {
 function handlePreview(formObject) {
   Logger.log("START handlePreview:", formObject);
   // save the article - pass publishFlag as false
-  var message = getCurrentDocContents(formObject, false);
+  var response = getCurrentDocContents(formObject, false);
 
-  // construct preview url
-  var slug = getArticleSlug();
+  if (response && response.status === "success") {
+    // construct preview url
+    var slug = getArticleSlug();
 
-  var scriptConfig = getScriptConfig();
-  var previewHost = scriptConfig['PREVIEW_URL'];
-  var previewSecret = scriptConfig['PREVIEW_SECRET'];
-  var fullPreviewUrl = previewHost + "?secret=" + previewSecret + "&slug=" + slug;
+    var scriptConfig = getScriptConfig();
+    var previewHost = scriptConfig['PREVIEW_URL'];
+    var previewSecret = scriptConfig['PREVIEW_SECRET'];
+    var fullPreviewUrl = previewHost + "?secret=" + previewSecret + "&slug=" + slug;
 
-  // open preview url in new window
-  message += "<br><a href='" + fullPreviewUrl + "' target='_blank'>Preview article in new window</a>"
+    // open preview url in new window
+    response.message += "<br><a href='" + fullPreviewUrl + "' target='_blank'>Preview article in new window</a>"
 
-  Logger.log("END handlePreview: ", message)
-  return message;
+    Logger.log("END handlePreview: ", response)
+    return response;
+
+  }
 }
 
 /**
@@ -941,22 +948,25 @@ function getCurrentDocContents(formObject, publishFlag) {
   articleData.headline = title;
   articleData.formattedElements = formattedElements;
 
+  var returnValue = {
+    status: "",
+    message: ""
+  };
+
+  // prefer locale in incoming form data
   var selectedLocale = formObject['article-locale'];
-  if (selectedLocale !== null) {
-    Logger.log("got locale from formdata:", selectedLocale);
-  } else {
+  // otherwise, look for a previously-set locale on the document
+  if (selectedLocale === null) {
     selectedLocale = getLocaleID();
-    if (selectedLocale !== null) {
-      Logger.log("got locale from getLocaleID:", selectedLocale);
-    } else {
-      var locales = getLocales();
-      var defaultLocale = locales.find( ({ locale }) => locale.default );
-      setDefaultLocale(defaultLocale);
-      selectedLocale = defaultLocale.id;
-      Logger.log("setting locale to default:", selectedLocale);
-      storeLocaleID(selectedLocale);
-    }
   }
+  // if no locale was settled, refuse to try publishing the article
+  if (selectedLocale === null) {
+    Logger.log("FAILED FINDING A LOCALE FOR THIS ARTICLE, ERROR");
+    returnValue.status = "error";
+    returnValue.message = "Please select a locale for this content."
+    return returnValue;
+  }
+
   articleData.localeID = selectedLocale;
   articleData.published = publishFlag;
   articleData.categoryID = formObject['article-category'];
@@ -996,8 +1006,16 @@ function getCurrentDocContents(formObject, publishFlag) {
 
   Logger.log("responseData:", responseData);
 
-  if (responseData === null || responseData.status !== "success") {
-    return `An error occurred trying to save this article: ${responseData.message}`
+  if (responseData === null) {
+    returnValue.status = "error";
+    returnValue.message = "An unknown error occurred, contact your administrator.";
+    return returnValue;
+  }
+
+  if (responseData.status !== "success") {
+    returnValue.status = "error";
+    returnValue.message = responseData.message;
+    return returnValue;
   }
 
   responseText = `Successfully stored ${documentType} in webiny.`;
@@ -1030,7 +1048,9 @@ function getCurrentDocContents(formObject, publishFlag) {
   // // update published flag and latest version ID
   // setArticleMeta();
 
-  return responseText;
+  returnValue.status = "success";
+  returnValue.message = responseText;
+  return returnValue;
 }
 
 
