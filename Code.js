@@ -697,62 +697,61 @@ function getArticleMeta() {
 
   // TODO: getArticle if articleID not null
   if (articleID !== null && articleID !== undefined) {
+    var latestArticleData = getArticleDataByID(articleID);
 
-  }
-  var latestArticleData = getArticleDataByID(articleID);
-
-  if (latestArticleData) {
-    if (latestArticleData.published !== undefined) {
-      storeIsPublished(latestArticleData.published);
-    }
-    if (latestArticleData.headline && latestArticleData.headline.values && latestArticleData.headline.values[0].value) {
-      storeHeadline(latestArticleData.headline.values[0].value);
-    }
-    if (latestArticleData.customByline) {
-      storeCustomByline(latestArticleData.customByline);
-    }
-
-    if (latestArticleData.authors) {
-      latestArticleData.authors.forEach(author => {
-          authorSlugs.push(author.slug);
-      });
-      if (authorSlugs.length > 0) {
-        authorSlugsValue = authorSlugs.join(' ');
-        storeAuthorSlugs(authorSlugsValue);
+    if (latestArticleData) {
+      if (latestArticleData.published !== undefined) {
+        storeIsPublished(latestArticleData.published);
       }
-    }
-    if (latestArticleData.category) {
-      storeCategoryID(latestArticleData.category.id);
-    }
-    if (latestArticleData.tags) {
-      storeTags(latestArticleData.tags);
-    }
-    if (latestArticleData.slug) {
-      storeArticleSlug(latestArticleData.slug);
-    }
+      if (latestArticleData.headline && latestArticleData.headline.values && latestArticleData.headline.values[0].value) {
+        storeHeadline(latestArticleData.headline.values[0].value);
+      }
+      if (latestArticleData.customByline) {
+        storeCustomByline(latestArticleData.customByline);
+      }
 
-    var seoData = {}
-    if (latestArticleData.searchTitle && latestArticleData.searchTitle.values && latestArticleData.searchTitle.values[0] && latestArticleData.searchTitle.values[0].value) {
-      seoData.searchTitle = latestArticleData.searchTitle.values[0].value;
-    }
-    if (latestArticleData.searchDescription && latestArticleData.searchDescription.values && latestArticleData.searchDescription.values[0] && latestArticleData.searchDescription.values[0].value) {
-      seoData.searchDescription = latestArticleData.searchDescription.values[0].value;
-    }
-    if (latestArticleData.facebookTitle && latestArticleData.facebookTitle.values && latestArticleData.facebookTitle.values[0] && latestArticleData.facebookTitle.values[0].value) {
-      seoData.facebookTitle = latestArticleData.facebookTitle.values[0].value;
-    }
-    if (latestArticleData.facebookDescription && latestArticleData.facebookDescription.values && latestArticleData.facebookDescription.values[0] && latestArticleData.facebookDescription.values[0].value) {
-      seoData.facebookDescription = latestArticleData.facebookDescription.values[0].value;
-    }
-    if (latestArticleData.twitterTitle && latestArticleData.twitterTitle.values && latestArticleData.twitterTitle.values[0] && latestArticleData.twitterTitle.values[0].value) {
-      seoData.twitterTitle = latestArticleData.twitterTitle.values[0].value;
-    }
-    if (latestArticleData.twitterDescription && latestArticleData.twitterDescription.values && latestArticleData.twitterDescription.values[0] && latestArticleData.twitterDescription.values[0].value) {
-      seoData.twitterDescription = latestArticleData.twitterDescription.values[0].value;
-    }
+      if (latestArticleData.authors) {
+        latestArticleData.authors.forEach(author => {
+            authorSlugs.push(author.slug);
+        });
+        if (authorSlugs.length > 0) {
+          authorSlugsValue = authorSlugs.join(' ');
+          storeAuthorSlugs(authorSlugsValue);
+        }
+      }
+      if (latestArticleData.category) {
+        storeCategoryID(latestArticleData.category.id);
+      }
+      if (latestArticleData.tags) {
+        storeTags(latestArticleData.tags);
+      }
+      if (latestArticleData.slug) {
+        storeArticleSlug(latestArticleData.slug);
+      }
 
-    if (Object.values(seoData).length > 0) {
-      storeSEO(seoData);
+      var seoData = {}
+      if (latestArticleData.searchTitle && latestArticleData.searchTitle.values && latestArticleData.searchTitle.values[0] && latestArticleData.searchTitle.values[0].value) {
+        seoData.searchTitle = latestArticleData.searchTitle.values[0].value;
+      }
+      if (latestArticleData.searchDescription && latestArticleData.searchDescription.values && latestArticleData.searchDescription.values[0] && latestArticleData.searchDescription.values[0].value) {
+        seoData.searchDescription = latestArticleData.searchDescription.values[0].value;
+      }
+      if (latestArticleData.facebookTitle && latestArticleData.facebookTitle.values && latestArticleData.facebookTitle.values[0] && latestArticleData.facebookTitle.values[0].value) {
+        seoData.facebookTitle = latestArticleData.facebookTitle.values[0].value;
+      }
+      if (latestArticleData.facebookDescription && latestArticleData.facebookDescription.values && latestArticleData.facebookDescription.values[0] && latestArticleData.facebookDescription.values[0].value) {
+        seoData.facebookDescription = latestArticleData.facebookDescription.values[0].value;
+      }
+      if (latestArticleData.twitterTitle && latestArticleData.twitterTitle.values && latestArticleData.twitterTitle.values[0] && latestArticleData.twitterTitle.values[0].value) {
+        seoData.twitterTitle = latestArticleData.twitterTitle.values[0].value;
+      }
+      if (latestArticleData.twitterDescription && latestArticleData.twitterDescription.values && latestArticleData.twitterDescription.values[0] && latestArticleData.twitterDescription.values[0].value) {
+        seoData.twitterDescription = latestArticleData.twitterDescription.values[0].value;
+      }
+
+      if (Object.values(seoData).length > 0) {
+        storeSEO(seoData);
+      }
     }
   }
 
@@ -760,7 +759,7 @@ function getArticleMeta() {
   var published = getIsPublished();
   // obviously it isn't published if we don't have a webiny article ID
   if (articleID === null || articleID === undefined) {
-    published = false;``
+    published = false;
   }
 
   var headline = getHeadline();
