@@ -69,8 +69,10 @@
               } else {
                 option.text = "(BUG) unknown locale";
               }
-              // todo: check if this is the previously selected locale, fallback to default
-              if (locale.default) {
+              // mark this locale as selected if it's the article's locale ID -or- is the default locale
+              if (data.locale !== null && data.locale === locale.id) {
+                option.selected = true;
+              } else if (locale.default) {
                 option.selected = true;
               }
               option.value = locale.id;

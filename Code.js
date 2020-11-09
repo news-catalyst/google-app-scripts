@@ -694,6 +694,7 @@ function getArticleMeta() {
   storeDocumentType(documentType);
 
   var locales = getLocales();
+  var selectedLocale = getLocaleID();
 
   var articleID = getArticleID();
 
@@ -729,6 +730,7 @@ function getArticleMeta() {
       if (latestArticleData.slug) {
         storeArticleSlug(latestArticleData.slug);
       }
+
 
       var seoData = {}
       if (latestArticleData.searchTitle && latestArticleData.searchTitle.values && latestArticleData.searchTitle.values[0] && latestArticleData.searchTitle.values[0].value) {
@@ -840,6 +842,7 @@ function getArticleMeta() {
       customByline: customByline,
       documentType: documentType,
       headline: headline,
+      locale: null,
       locales: locales,
       previewSecret: previewSecret,
       previewUrl: previewUrl,
@@ -871,6 +874,7 @@ function getArticleMeta() {
     previewUrl: previewUrl,
     previewSecret: previewSecret,
     headline: headline,
+    locale: selectedLocale,
     locales: locales,
     published: published,
     publishingInfo: publishingInfo,
@@ -936,13 +940,26 @@ function getCurrentDocContents(formObject, publishFlag) {
   articleData.id = articleID;
   articleData.headline = title;
   articleData.formattedElements = formattedElements;
-  articleData.localeID = formObject['article-locale'];
+
+  var selectedLocale = formObject['article-locale'];
+  if (selectedLocale !== null) {
+    Logger.log("got locale from formdata:", selectedLocale);
+  } else {
+    selectedLocale = getLocaleID();
+    if (selectedLocale !== null) {
+      Logger.log("got locale from getLocaleID:", selectedLocale);
+    } else {
+      var locales = getLocales();
+      var defaultLocale = locales.find( ({ locale }) => locale.default );
+      setDefaultLocale(defaultLocale);
+      selectedLocale = defaultLocale.id;
+      Logger.log("setting locale to default:", selectedLocale);
+      storeLocaleID(selectedLocale);
+    }
+  }
+  articleData.localeID = selectedLocale;
   articleData.published = publishFlag;
   articleData.categoryID = formObject['article-category'];
-
-  if (articleData.localeID === null) {
-    articleData.localeID = getLocaleID();
-  }
 
   if (articleData.categoryID !== null) {
     storeCategoryID(articleData.categoryID);
@@ -1246,19 +1263,20 @@ function formatElements() {
 function createPageFrom(articleData) {
   Logger.log("createPageFrom data: ", articleData);
 
-  var versionID = articleData.id;
-  var title = articleData.headline;
-  var elements = articleData.formattedElements;
-
-
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
-  var localeID = getLocaleID();
+  var versionID = articleData.id;
+  var title = articleData.headline;
+  var elements = articleData.formattedElements;
+  var localeID = articleData.localeID;
+
   if (localeID === null) {
     var locales = getLocales();
-    setDefaultLocale(locales);
+    var defaultLocale = locales.find( ({ locale }) => locale.default );
+    setDefaultLocale(defaultLocale);
+    storeLocaleID(defaultLocale.id);
     localeID = getLocaleID();
     if (localeID === null) {
       return 'Failed updating page: unable to find a default locale';
@@ -2885,6 +2903,9 @@ function processForm(formObject) {
   }
   var headline = formObject["article-headline"];
   storeHeadline(headline);
+
+  var selectedLocale  = formObject["article-locale"];
+  storeLocaleID(selectedLocale);
 
   var documentType = getDocumentType();
 
