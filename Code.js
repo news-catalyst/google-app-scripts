@@ -1471,6 +1471,12 @@ function createArticleFrom(articleData) {
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
+  // first: grab current article contents
+  var previousArticleData = getArticle(versionID);
+  Logger.log("found article data:", previousArticleData);
+
+  // then, for each i18n field, add in or overwrite content for the current locale, preserve all other locale specific content
+
   var customByline = getCustomByline();
 
   var publishingInfo = getPublishingInfo(true);
@@ -2693,54 +2699,15 @@ function setDefaultLocale(locales) {
   return 'Stored localeID as ' + localeID;
 }
 
-function setArticleMeta() {
-  Logger.log("START setArticleMeta")
-  var articleID = getArticleID();
+function getArticle(id) {
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
-  var documentType = getDocumentType();
-
-  // prefer custom headline (set in sidebar form) but fallback to document name
-  var headline = getHeadline();
-  if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
-    headline = getDocumentName();
-    storeHeadline(headline);
-  }
-
-  var slug = getArticleSlug();
-  if (slug === null || typeof(slug) === "undefined") {
-    if (documentType === "article") {
-      slug = createArticleSlug(categoryName, headline);
-    } else {
-      slug = slugify(headline);
-    }
-    storeArticleSlug(slug);
-  }
-
-  if (documentType !== "article") {
-    return null;
-  }
-
-  var categories = getCategories();
-  if (categories === null || categories.length <= 0) {
-    categories = listCategories();
-    storeCategories(categories);
-  }
-
-  var categoryID = getCategoryID();
-  var categoryName = getNameForCategoryID(categories, categoryID);
-  // Logger.log("article category name: ", categoryName);
-
-  if (typeof(articleID) === "undefined" || articleID === null) {
-    return null;
-  }
-
   var formData = {
-    query: `{
+    query: `query GetArticle($id: ID!) {
       articles {
-        getArticle(id: "5f7536413b4f94000752c423") {
+        getArticle(id: $id) {
           error {
             message
             code
@@ -2831,7 +2798,7 @@ function setArticleMeta() {
       }
     }`,
     variables: {
-      id: articleID,
+      id: id,
     }
   };
   var options = {
@@ -2852,7 +2819,52 @@ function setArticleMeta() {
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  // Logger.log(responseData);
+  return responseData;
+}
+
+function setArticleMeta() {
+  Logger.log("START setArticleMeta")
+  var articleID = getArticleID();
+
+  var documentType = getDocumentType();
+
+  // prefer custom headline (set in sidebar form) but fallback to document name
+  var headline = getHeadline();
+  if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
+    headline = getDocumentName();
+    storeHeadline(headline);
+  }
+
+  var slug = getArticleSlug();
+  if (slug === null || typeof(slug) === "undefined") {
+    if (documentType === "article") {
+      slug = createArticleSlug(categoryName, headline);
+    } else {
+      slug = slugify(headline);
+    }
+    storeArticleSlug(slug);
+  }
+
+  if (documentType !== "article") {
+    return null;
+  }
+
+  var categories = getCategories();
+  if (categories === null || categories.length <= 0) {
+    categories = listCategories();
+    storeCategories(categories);
+  }
+
+  var categoryID = getCategoryID();
+  var categoryName = getNameForCategoryID(categories, categoryID);
+  // Logger.log("article category name: ", categoryName);
+
+  if (typeof(articleID) === "undefined" || articleID === null) {
+    return null;
+  }
+
+  var responseData = getArticle(articleID);
+  Logger.log("getArticle response:", responseData);
 
   let articleData = responseData.data.articles.getArticle.data;
   var articleID = articleData.id;
