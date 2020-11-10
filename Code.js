@@ -940,6 +940,15 @@ function getCurrentDocContents(formObject, publishFlag) {
   var title = getHeadline();
   var formattedElements = formatElements();
 
+  storeSEO({
+    searchTitle: formObject['article-search-title'],
+    searchDescription: formObject['article-search-description'],
+    facebookTitle: formObject['article-facebook-title'],
+    facebookDescription: formObject['article-facebook-description'],
+    twitterTitle: formObject['article-twitter-title'],
+    twitterDescription: formObject['article-twitter-description'],
+  });
+
   var articleID = getArticleID();
 
   var articleData = {};
@@ -1467,15 +1476,15 @@ function createArticleFrom(articleData) {
   var elements = articleData.formattedElements;
   var localeID = articleData.localeID;
 
+  var articleContent = JSON.stringify(elements);
+
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
-  // first: grab current article contents
+  // grab current article contents
   var previousArticleData = getArticle(versionID);
   Logger.log("found article data:", previousArticleData);
-
-  // then, for each i18n field, add in or overwrite content for the current locale, preserve all other locale specific content
 
   var customByline = getCustomByline();
 
@@ -1543,7 +1552,15 @@ function createArticleFrom(articleData) {
     published = false;
   }
   storeIsPublished(published);
-  Logger.log("setting published to:", published);
+
+  var headlineValues = i18nSetValues(title, localeID, previousArticleData.headline.values);
+  var contentValues = i18nSetValues(articleContent, localeID, previousArticleData.content.values);
+  var searchTitleValues = i18nSetValues(seoData.searchTitle, localeID, previousArticleData.searchTitle.values);
+  var searchDescriptionValues = i18nSetValues(seoData.searchDescription, localeID, previousArticleData.searchDescription.values);
+  var facebookTitleValues = i18nSetValues(seoData.facebookTitle, localeID, previousArticleData.facebookTitle.values);
+  var facebookDescriptionValues = i18nSetValues(seoData.facebookDescription, localeID, previousArticleData.facebookDescription.values);
+  var twitterTitleValues = i18nSetValues(seoData.twitterTitle, localeID, previousArticleData.twitterTitle.values);
+  var twitterDescriptionValues = i18nSetValues(seoData.twitterDescription, localeID, previousArticleData.twitterDescription.values);
 
   var data = {
     published: published,
@@ -1552,71 +1569,15 @@ function createArticleFrom(articleData) {
     authors: authorIDs,
     authorSlugs: authorSlugsValue,
     tags: tagIDs,
-    headline: {
-      values: [
-        {
-          locale: localeID,
-          value: title,
-        },
-      ],
-    },
+    headline: { values: headlineValues },
     headlineSearch: title,
-    content: {
-      values: [
-        {
-          locale: localeID,
-          value: JSON.stringify(elements),
-        },
-      ],
-    },
-    searchTitle: {
-      values: [
-        {
-          locale: localeID,
-          value: seoData.searchTitle,
-        },
-      ],
-    },
-    searchDescription: {
-      values: [
-        {
-          locale: localeID,
-          value: seoData.searchDescription,
-        },
-      ],
-    },
-    facebookTitle: {
-      values: [
-        {
-          locale: localeID,
-          value: seoData.facebookTitle,
-        },
-      ],
-    },
-    facebookDescription: {
-      values: [
-        {
-          locale: localeID,
-          value: seoData.facebookDescription,
-        },
-      ],
-    },
-    twitterTitle: {
-      values: [
-        {
-          locale: localeID,
-          value: seoData.twitterTitle,
-        },
-      ],
-    },
-    twitterDescription: {
-      values: [
-        {
-          locale: localeID,
-          value: seoData.twitterDescription,
-        },
-      ],
-    },
+    content: { values: contentValues },
+    searchTitle: { values: searchTitleValues },
+    searchDescription: { values: searchDescriptionValues },
+    facebookTitle: {values: facebookTitleValues},
+    facebookDescription: {values: facebookDescriptionValues},
+    twitterTitle: {values: twitterTitleValues},
+    twitterDescription: {values: twitterDescriptionValues},
   };
 
   // only update or set these if we're publishing the article
@@ -1643,6 +1604,11 @@ function createArticleFrom(articleData) {
           data {
             id
             headline {
+              values {
+                value
+              }
+            }
+            searchTitle {
               values {
                 value
               }
@@ -1689,7 +1655,7 @@ function createArticleFrom(articleData) {
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
   // Logger.log("createArticleFrom responseData:", responseData);
-  Logger.log("END createArticleFrom:", responseText);
+  Logger.log("END createArticleFrom:", responseData.data.articles.updateArticle.searchTitle);
 
   var returnValue = {
     status: "",
@@ -2819,7 +2785,7 @@ function getArticle(id) {
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  return responseData;
+  return responseData.data.articles.getArticle.data;
 }
 
 function setArticleMeta() {
@@ -2863,10 +2829,7 @@ function setArticleMeta() {
     return null;
   }
 
-  var responseData = getArticle(articleID);
-  Logger.log("getArticle response:", responseData);
-
-  let articleData = responseData.data.articles.getArticle.data;
+  var articleData = getArticle(articleID);
   var articleID = articleData.id;
 
   // store publishing info like first & last dates published, latest version ID and whether or not it's been published
@@ -2875,7 +2838,7 @@ function setArticleMeta() {
   publishingInfo.lastPublishedOn = articleData.lastPublishedOn;
   publishingInfo.publishedOn = articleData.lastPublishedOn;
 
-  var tagsData = responseData.data.articles.getArticle.data.tags;
+  var tagsData = articleData.tags;
   var tagIDs = [];
   tagsData.forEach(tagData => {
     tagIDs.push(tagData.id)
@@ -2884,7 +2847,7 @@ function setArticleMeta() {
   storeTags(uniqueTags);
 
   Logger.log("END setArticleMeta")
-  return responseData;
+  return articleData;
 }
 
 /*
@@ -3071,4 +3034,36 @@ function associateArticle(formObject) {
   }
 
   return responseData;
+}
+
+function i18nSetValues(text, localeID, previousValues) {
+  var newValues;
+  if (previousValues && previousValues.length > 0) {
+    var foundIt = false;
+    newValues = previousValues.map( (obj) => {
+      if (obj.locale === localeID) {
+        foundIt = true;
+        obj.value = text;
+        Logger.log("found prior in locale", obj)
+      }
+      return obj;
+    });
+    // case handling when there was no search title set in this locale
+    if (!foundIt) {
+      newValues = previousValues;
+      newValues.push({
+        value: text,
+        locale: localeID
+      });
+      Logger.log("NO prior in locale, appended", newValues.length);
+    }
+  // case handling when there was NO previous value set in any language
+  } else {
+    newValues = [{
+      value: text,
+      locale: localeID
+    }]
+    Logger.log("NO prior in any locale, creating", newValues.length);
+  }
+  return newValues;
 }
