@@ -699,10 +699,12 @@ function getArticleMeta() {
 
   var locales = getLocales();
   var selectedLocaleID = getLocaleID();
-  var selectedLocale = locales.find((locale) => locale.id === selectedLocaleID);
   var selectedLocaleName = null;
-  if (selectedLocale) {
-    selectedLocaleName = selectedLocale.code;
+  if (selectedLocaleID) {
+    var selectedLocale = locales.find((locale) => locale.id === selectedLocaleID);
+    if (selectedLocale) {
+      selectedLocaleName = selectedLocale.code;
+    }
   }
 
   var articleID = getArticleID();
@@ -1550,7 +1552,6 @@ function createArticleFrom(articleData) {
 
   // grab current article contents
   var previousArticleData = getArticle(versionID);
-  Logger.log("found article data:", previousArticleData);
 
   // then merge in the new content with previous locale data
   var headlineValues = i18nSetValues(title, localeID, previousArticleData.headline.values);
@@ -1586,6 +1587,7 @@ function createArticleFrom(articleData) {
     data.lastPublishedOn = publishingInfo.lastPublishedOn;
   }
 
+  Logger.log(JSON.stringify(data))
   // Logger.log("tagIDs: ", tagIDs);
   var variables = {
     id: versionID,
@@ -1599,6 +1601,7 @@ function createArticleFrom(articleData) {
         updateArticle(id: $id, data: $data) {
           error {
             code
+            data
             message
           }
           data {
@@ -1651,11 +1654,8 @@ function createArticleFrom(articleData) {
     CONTENT_API,
     options
   );
-  Logger.log("createArticleFrom response:", response);
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  // Logger.log("createArticleFrom responseData:", responseData);
-  Logger.log("END createArticleFrom:", responseData.data.articles.updateArticle.searchTitle);
 
   var returnValue = {
     status: "",
@@ -1668,6 +1668,7 @@ function createArticleFrom(articleData) {
   } else if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.updateArticle && responseData.data.articles.updateArticle.error !== null) {
     returnValue.status = "error";
     returnValue.message = responseData.data.articles.updateArticle.error;
+    Logger.log(JSON.stringify(returnValue.message));
   }
 
   return returnValue;
@@ -3201,6 +3202,10 @@ function associateArticle(formObject) {
 }
 
 function i18nSetValues(text, localeID, previousValues) {
+  // don't bother appending blank values for this locale
+  if (text === null || text === undefined || text === "") {
+    return previousValues;
+  }
   var newValues;
   if (previousValues && previousValues.length > 0) {
     var foundIt = false;
