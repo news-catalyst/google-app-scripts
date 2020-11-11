@@ -538,6 +538,10 @@ function storeSEO(seoData) {
   storeValueJSON("ARTICLE_SEO", seoData);
 }
 
+function deleteSEO() {
+  deleteValue("ARTICLE_SEO")
+}
+
 function storeDocumentType(value) {
   storeValue('DOCUMENT_TYPE', value);
 }
@@ -696,9 +700,27 @@ function getArticleMeta() {
   var locales = getLocales();
   var selectedLocaleID = getLocaleID();
   var selectedLocale = locales.find((locale) => locale.id === selectedLocaleID);
-  var selectedLocaleName = selectedLocale.code;
+  var selectedLocaleName = null;
+  if (selectedLocale) {
+    selectedLocaleName = selectedLocale.code;
+  }
 
   var articleID = getArticleID();
+
+  var headline = getHeadline();
+  if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
+    headline = getDocumentName();
+    storeHeadline(headline);
+  }
+
+  var slug = getArticleSlug();
+  if (slug === null || slug === undefined || slug.match(/^\s+$/) || slug === '') {
+    Logger.log("NULL SLUG:", headline);
+    slug = slugify(headline);
+    storeArticleSlug(slug);
+  } else {
+    Logger.log("SLUG FOUND:", slug);
+  }
 
   if (articleID !== null && articleID !== undefined) {
     var latestArticleData = getArticleDataByID(articleID);
@@ -767,12 +789,6 @@ function getArticleMeta() {
     published = false;
   }
 
-  var headline = getHeadline();
-  if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
-    headline = getDocumentName();
-    storeHeadline(headline);
-  }
-
   var customByline = getCustomByline();
 
   var articleAuthors = getAuthors();
@@ -799,8 +815,6 @@ function getArticleMeta() {
 
   var categoryID = getCategoryID();
   var categoryName = getNameForCategoryID(categories, categoryID);
-
-  var slug = getArticleSlug();
 
   // always load the latest tags from webiny to avoid issues being out of sync
   // FYI: I've run into problems when this isn't done (e.g. a dupe tag is created elsewhere, which could be likely when actual orgs use this
@@ -979,7 +993,7 @@ function getCurrentDocContents(formObject, publishFlag) {
   articleData.published = publishFlag;
   articleData.categoryID = formObject['article-category'];
 
-  if (articleData.categoryID !== null) {
+  if (documentType === "article" && articleData.categoryID !== null) {
     storeCategoryID(articleData.categoryID);
   }
 
@@ -1309,10 +1323,44 @@ function createPageFrom(articleData) {
     storeArticleSlug(slug);
   }
 
+  var articleContent = JSON.stringify(elements);
+
+  // grab current article contents
+  var previousData = getPage(versionID);
+  Logger.log("found page data:", previousData);
+
+  var headlineValues = i18nSetValues(title, localeID, previousData.headline.values);
+  var contentValues = i18nSetValues(articleContent, localeID, previousData.content.values);
+  var searchTitleValues = i18nSetValues(seoData.searchTitle, localeID, previousData.searchTitle.values);
+  var searchDescriptionValues = i18nSetValues(seoData.searchDescription, localeID, previousData.searchDescription.values);
+  var facebookTitleValues = i18nSetValues(seoData.facebookTitle, localeID, previousData.facebookTitle.values);
+  var facebookDescriptionValues = i18nSetValues(seoData.facebookDescription, localeID, previousData.facebookDescription.values);
+  var twitterTitleValues = i18nSetValues(seoData.twitterTitle, localeID, previousData.twitterTitle.values);
+  var twitterDescriptionValues = i18nSetValues(seoData.twitterDescription, localeID, previousData.twitterDescription.values);
+
+  var data = {
+    slug: slug,
+    headline: { values: headlineValues },
+    content: { values: contentValues },
+    searchTitle: { values: searchTitleValues },
+    searchDescription: { values: searchDescriptionValues },
+    facebookTitle: {values: facebookTitleValues},
+    facebookDescription: {values: facebookDescriptionValues},
+    twitterTitle: {values: twitterTitleValues},
+    twitterDescription: {values: twitterDescriptionValues},
+  }
+
+  Logger.log("data (String):", JSON.stringify(data));
+  Logger.log("data:", data);
+
   var formData = {
     query: `mutation UpdatePage($id: ID!, $data: PageInput!) {
       pages { 
         updatePage(id: $id, data: $data) {
+          error {
+            code
+            message
+          }
           data {
             id
             slug
@@ -1369,73 +1417,7 @@ function createPageFrom(articleData) {
     }`,
     variables: {
       id: versionID,
-      data: {
-        headline: {
-          values: [
-            {
-              locale: localeID,
-              value: title,
-            },
-          ],
-        },
-        slug: slug,
-        content: {
-          values: [
-            {
-              locale: localeID,
-              value: JSON.stringify(elements),
-            },
-          ],
-        },
-        searchTitle: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.searchTitle,
-            },
-          ],
-        },
-        searchDescription: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.searchDescription,
-            },
-          ],
-        },
-        facebookTitle: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.facebookTitle,
-            },
-          ],
-        },
-        facebookDescription: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.facebookDescription,
-            },
-          ],
-        },
-        twitterTitle: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.twitterTitle,
-            },
-          ],
-        },
-        twitterDescription: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.twitterDescription,
-            },
-          ],
-        },
-      },
+      data: data
     },
   };
   // Logger.log("formData: ", formData);
@@ -1459,7 +1441,24 @@ function createPageFrom(articleData) {
   Logger.log("createPageFrom responseData:", responseData);
   // var latestVersionID = responseData.data.content.data.id;
   // storeArticleID(latestVersionID);
-  return responseData.data.pages.updatePage.data;
+  var returnValue = {
+    status: "",
+    message: ""
+  };
+  if (responseData && responseData.data && responseData.data.pages && responseData.data.pages.updatePage && responseData.data.pages.updatePage.error === null) {
+    Logger.log("FOUND NO ERROR in UPDATE PAGE")
+    returnValue.status = "success";
+    returnValue.id = responseData.data.pages.updatePage.data.id;
+    returnValue.message = "Updated page with ID " +  returnValue.id;
+  } else if (responseData && responseData.data && responseData.data.pages && responseData.data.pages.updatePage && responseData.data.pages.updatePage.error !== null) {
+    Logger.log("ERROR in UPDATE PAGE", responseData.data.pages.updatePage.error)
+    returnValue.status = "error";
+    returnValue.message = responseData.data.pages.updatePage.error;
+  } else {
+    Logger.log("wtf?", responseData.data);
+  }
+
+  return returnValue;
 }
 
 /**
@@ -1481,10 +1480,6 @@ function createArticleFrom(articleData) {
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
-
-  // grab current article contents
-  var previousArticleData = getArticle(versionID);
-  Logger.log("found article data:", previousArticleData);
 
   var customByline = getCustomByline();
 
@@ -1553,6 +1548,11 @@ function createArticleFrom(articleData) {
   }
   storeIsPublished(published);
 
+  // grab current article contents
+  var previousArticleData = getArticle(versionID);
+  Logger.log("found article data:", previousArticleData);
+
+  // then merge in the new content with previous locale data
   var headlineValues = i18nSetValues(title, localeID, previousArticleData.headline.values);
   var contentValues = i18nSetValues(articleContent, localeID, previousArticleData.content.values);
   var searchTitleValues = i18nSetValues(seoData.searchTitle, localeID, previousArticleData.searchTitle.values);
@@ -1688,10 +1688,7 @@ function createPage(articleData) {
   var seoData = getSEO();
 
   var slug = getArticleSlug();
-  if (slug === null || typeof(slug) === "undefined") {
-    slug = slugify(title);
-    storeArticleSlug(slug);
-  }
+  Logger.log("SLUG:", slug);
 
   var formData = {
     query:
@@ -1845,7 +1842,22 @@ function createPage(articleData) {
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
   Logger.log("responseData:", responseData);
-  return responseData.data.pages.createPage.data;
+
+  var returnValue = {
+    status: "",
+    message: ""
+  };
+  if (responseData && responseData.data && responseData.data.pages && responseData.data.pages.createPage && responseData.data.pages.createPage.error !== null) {
+    returnValue.status = "error";
+    returnValue.id = null;
+    returnValue.message = responseData.data.pages.createPage.error;
+  } else {
+    returnValue.message = "Created page with ID " +  returnValue.id;
+    returnValue.status = "success";
+    returnValue.id = responseData.data.pages.createPage.data.id;
+
+  }
+  return returnValue;
 }
 
 /**
@@ -2079,6 +2091,67 @@ function createArticle(articleData) {
 }
 
 /**
+ * Deletes the page
+ */
+function deletePage() {
+  var versionID = getArticleID();
+  Logger.log("versionID:", versionID);
+
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  var formData = {
+    query: `mutation DeletePage($id: ID!) {
+      pages {
+        deletePage(id: $id) {
+          data
+          error {
+            code
+            message
+          }
+        }
+      }
+    }`,
+    variables: {
+      id: versionID,
+    }
+  };
+
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  // Logger.log(JSON.stringify(formData))
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  Logger.log(responseData);
+
+  storeIsPublished(false);
+  deleteSEO();
+  deleteArticleSlug();
+  deleteArticleID();
+  deletePublishingInfo();
+  // deleteTags();
+  // deleteCategories();
+  if (responseData && responseData.data && responseData.data.pages.deletePage.error === null) {
+    return "Deleted article at revision " + versionID;
+  } else if (responseData && responseData.data && responseData.data.pages.deletePage.error !== null) {
+    return responseData.data.pages.deletePage.error;
+  }
+}
+
+/**
  * Deletes the article
  */
 function deleteArticle() {
@@ -2128,6 +2201,7 @@ function deleteArticle() {
   deleteArticleSlug();
   deleteArticleID();
   deletePublishingInfo();
+  deleteSEO();
   deleteTags();
   deleteCategories();
   if (responseData && responseData.data && responseData.data.articles.deleteArticle.error === null) {
@@ -2665,6 +2739,96 @@ function setDefaultLocale(locales) {
   return 'Stored localeID as ' + localeID;
 }
 
+function getPage(id) {
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  var formData = {
+    query: `query GetPage($id: ID!) {
+      pages {
+        getPage(id: $id) {
+          data {
+            id
+            headline {
+              values {
+                value
+                locale
+              }
+            }
+            content {
+              values {
+                value
+                locale
+              }
+            }
+            searchTitle {
+              values {
+                value
+                locale
+              }
+            }
+            searchDescription {
+              values {
+                value
+                locale
+              }
+            }
+            facebookTitle {
+              values {
+                value
+                locale
+              }
+            }
+            facebookDescription {
+              values {
+                value
+                locale
+              }
+            }
+            twitterTitle {
+              values {
+                value
+                locale
+              }
+            }
+            twitterDescription {
+              values {
+                value
+                locale
+              }
+            }
+            slug
+    
+          }
+        }
+      }
+    }`,
+    variables: {
+      id: id,
+    }
+  };
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  // Logger.log(options);
+
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  return responseData.data.pages.getPage.data;
+}
+
 function getArticle(id) {
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
@@ -3055,7 +3219,7 @@ function i18nSetValues(text, localeID, previousValues) {
         value: text,
         locale: localeID
       });
-      Logger.log("NO prior in locale, appended", newValues.length);
+      Logger.log("NO prior in locale, appended", newValues.length, newValues);
     }
   // case handling when there was NO previous value set in any language
   } else {
