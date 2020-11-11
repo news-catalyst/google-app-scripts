@@ -63,6 +63,10 @@
       }
 
       function onSuccess(contents) {
+        if (contents && contents.status && contents.status === "error") {
+          onFailure(contents);
+          return;
+        }
         hideConfigForm();
         var div = document.getElementById('loading');
         div.style.display = 'block';
@@ -78,10 +82,16 @@
       }
 
       function onFailure(error) {
-        var loadingDiv = document.getElementById('loading');
         console.log(error);
+        var loadingDiv = document.getElementById('loading');
         loadingDiv.style.display = "block";
-        loadingDiv.innerHTML = "<p class='error'>An error occurred: " + error + "</p>";
+        var message = "An error occurred: ";
+        if (error && error.message) {
+          message += JSON.stringify(error.message);
+        } else {
+          message += "unknown";
+        }
+        loadingDiv.innerHTML = "<p class='error'>" + message + "</p>";
       }
 
       function displayConfigFormMessage(text) {
@@ -192,7 +202,7 @@
       }
       
       function handleAssociate(formObject) {
-        if (window.confirm("Are you sure you want to do this? It will overwrite the article with this document's contents, and there's no undo!")) { 
+        if (window.confirm("Are you sure you want to do this? Any content in the linked article in this locale will be replaced by your document!")) { 
           hideLoading();
           console.log("associating article...", formObject);
           // var articleId = $(this).data('article-id');
