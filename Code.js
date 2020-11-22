@@ -953,7 +953,8 @@ function handlePreview(formObject) {
 function getCurrentDocContents(formObject, publishFlag) {
   var documentType = getDocumentType();
 
-  var title = getHeadline();
+  var title = formObject['article-headline'];
+  storeHeadline(title);
   var formattedElements = formatElements();
 
   storeSEO({
@@ -983,7 +984,7 @@ function getCurrentDocContents(formObject, publishFlag) {
   if (selectedLocale === null || selectedLocale === undefined) {
     selectedLocale = getLocaleID();
   }
-  // if no locale was settled, refuse to try publishing the article
+  // if no locale was selected, refuse to try publishing the article
   if (selectedLocale === null || selectedLocale === undefined) {
     Logger.log("FAILED FINDING A LOCALE FOR THIS ARTICLE, ERROR");
     returnValue.status = "error";
@@ -991,6 +992,8 @@ function getCurrentDocContents(formObject, publishFlag) {
     return returnValue;
   }
 
+  // finally, be sure to store the selected locale ID before proceeding
+  storeLocaleID(selectedLocale);
   articleData.localeID = selectedLocale;
   articleData.published = publishFlag;
   articleData.categoryID = formObject['article-category'];
