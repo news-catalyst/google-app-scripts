@@ -3210,16 +3210,10 @@ function handleSearch(formObject) {
 .* called from ManualPage.html, this function associates the google doc with the selected article
 .*/
 function associateArticle(formObject) {
-  
-  // var scriptConfig = getScriptConfig();
-  // var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
-  // var CONTENT_API = scriptConfig['CONTENT_API'];
-
   Logger.log("associateArticle:", formObject);
 
   var articleID  = formObject["article-id"];
   var localeID  = formObject["article-locale"];
-  // var documentType = getDocumentType();
 
   var headline = getHeadline();
   if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
@@ -3235,7 +3229,10 @@ function associateArticle(formObject) {
   articleData.formattedElements = formattedElements;
   articleData.localeID = localeID;
   articleData.published = false;
+  articleData.authors = getAuthors();
+  articleData.tags = getTags();
 
+  Logger.log("articleData:", articleData);
   var responseData = createArticleFrom(articleData);
   Logger.log("response:", responseData);
 
