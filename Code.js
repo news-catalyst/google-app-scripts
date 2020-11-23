@@ -304,6 +304,22 @@ function storeLocaleID(localeID) {
   storeValue("LOCALE_ID", localeID);
 }
 
+function getSelectedLocaleName() {
+  getValue("LOCALE_NAME");
+}
+
+function storeSelectedLocaleName(localeName) {
+  storeValue("LOCALE_NAME", localeName);
+}
+
+function getAvailableLocales() {
+  getValue("AVAILABLE_LOCALES");
+}
+
+function storeAvailableLocales(localesString) {
+  storeValue("AVAILABLE_LOCALES", localesString);
+}
+
 function getArticleSlug() {
   return getValue('ARTICLE_SLUG');
 }  
@@ -704,6 +720,7 @@ function getArticleMeta() {
     var selectedLocale = locales.find((locale) => locale.id === selectedLocaleID);
     if (selectedLocale) {
       selectedLocaleName = selectedLocale.code;
+      storeSelectedLocaleName(selectedLocaleName);
     }
   }
 
@@ -757,6 +774,19 @@ function getArticleMeta() {
         storeArticleSlug(latestArticleData.slug);
       }
 
+      var articleAvailableLocales;
+      // check if the article's current available locales includes the current one;
+      // .  if not, add the current locale name to it
+      if (latestArticleData.availableLocales && latestArticleData.availableLocales !== null) {
+        articleAvailableLocales = latestArticleData.availableLocales;
+        var currentLocales = latestArticleData.availableLocales.split(" ");
+        if (!currentLocales.includes(selectedLocaleName)) {
+          currentLocales.push(selectedLocaleName);
+          articleAvailableLocales = currentLocales.join(" ");
+        }
+        Logger.log("**storing available locales for the article:", articleAvailableLocales);
+        storeAvailableLocales(articleAvailableLocales);
+      }
 
       var seoData = {}
       if (latestArticleData.searchTitle && latestArticleData.searchTitle.values && latestArticleData.searchTitle.values[0] && latestArticleData.searchTitle.values[0].value) {
@@ -964,18 +994,8 @@ function getCurrentDocContents(formObject, publishFlag) {
   var documentType = getDocumentType();
 
   var title = getHeadline();
-  // storeHeadline(title);
 
   var formattedElements = formatElements();
-
-  // storeSEO({
-  //   searchTitle: formObject['article-search-title'],
-  //   searchDescription: formObject['article-search-description'],
-  //   facebookTitle: formObject['article-facebook-title'],
-  //   facebookDescription: formObject['article-facebook-description'],
-  //   twitterTitle: formObject['article-twitter-title'],
-  //   twitterDescription: formObject['article-twitter-description'],
-  // });
 
   var articleData = {};
   articleData.id = articleID;
@@ -991,12 +1011,12 @@ function getCurrentDocContents(formObject, publishFlag) {
     return returnValue;
   }
 
+  var selectedLocaleName = getSelectedLocaleName();
+  articleData.localeName = selectedLocaleName;
   articleData.localeID = selectedLocale;
   articleData.published = publishFlag;
   articleData.categoryID = getCategoryID();
-  // formObject['article-category'];
   articleData.authors = getAuthors();
-  // formObject['article-authors'];
   articleData.tags = getTags();
 
   if (documentType === "article" && articleData.categoryID !== null) {
@@ -1870,6 +1890,7 @@ function createArticle(articleData) {
   var title = articleData.headline;
   var elements = articleData.formattedElements;
   var localeID = articleData.localeID;
+  var localeName = articleData.localeName;
   var articleAuthors = articleData.authors;
   var articleTags = articleData.tags; // only id
   var categoryID = articleData.categoryID;
@@ -1971,6 +1992,7 @@ function createArticle(articleData) {
     }`;
   var gqlVariables = {
       data: {
+        availableLocales: localeName,
         headline: {
           values: [
             {
@@ -3031,6 +3053,21 @@ function processForm(formObject) {
       storeLocaleID(selectedLocale);
     }
   }
+
+  // get the current locale code; if it's not stored already, store it
+  var selectedLocaleName = getSelectedLocaleName();
+  if (selectedLocaleName === null || selectedLocaleName === undefined) {
+    var locales = getLocales();
+    var selectedLocaleID = getLocaleID();
+    if (selectedLocaleID) {
+      var selectedLocale = locales.find((locale) => locale.id === selectedLocaleID);
+      if (selectedLocale) {
+        selectedLocaleName = selectedLocale.code;
+        storeSelectedLocaleName(selectedLocaleName);
+      }
+    }
+  }
+
 
   var documentType = getDocumentType();
 
