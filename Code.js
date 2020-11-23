@@ -1909,6 +1909,8 @@ function createArticle(articleData) {
     storeCategories(categories);
   }
 
+  storeAvailableLocales(localeName);
+
   var categoryName = getNameForCategoryID(categories, categoryID);
 
   var slug = getArticleSlug();
