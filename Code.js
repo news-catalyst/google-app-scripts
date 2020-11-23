@@ -301,23 +301,24 @@ function getLocaleID() {
  * @param localeID webiny ID for the doc's locale
  */
 function storeLocaleID(localeID) {
-  storeValue("LOCALE_ID", localeID);
+  storeValue('LOCALE_ID', localeID);
 }
 
 function getSelectedLocaleName() {
-  getValue("LOCALE_NAME");
+  getValue('LOCALE_NAME');
 }
 
 function storeSelectedLocaleName(localeName) {
-  storeValue("LOCALE_NAME", localeName);
+  storeValue('LOCALE_NAME', localeName);
 }
 
 function getAvailableLocales() {
-  getValue("AVAILABLE_LOCALES");
+  getValue('AVAILABLE_LOCALES');
 }
 
 function storeAvailableLocales(localesString) {
-  storeValue("AVAILABLE_LOCALES", localesString);
+  Logger.log("storing available locales:", localesString);
+  storeValue('AVAILABLE_LOCALES', localesString);
 }
 
 function getArticleSlug() {
@@ -745,6 +746,7 @@ function getArticleMeta() {
     var latestArticleData = getArticleDataByID(articleID);
 
     if (latestArticleData) {
+      Logger.log("getArticleMeta found latestArticleData")
       if (latestArticleData.published !== undefined) {
         storeIsPublished(latestArticleData.published);
       }
@@ -774,20 +776,6 @@ function getArticleMeta() {
         storeArticleSlug(latestArticleData.slug);
       }
 
-      var articleAvailableLocales;
-      // check if the article's current available locales includes the current one;
-      // .  if not, add the current locale name to it
-      if (latestArticleData.availableLocales && latestArticleData.availableLocales !== null) {
-        articleAvailableLocales = latestArticleData.availableLocales;
-        var currentLocales = latestArticleData.availableLocales.split(" ");
-        if (!currentLocales.includes(selectedLocaleName)) {
-          currentLocales.push(selectedLocaleName);
-          articleAvailableLocales = currentLocales.join(" ");
-        }
-        Logger.log("**storing available locales for the article:", articleAvailableLocales);
-        storeAvailableLocales(articleAvailableLocales);
-      }
-
       var seoData = {}
       if (latestArticleData.searchTitle && latestArticleData.searchTitle.values && latestArticleData.searchTitle.values[0] && latestArticleData.searchTitle.values[0].value) {
         seoData.searchTitle = latestArticleData.searchTitle.values[0].value;
@@ -811,6 +799,8 @@ function getArticleMeta() {
       if (Object.values(seoData).length > 0) {
         storeSEO(seoData);
       }
+    } else {
+      Logger.log("getArticleMeta failed finding latestArticleData")
     }
   }
 
@@ -825,7 +815,6 @@ function getArticleMeta() {
 
   var articleAuthors = getAuthors();
   var allAuthors = loadAuthorsFromDB();
-  Logger.log("Loaded authors from DB", allAuthors);
   if (allAuthors) {
     storeAllAuthors(allAuthors);
     allAuthors.forEach(author => {
@@ -870,6 +859,9 @@ function getArticleMeta() {
   var awsBucket = scriptConfig['AWS_BUCKET'];
   var republishUrl = scriptConfig['VERCEL_DEPLOY_HOOK_URL'];
 
+  var availableLocales = getAvailableLocales();
+  Logger.log("availableLocales:", availableLocales);
+  
   if (typeof(articleID) === "undefined" || articleID === null) {
 
     return {
@@ -883,6 +875,7 @@ function getArticleMeta() {
       awsAccessKey: awsAccessKey,
       awsSecretKey: awsSecretKey,
       awsBucket: awsBucket,
+      availableLocales: null,
       categories: categories,
       categoryID: categoryID,
       categoryName: categoryName,
@@ -914,6 +907,7 @@ function getArticleMeta() {
     awsAccessKey: awsAccessKey,
     awsSecretKey: awsSecretKey,
     awsBucket: awsBucket,
+    availableLocales: availableLocales,
     categories: categories,
     categoryID: categoryID,
     categoryName: categoryName,
@@ -1003,6 +997,7 @@ function getCurrentDocContents(formObject, publishFlag) {
   articleData.formattedElements = formattedElements;
 
   var selectedLocale = getLocaleID();
+  var selectedLocaleName = getSelectedLocaleName();
   // if no locale was selected, refuse to try publishing the article
   if (selectedLocale === null || selectedLocale === undefined) {
     Logger.log("FAILED FINDING A LOCALE FOR THIS ARTICLE, ERROR");
@@ -1011,7 +1006,9 @@ function getCurrentDocContents(formObject, publishFlag) {
     return returnValue;
   }
 
-  var selectedLocaleName = getSelectedLocaleName();
+  Logger.log("..LocaleName:", selectedLocaleName);
+  Logger.log("..LocaleID:", selectedLocale);
+
   articleData.localeName = selectedLocaleName;
   articleData.localeID = selectedLocale;
   articleData.published = publishFlag;
@@ -1575,6 +1572,8 @@ function createArticleFrom(articleData) {
   // grab current article contents
   var previousArticleData = getArticle(versionID);
 
+  var availableLocaleNames = i18nGetLocales(localeID, previousArticleData.headline.values);
+
   // then merge in the new content with previous locale data
   var headlineValues = i18nSetValues(title, localeID, previousArticleData.headline.values);
   var contentValues = i18nSetValues(articleContent, localeID, previousArticleData.content.values);
@@ -1586,6 +1585,7 @@ function createArticleFrom(articleData) {
   var twitterDescriptionValues = i18nSetValues(seoData.twitterDescription, localeID, previousArticleData.twitterDescription.values);
 
   var data = {
+    availableLocales: availableLocaleNames,
     published: published,
     category: categoryID,
     customByline: customByline,
@@ -3056,18 +3056,27 @@ function processForm(formObject) {
 
   // get the current locale code; if it's not stored already, store it
   var selectedLocaleName = getSelectedLocaleName();
-  if (selectedLocaleName === null || selectedLocaleName === undefined) {
+  if (selectedLocaleName === null || selectedLocaleName === undefined || selectedLocaleName === "") {
+    Logger.log("processForm selectedLocaleName is null");
     var locales = getLocales();
     var selectedLocaleID = getLocaleID();
     if (selectedLocaleID) {
+      Logger.log("processForm selectedLocaleName is null, got localeID", selectedLocaleID);
       var selectedLocale = locales.find((locale) => locale.id === selectedLocaleID);
       if (selectedLocale) {
+        Logger.log("processForm selectedLocaleName is null, found locale", selectedLocale);
         selectedLocaleName = selectedLocale.code;
+        Logger.log("processForm selectedLocaleName is null, code:", selectedLocaleName);
         storeSelectedLocaleName(selectedLocaleName);
+      } else {
+        Logger.log("processForm failed finding selected locale")
       }
+    } else {
+      Logger.log("processForm failed finding selected locale ID in props")
     }
+  } else {
+    Logger.log("processForm selected locale name FOUND:", selectedLocaleName)
   }
-
 
   var documentType = getDocumentType();
 
@@ -3239,6 +3248,35 @@ function associateArticle(formObject) {
   }
 
   return responseData;
+}
+
+function i18nGetLocales(currentLocaleID, exampleLocalisedValues) {
+
+  var availableLocales = null;
+
+  var localesAvailable = exampleLocalisedValues.map(value=>value.locale)
+  Logger.log("locales found in headline:", localesAvailable);
+
+  if (!localesAvailable.includes(currentLocaleID)) {
+    localesAvailable.push(currentLocaleID);
+  }
+
+  var allLocales = getLocales();
+  var localeNames = [];
+
+  localesAvailable.forEach( (item, index) => {
+    Logger.log("Looking for locale name for ID:", item);
+    var selectedLocale = allLocales.find((locale) => locale.id === item);
+    if (selectedLocale) {
+      Logger.log("-found locale name:", selectedLocale.code);
+      localeNames.push(selectedLocale.code);
+    }
+  });
+
+  availableLocales = localeNames.join(" ");
+  Logger.log("so, locale names:", localeNames, "and availableLocales:", availableLocales);
+  storeAvailableLocales(availableLocales);
+  return availableLocales;
 }
 
 function i18nSetValues(text, localeID, previousValues) {
