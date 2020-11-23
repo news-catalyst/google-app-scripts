@@ -1,3 +1,4 @@
+const availableLocalesKey = 'AVAILABLE_LOCALES';
 /**
  * The event handler triggered when installing the add-on.
  * @param {Event} e The onInstall event.
@@ -313,12 +314,12 @@ function storeSelectedLocaleName(localeName) {
 }
 
 function getAvailableLocales() {
-  getValue('AVAILABLE_LOCALES');
+  var value = getValue(availableLocalesKey)
+  return value;
 }
 
 function storeAvailableLocales(localesString) {
-  Logger.log("storing available locales:", localesString);
-  storeValue('AVAILABLE_LOCALES', localesString);
+  storeValue(availableLocalesKey, localesString);
 }
 
 function getArticleSlug() {
@@ -394,7 +395,6 @@ function getPublishingInfo(updateDates) {
     }
     let pubDate = new Date();
     let pubDateString = pubDate.toISOString();
-    Logger.log("setting published dates to:", pubDateString);
     publishingInfo.firstPublishedOn = pubDateString;
     publishingInfo.lastPublishedOn = pubDateString;
     publishingInfo.publishedOn = pubDateString;

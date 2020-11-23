@@ -217,6 +217,12 @@
         var slugDiv = document.getElementById('slug');
         slugDiv.innerHTML = data.slug;
 
+        var availableLocalesDiv = document.getElementById('available-locales');
+        availableLocalesDiv.innerHTML = data.availableLocales;
+
+        var sitewideLocalesDiv = document.getElementById('sitewide-locales');
+        sitewideLocalesDiv.innerHTML = data.locales.map(locale=>locale.code).join(" | ");
+
         if (data.documentType === 'article') {
           $('#article-authors').select2({
             width: 'resolve',
@@ -560,6 +566,9 @@
             <b>Article slug:</b> <span id="slug"></span>
           </p>
           <p>
+            <b>Available locales:</b> <span id="available-locales"></span>
+          </p>
+          <p>
             <b>Revision ID:</b> <span id="revision-id"></span>
           </p>
           <p>
@@ -570,6 +579,9 @@
           </p>
           <p>
             <b>Last published:</b> <span id="last-published"></span>
+          </p>
+          <p>
+            <b>Site-wide Locales:</b> <span id="sitewide-locales"></span>
           </p>
         </div>
       </div>
