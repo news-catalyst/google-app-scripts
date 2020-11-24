@@ -1582,6 +1582,9 @@ function createArticleFrom(articleData) {
   // grab current article contents
   var previousArticleData = getArticle(versionID);
 
+  if (!previousArticleData) {
+    Logger.log("NO previous article data for:", versionID);
+  }
   var availableLocaleNames = i18nGetLocales(localeID, previousArticleData.headline.values);
 
   // then merge in the new content with previous locale data
@@ -3249,22 +3252,34 @@ function handleSearch(formObject) {
 function associateArticle(formObject) {
   Logger.log("associateArticle:", formObject);
 
+  var articleData = {};
+
   var articleID  = formObject["article-id"];
+  articleData.id = articleID;
+
+  var documentID = DocumentApp.getActiveDocument().getId();
+  articleData.documentID = documentID;
+
   var localeID  = formObject["article-locale"];
+  articleData.localeID = localeID;
+
+  var locales = getLocales();
+  var selectedLocale = locales.find((locale) => locale.id === localeID);
+  if (selectedLocale) {
+    storeSelectedLocaleName(selectedLocale.code);
+    articleData.localeName = selectedLocale.code;
+  }
 
   var headline = getHeadline();
   if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
     headline = getDocumentName();
     storeHeadline(headline);
   }
+  articleData.headline = headline;
 
   var formattedElements = formatElements();
-
-  var articleData = {};
-  articleData.id = articleID;
-  articleData.headline = headline;
   articleData.formattedElements = formattedElements;
-  articleData.localeID = localeID;
+
   articleData.published = false;
   articleData.authors = getAuthors();
   articleData.tags = getTags();
