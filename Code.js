@@ -582,6 +582,11 @@ function getArticleDataByID(articleID) {
     query: `query GetArticle($id: ID!) {
       articles {
         getArticle(id: $id) {
+          error {
+            code
+            message
+            data
+          }
           data {
             id
             headline {
@@ -680,9 +685,27 @@ function getArticleDataByID(articleID) {
     CONTENT_API,
     options
   );
+  var returnValue = {
+    status: "",
+    message: ""
+  };
+
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  return responseData.data.articles.getArticle.data;
+  if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.getArticle && responseData.data.articles.getArticle.error === null) {
+    returnValue.status = "success";
+    returnValue.id = responseData.data.articles.getArticle.data.id;
+    returnValue.data = responseData.data.articles.getArticle.data;
+    returnValue.message = "Retrieved article with ID " +  returnValue.id;
+  } else {
+    returnValue.status = "error";
+    returnValue.message = JSON.stringify(responseData);
+    // "Error retrieving article with ID " +  articleID;
+    // if (responseData.data.articles && responseData.data.articles.getArticle && responseData.data.articles.getArticle.error) {
+    //   returnValue.message += ": " + JSON.stringify(responseData.data.articles.getArticle.error);
+    // }
+  }
+  return returnValue;
 }
 
 //
@@ -748,9 +771,10 @@ function getArticleMeta() {
   }
 
   if (articleID !== null && articleID !== undefined) {
-    var latestArticleData = getArticleDataByID(articleID);
+    var latestArticle = getArticleDataByID(articleID);
 
-    if (latestArticleData) {
+    if (latestArticle && latestArticle.status === "success") {
+      var latestArticleData = latestArticle.data;
       Logger.log("getArticleMeta found latestArticleData")
       if (latestArticleData.published !== undefined) {
         storeIsPublished(latestArticleData.published);
@@ -805,7 +829,7 @@ function getArticleMeta() {
         storeSEO(seoData);
       }
     } else {
-      Logger.log("getArticleMeta failed finding latestArticleData")
+      Logger.log("getArticleMeta failed finding latestArticle: ", latestArticle)
     }
   }
 
