@@ -275,6 +275,17 @@
             lastPubDiv.innerHTML = localisedDate;
           }
         }
+
+        if (data.googleDocs !== null) {
+          var editDiv = document.getElementById('edit-links');
+          var links = [];
+          $.each( data.googleDocs, function( locale, docID ) {
+            if (locale !== data.localeName) {
+              links.push("<li><a target='_blank' href='https://docs.google.com/document/d/" + docID + "/edit'>" + locale + "</a></li>")
+            }
+          });
+          editDiv.innerHTML = "<p><b>Edit in other languages:</b></p><ul>" + links.join("")+ "</ul>";
+        }
       }
 
       function onSuccessMeta(data) {
@@ -584,6 +595,9 @@
             <b>Site-wide Locales:</b> <span id="sitewide-locales"></span>
           </p>
         </div>
+      </div>
+
+      <div id="edit-links" class="block">
       </div>
 
       <div id="output" class="block"></div>

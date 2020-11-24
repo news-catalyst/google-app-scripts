@@ -637,6 +637,8 @@ function getArticleDataByID(articleID) {
             published
             firstPublishedOn
             lastPublishedOn
+            googleDocs
+            availableLocales
             authors {
               id
               name
@@ -770,6 +772,7 @@ function getArticleMeta() {
     Logger.log("SLUG FOUND:", slug);
   }
 
+  var googleDocsInfo = {};
   if (articleID !== null && articleID !== undefined) {
     var latestArticle = getArticleDataByID(articleID);
 
@@ -779,6 +782,15 @@ function getArticleMeta() {
       if (latestArticleData.published !== undefined) {
         storeIsPublished(latestArticleData.published);
       }
+
+      if (latestArticleData.googleDocs) {
+        try {
+          googleDocsInfo = JSON.parse(latestArticleData.googleDocs);
+        } catch(e) {
+          Logger.log("error parsing googleDocs json:", e);
+        }
+      }
+
       if (latestArticleData.headline && latestArticleData.headline.values && latestArticleData.headline.values[0].value) {
         storeHeadline(latestArticleData.headline.values[0].value);
       }
@@ -786,6 +798,9 @@ function getArticleMeta() {
         storeCustomByline(latestArticleData.customByline);
       }
 
+      if (latestArticleData.availableLocales) {
+        storeAvailableLocales(latestArticleData.availableLocales);
+      }
       if (latestArticleData.authors) {
         latestArticleData.authors.forEach(author => {
             authorSlugs.push(author.slug);
@@ -937,6 +952,7 @@ function getArticleMeta() {
     awsSecretKey: awsSecretKey,
     awsBucket: awsBucket,
     availableLocales: availableLocales,
+    googleDocs: googleDocsInfo,
     categories: categories,
     categoryID: categoryID,
     categoryName: categoryName,
