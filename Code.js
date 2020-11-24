@@ -1504,6 +1504,7 @@ function createArticleFrom(articleData) {
   var title = articleData.headline;
   var elements = articleData.formattedElements;
   var localeID = articleData.localeID;
+  var localeName = articleData.localeName;
   var articleAuthors = articleData.authors;
   var articleTags = articleData.tags; // only id
   var categoryID = articleData.categoryID;
@@ -1593,8 +1594,29 @@ function createArticleFrom(articleData) {
   var twitterTitleValues = i18nSetValues(seoData.twitterTitle, localeID, previousArticleData.twitterTitle.values);
   var twitterDescriptionValues = i18nSetValues(seoData.twitterDescription, localeID, previousArticleData.twitterDescription.values);
 
+  var updatedGoogleDocs = {};
+  if (previousArticleData && previousArticleData.googleDocs) {
+    var priorGoogleDocs = previousArticleData.googleDocs;
+    Logger.log("found prior googleDocs:", priorGoogleDocs);
+
+    var priorGoogleDocsParsed = JSON.parse(priorGoogleDocs);
+    if (priorGoogleDocsParsed[localeName]) {
+      Logger.log("found prior googleDocs for locale!", localeName, priorGoogleDocsParsed[localeName])
+    } else {
+      Logger.log("NO prior googleDocs for locale:", localeName)
+    }
+    priorGoogleDocsParsed[localeName] = articleData.documentID;
+    updatedGoogleDocs = priorGoogleDocsParsed;
+  } else {
+    updatedGoogleDocs[localeName] = articleData.documentID;
+    Logger.log("no prior article data, creating google docs info now:", updatedGoogleDocs)
+  }
+  Logger.log("updatedGoogleDocs:", updatedGoogleDocs);
+
+
   var data = {
     availableLocales: availableLocaleNames,
+    googleDocs: JSON.stringify(updatedGoogleDocs),
     published: published,
     category: categoryID,
     customByline: customByline,
@@ -1920,7 +1942,7 @@ function createArticle(articleData) {
 
   storeAvailableLocales(localeName);
 
-  var googleDocs = {}
+  var googleDocs = {};
   googleDocs[localeName] = articleData.documentID;
 
   var categoryName = getNameForCategoryID(categories, categoryID);
@@ -2882,6 +2904,8 @@ function getArticle(id) {
           }
           data {
             id
+            googleDocs
+            availableLocales
             firstPublishedOn
             lastPublishedOn
             headline {
