@@ -1,3 +1,5 @@
+const availableLocalesKey = 'AVAILABLE_LOCALES';
+const localeNameKey = 'LOCALE_NAME';
 /**
  * The event handler triggered when installing the add-on.
  * @param {Event} e The onInstall event.
@@ -301,7 +303,28 @@ function getLocaleID() {
  * @param localeID webiny ID for the doc's locale
  */
 function storeLocaleID(localeID) {
-  storeValue("LOCALE_ID", localeID);
+  storeValue('LOCALE_ID', localeID);
+}
+
+function getSelectedLocaleName() {
+  var value = getValue(localeNameKey);
+  Logger.log("getSelectedLocaleName:", value);
+  return value;
+}
+
+function storeSelectedLocaleName(localeName) {
+  Logger.log("storing selected locale name:", localeName);
+  storeValue(localeNameKey, localeName);
+}
+
+function getAvailableLocales() {
+  var value = getValue(availableLocalesKey)
+  return value;
+}
+
+function storeAvailableLocales(localesString) {
+  Logger.log("storeAvailableLocales:", localesString);
+  storeValue(availableLocalesKey, localesString);
 }
 
 function getArticleSlug() {
@@ -377,7 +400,6 @@ function getPublishingInfo(updateDates) {
     }
     let pubDate = new Date();
     let pubDateString = pubDate.toISOString();
-    Logger.log("setting published dates to:", pubDateString);
     publishingInfo.firstPublishedOn = pubDateString;
     publishingInfo.lastPublishedOn = pubDateString;
     publishingInfo.publishedOn = pubDateString;
@@ -538,6 +560,10 @@ function storeSEO(seoData) {
   storeValueJSON("ARTICLE_SEO", seoData);
 }
 
+function deleteSEO() {
+  deleteValue("ARTICLE_SEO")
+}
+
 function storeDocumentType(value) {
   storeValue('DOCUMENT_TYPE', value);
 }
@@ -693,13 +719,39 @@ function getArticleMeta() {
   }
   storeDocumentType(documentType);
 
+  var locales = getLocales();
+  var selectedLocaleID = getLocaleID();
+  var selectedLocaleName = null;
+  if (selectedLocaleID) {
+    var selectedLocale = locales.find((locale) => locale.id === selectedLocaleID);
+    if (selectedLocale) {
+      selectedLocaleName = selectedLocale.code;
+      storeSelectedLocaleName(selectedLocaleName);
+    }
+  }
+
   var articleID = getArticleID();
 
-  // TODO: getArticle if articleID not null
+  var headline = getHeadline();
+  if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
+    headline = getDocumentName();
+    storeHeadline(headline);
+  }
+
+  var slug = getArticleSlug();
+  if (slug === null || slug === undefined || slug.match(/^\s+$/) || slug === '') {
+    Logger.log("NULL SLUG:", headline);
+    slug = slugify(headline);
+    storeArticleSlug(slug);
+  } else {
+    Logger.log("SLUG FOUND:", slug);
+  }
+
   if (articleID !== null && articleID !== undefined) {
     var latestArticleData = getArticleDataByID(articleID);
 
     if (latestArticleData) {
+      Logger.log("getArticleMeta found latestArticleData")
       if (latestArticleData.published !== undefined) {
         storeIsPublished(latestArticleData.published);
       }
@@ -752,6 +804,8 @@ function getArticleMeta() {
       if (Object.values(seoData).length > 0) {
         storeSEO(seoData);
       }
+    } else {
+      Logger.log("getArticleMeta failed finding latestArticleData")
     }
   }
 
@@ -762,17 +816,10 @@ function getArticleMeta() {
     published = false;
   }
 
-  var headline = getHeadline();
-  if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
-    headline = getDocumentName();
-    storeHeadline(headline);
-  }
-
   var customByline = getCustomByline();
 
   var articleAuthors = getAuthors();
   var allAuthors = loadAuthorsFromDB();
-  Logger.log("Loaded authors from DB", allAuthors);
   if (allAuthors) {
     storeAllAuthors(allAuthors);
     allAuthors.forEach(author => {
@@ -794,8 +841,6 @@ function getArticleMeta() {
 
   var categoryID = getCategoryID();
   var categoryName = getNameForCategoryID(categories, categoryID);
-
-  var slug = getArticleSlug();
 
   // always load the latest tags from webiny to avoid issues being out of sync
   // FYI: I've run into problems when this isn't done (e.g. a dupe tag is created elsewhere, which could be likely when actual orgs use this
@@ -819,58 +864,69 @@ function getArticleMeta() {
   var awsBucket = scriptConfig['AWS_BUCKET'];
   var republishUrl = scriptConfig['VERCEL_DEPLOY_HOOK_URL'];
 
+  var availableLocales = getAvailableLocales();
+  Logger.log("availableLocales:", availableLocales);
+  
   if (typeof(articleID) === "undefined" || articleID === null) {
 
     return {
+      accessToken: accessToken,
+      allAuthors: allAuthors,
+      allTags: allTags,
+      articleAuthors: articleAuthors,
+      articleID: null,
+      articleTags: articleTags,
+      authorSlugs: authorSlugsValue,
       awsAccessKey: awsAccessKey,
       awsSecretKey: awsSecretKey,
       awsBucket: awsBucket,
-      documentType: documentType,
-      accessToken: accessToken,
-      contentApi: contentApi,
-      previewUrl: previewUrl,
-      previewSecret: previewSecret,
-      articleID: null,
-      headline: headline,
-      customByline: customByline,
-      authorSlugs: authorSlugsValue,
-      publishingInfo: publishingInfo,
-      published: published,
-      allAuthors: allAuthors,
-      articleAuthors: articleAuthors,
-      allTags: allTags,
-      articleTags: articleTags,
+      availableLocales: null,
       categories: categories,
       categoryID: categoryID,
       categoryName: categoryName,
-      slug: slug,
+      contentApi: contentApi,
+      customByline: customByline,
+      documentType: documentType,
+      headline: headline,
+      localeID: null,
+      localeName: null,
+      locales: locales,
+      previewSecret: previewSecret,
+      previewUrl: previewUrl,
+      published: published,
+      publishingInfo: publishingInfo,
       seo: seoData,
+      slug: slug,
       republishUrl: republishUrl
     }
   }
 
   var articleMetadata = {
+    accessToken: accessToken,
+    allAuthors: allAuthors,
+    allTags: allTags,
+    articleAuthors: articleAuthors,
+    articleID: articleID,
+    articleTags: articleTags,
+    authorSlugs: authorSlugsValue,
     awsAccessKey: awsAccessKey,
     awsSecretKey: awsSecretKey,
     awsBucket: awsBucket,
-    documentType: documentType,
-    accessToken: accessToken,
-    contentApi: contentApi,
-    previewUrl: previewUrl,
-    previewSecret: previewSecret,
-    articleID: articleID,
-    headline: headline,
-    customByline: customByline,
-    authorSlugs: authorSlugsValue,
-    publishingInfo: publishingInfo,
-    published: published,
-    allAuthors: allAuthors,
-    articleAuthors: articleAuthors,
-    allTags: allTags,
-    articleTags: articleTags,
+    availableLocales: availableLocales,
     categories: categories,
     categoryID: categoryID,
     categoryName: categoryName,
+    contentApi: contentApi,
+    customByline: customByline,
+    documentType: documentType,
+    localeID: selectedLocaleID,
+    localeName: selectedLocaleName,
+    locales: locales,
+    previewUrl: previewUrl,
+    previewSecret: previewSecret,
+    headline: headline,
+    published: published,
+    publishingInfo: publishingInfo,
     slug: slug,
     seo: seoData,
     republishUrl: republishUrl
@@ -887,9 +943,9 @@ function getArticleMeta() {
 function handlePublish(formObject) {
   Logger.log("START handlePublish:", formObject);
   // save the article - pass publishFlag as true
-  var message = getCurrentDocContents(formObject, true);
-  Logger.log("END handlePublish: ", message)
-  return message;
+  var response = getCurrentDocContents(formObject, true);
+  Logger.log("END handlePublish: ", response)
+  return response;
 }
 
 /**
@@ -899,22 +955,25 @@ function handlePublish(formObject) {
  */
 function handlePreview(formObject) {
   Logger.log("START handlePreview:", formObject);
+  Logger.log("START handlePreview tags:", formObject['article-tags']);
   // save the article - pass publishFlag as false
-  var message = getCurrentDocContents(formObject, false);
+  var response = getCurrentDocContents(formObject, false);
 
-  // construct preview url
-  var slug = getArticleSlug();
+  if (response && response.status === "success") {
+    // construct preview url
+    var slug = getArticleSlug();
 
-  var scriptConfig = getScriptConfig();
-  var previewHost = scriptConfig['PREVIEW_URL'];
-  var previewSecret = scriptConfig['PREVIEW_SECRET'];
-  var fullPreviewUrl = previewHost + "?secret=" + previewSecret + "&slug=" + slug;
+    var scriptConfig = getScriptConfig();
+    var previewHost = scriptConfig['PREVIEW_URL'];
+    var previewSecret = scriptConfig['PREVIEW_SECRET'];
+    var fullPreviewUrl = previewHost + "?secret=" + previewSecret + "&slug=" + slug;
 
-  // open preview url in new window
-  message += "<br><a href='" + fullPreviewUrl + "' target='_blank'>Preview article in new window</a>"
+    // open preview url in new window
+    response.message += "<br><a href='" + fullPreviewUrl + "' target='_blank'>Preview article in new window</a>"
 
-  Logger.log("END handlePreview: ", message)
-  return message;
+    Logger.log("END handlePreview: ", response)
+  }
+  return response;
 }
 
 /**
@@ -922,26 +981,51 @@ function handlePreview(formObject) {
 .  * posts them to webiny
 . */
 function getCurrentDocContents(formObject, publishFlag) {
+
+  var activeDoc = DocumentApp.getActiveDocument();
+  var documentID = activeDoc.getId();
+
+  var returnValue = {
+    status: "",
+    message: ""
+  };
+
+  processForm(formObject);
+
+  var articleID = getArticleID();
   var documentType = getDocumentType();
 
   var title = getHeadline();
-  var formattedElements = formatElements();
 
-  var articleID = getArticleID();
+  var formattedElements = formatElements();
 
   var articleData = {};
   articleData.id = articleID;
+  articleData.documentID = documentID;
   articleData.headline = title;
   articleData.formattedElements = formattedElements;
-  articleData.localeID = formObject['article-locale'];
-  articleData.published = publishFlag;
-  articleData.categoryID = formObject['article-category'];
 
-  if (articleData.localeID === null) {
-    articleData.localeID = getLocaleID();
+  var selectedLocale = getLocaleID();
+  var selectedLocaleName = getSelectedLocaleName();
+  // if no locale was selected, refuse to try publishing the article
+  if (selectedLocale === null || selectedLocale === undefined) {
+    Logger.log("FAILED FINDING A LOCALE FOR THIS ARTICLE, ERROR");
+    returnValue.status = "error";
+    returnValue.message = "Please select a locale for this content."
+    return returnValue;
   }
 
-  if (articleData.categoryID !== null) {
+  articleData.localeName = selectedLocaleName;
+  articleData.localeID = selectedLocale;
+
+  Logger.log("articleData for locale:", articleData.localeID, articleData.localeName);
+
+  articleData.published = publishFlag;
+  articleData.categoryID = getCategoryID();
+  articleData.authors = getAuthors();
+  articleData.tags = getTags();
+
+  if (documentType === "article" && articleData.categoryID !== null) {
     storeCategoryID(articleData.categoryID);
   }
 
@@ -962,10 +1046,11 @@ function getCurrentDocContents(formObject, publishFlag) {
   } else {
     if (documentType === "article") {
       Logger.log("creating new article")
-      responseData = createArticle(title, formattedElements);
+      responseData = createArticle(articleData);
     } else {
       Logger.log("creating new page")
-      responseData = createPage(title, formattedElements);
+      responseData = createPage(articleData);
+      // title, formattedElements);
     }
 
     if (responseData && responseData.status === "success" && responseData.id) {
@@ -976,8 +1061,16 @@ function getCurrentDocContents(formObject, publishFlag) {
 
   Logger.log("responseData:", responseData);
 
-  if (responseData === null || responseData.status !== "success") {
-    return `An error occurred trying to save this article: ${responseData.message}`
+  if (responseData === null) {
+    returnValue.status = "error";
+    returnValue.message = "An unknown error occurred, contact your administrator.";
+    return returnValue;
+  }
+
+  if (responseData.status !== "success") {
+    returnValue.status = "error";
+    returnValue.message = responseData.message;
+    return returnValue;
   }
 
   responseText = `Successfully stored ${documentType} in webiny.`;
@@ -1010,7 +1103,9 @@ function getCurrentDocContents(formObject, publishFlag) {
   // // update published flag and latest version ID
   // setArticleMeta();
 
-  return responseText;
+  returnValue.status = "success";
+  returnValue.message = responseText;
+  return returnValue;
 }
 
 
@@ -1243,24 +1338,14 @@ function formatElements() {
 function createPageFrom(articleData) {
   Logger.log("createPageFrom data: ", articleData);
 
-  var versionID = articleData.id;
-  var title = articleData.headline;
-  var elements = articleData.formattedElements;
-
-
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
-  var localeID = getLocaleID();
-  if (localeID === null) {
-    var locales = getLocales();
-    setDefaultLocale(locales);
-    localeID = getLocaleID();
-    if (localeID === null) {
-      return 'Failed updating page: unable to find a default locale';
-    }
-  }
+  var versionID = articleData.id;
+  var title = articleData.headline;
+  var elements = articleData.formattedElements;
+  var localeID = articleData.localeID;
 
   var seoData = getSEO();
 
@@ -1270,10 +1355,42 @@ function createPageFrom(articleData) {
     storeArticleSlug(slug);
   }
 
+  var articleContent = JSON.stringify(elements);
+
+  // grab current article contents
+  var previousData = getPage(versionID);
+
+  var headlineValues = i18nSetValues(title, localeID, previousData.headline.values);
+  var contentValues = i18nSetValues(articleContent, localeID, previousData.content.values);
+  var searchTitleValues = i18nSetValues(seoData.searchTitle, localeID, previousData.searchTitle.values);
+  var searchDescriptionValues = i18nSetValues(seoData.searchDescription, localeID, previousData.searchDescription.values);
+  var facebookTitleValues = i18nSetValues(seoData.facebookTitle, localeID, previousData.facebookTitle.values);
+  var facebookDescriptionValues = i18nSetValues(seoData.facebookDescription, localeID, previousData.facebookDescription.values);
+  var twitterTitleValues = i18nSetValues(seoData.twitterTitle, localeID, previousData.twitterTitle.values);
+  var twitterDescriptionValues = i18nSetValues(seoData.twitterDescription, localeID, previousData.twitterDescription.values);
+
+  var data = {
+    slug: slug,
+    headline: { values: headlineValues },
+    content: { values: contentValues },
+    searchTitle: { values: searchTitleValues },
+    searchDescription: { values: searchDescriptionValues },
+    facebookTitle: {values: facebookTitleValues},
+    facebookDescription: {values: facebookDescriptionValues},
+    twitterTitle: {values: twitterTitleValues},
+    twitterDescription: {values: twitterDescriptionValues},
+  }
+
+  Logger.log("data (String):", JSON.stringify(data));
+
   var formData = {
     query: `mutation UpdatePage($id: ID!, $data: PageInput!) {
       pages { 
         updatePage(id: $id, data: $data) {
+          error {
+            code
+            message
+          }
           data {
             id
             slug
@@ -1330,73 +1447,7 @@ function createPageFrom(articleData) {
     }`,
     variables: {
       id: versionID,
-      data: {
-        headline: {
-          values: [
-            {
-              locale: localeID,
-              value: title,
-            },
-          ],
-        },
-        slug: slug,
-        content: {
-          values: [
-            {
-              locale: localeID,
-              value: JSON.stringify(elements),
-            },
-          ],
-        },
-        searchTitle: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.searchTitle,
-            },
-          ],
-        },
-        searchDescription: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.searchDescription,
-            },
-          ],
-        },
-        facebookTitle: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.facebookTitle,
-            },
-          ],
-        },
-        facebookDescription: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.facebookDescription,
-            },
-          ],
-        },
-        twitterTitle: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.twitterTitle,
-            },
-          ],
-        },
-        twitterDescription: {
-          values: [
-            {
-              locale: localeID,
-              value: seoData.twitterDescription,
-            },
-          ],
-        },
-      },
+      data: data
     },
   };
   // Logger.log("formData: ", formData);
@@ -1420,7 +1471,24 @@ function createPageFrom(articleData) {
   Logger.log("createPageFrom responseData:", responseData);
   // var latestVersionID = responseData.data.content.data.id;
   // storeArticleID(latestVersionID);
-  return responseData.data.pages.updatePage.data;
+  var returnValue = {
+    status: "",
+    message: ""
+  };
+  if (responseData && responseData.data && responseData.data.pages && responseData.data.pages.updatePage && responseData.data.pages.updatePage.error === null) {
+    Logger.log("FOUND NO ERROR in UPDATE PAGE")
+    returnValue.status = "success";
+    returnValue.id = responseData.data.pages.updatePage.data.id;
+    returnValue.message = "Updated page with ID " +  returnValue.id;
+  } else if (responseData && responseData.data && responseData.data.pages && responseData.data.pages.updatePage && responseData.data.pages.updatePage.error !== null) {
+    Logger.log("ERROR in UPDATE PAGE", responseData.data.pages.updatePage.error)
+    returnValue.status = "error";
+    returnValue.message = responseData.data.pages.updatePage.error;
+  } else {
+    Logger.log("wtf?", responseData.data);
+  }
+
+  return returnValue;
 }
 
 /**
@@ -1436,23 +1504,16 @@ function createArticleFrom(articleData) {
   var title = articleData.headline;
   var elements = articleData.formattedElements;
   var localeID = articleData.localeID;
+  var localeName = articleData.localeName;
+  var articleAuthors = articleData.authors;
+  var articleTags = articleData.tags; // only id
+  var categoryID = articleData.categoryID;
+
+  var articleContent = JSON.stringify(elements);
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
-
-  if (localeID === null || localeID === undefined) {
-    Logger.log("grabbing default locale as articleData lacked it")
-    var locales = getLocales();
-    setDefaultLocale(locales);
-    localeID = getLocaleID();
-    Logger.log("localeID is now:", localeID);
-    if (localeID === null) {
-      return 'Failed updating article: unable to find a default locale';
-    }
-  } else {
-    Logger.log("articleData had locale:", localeID);
-  }
 
   var customByline = getCustomByline();
 
@@ -1465,10 +1526,8 @@ function createArticleFrom(articleData) {
     storeCategories(categories);
   }
 
-  var categoryID = getCategoryID();
   // var categoryName = getNameForCategoryID(categories, categoryID);
-
-  var articleAuthors = getAuthors(); // only id
+  // var articleAuthors = getAuthors(); // only id
 
   var allAuthors = getAllAuthors(); // don't request from the DB again - too slow
   let authorSlugsValue;
@@ -1488,7 +1547,6 @@ function createArticleFrom(articleData) {
     authorSlugsValue = authorSlugs.join(' ');
   }
 
-  var articleTags = getTags(); // only id
   // Logger.log("createArticleFrom articleTags: ", articleTags);
   // create any new tags
   const newTags = articleTags.filter(articleTag => articleTag.newTag === true);
@@ -1520,80 +1578,63 @@ function createArticleFrom(articleData) {
     published = false;
   }
   storeIsPublished(published);
-  Logger.log("setting published to:", published);
+
+  // grab current article contents
+  var previousArticleData = getArticle(versionID);
+
+  if (!previousArticleData) {
+    Logger.log("NO previous article data for:", versionID);
+  }
+  var availableLocaleNames = i18nGetLocales(localeID, previousArticleData.headline.values);
+
+  // then merge in the new content with previous locale data
+  var headlineValues = i18nSetValues(title, localeID, previousArticleData.headline.values);
+  var contentValues = i18nSetValues(articleContent, localeID, previousArticleData.content.values);
+  var searchTitleValues = i18nSetValues(seoData.searchTitle, localeID, previousArticleData.searchTitle.values);
+  var searchDescriptionValues = i18nSetValues(seoData.searchDescription, localeID, previousArticleData.searchDescription.values);
+  var facebookTitleValues = i18nSetValues(seoData.facebookTitle, localeID, previousArticleData.facebookTitle.values);
+  var facebookDescriptionValues = i18nSetValues(seoData.facebookDescription, localeID, previousArticleData.facebookDescription.values);
+  var twitterTitleValues = i18nSetValues(seoData.twitterTitle, localeID, previousArticleData.twitterTitle.values);
+  var twitterDescriptionValues = i18nSetValues(seoData.twitterDescription, localeID, previousArticleData.twitterDescription.values);
+
+  var updatedGoogleDocs = {};
+  if (previousArticleData && previousArticleData.googleDocs) {
+    var priorGoogleDocs = previousArticleData.googleDocs;
+    Logger.log("found prior googleDocs:", priorGoogleDocs);
+
+    var priorGoogleDocsParsed = JSON.parse(priorGoogleDocs);
+    if (priorGoogleDocsParsed[localeName]) {
+      Logger.log("found prior googleDocs for locale!", localeName, priorGoogleDocsParsed[localeName])
+    } else {
+      Logger.log("NO prior googleDocs for locale:", localeName)
+    }
+    priorGoogleDocsParsed[localeName] = articleData.documentID;
+    updatedGoogleDocs = priorGoogleDocsParsed;
+  } else {
+    updatedGoogleDocs[localeName] = articleData.documentID;
+    Logger.log("no prior article data, creating google docs info now:", updatedGoogleDocs)
+  }
+  Logger.log("updatedGoogleDocs:", updatedGoogleDocs);
+
 
   var data = {
+    availableLocales: availableLocaleNames,
+    googleDocs: JSON.stringify(updatedGoogleDocs),
     published: published,
     category: categoryID,
     customByline: customByline,
     authors: authorIDs,
     authorSlugs: authorSlugsValue,
     tags: tagIDs,
-    headline: {
-      values: [
-        {
-          locale: localeID,
-          value: title,
-        },
-      ],
-    },
+    headline: { values: headlineValues },
     headlineSearch: title,
-    content: {
-      values: [
-        {
-          locale: localeID,
-          value: JSON.stringify(elements),
-        },
-      ],
-    },
-    searchTitle: {
-      values: [
-        {
-          locale: localeID,
-          value: seoData.searchTitle,
-        },
-      ],
-    },
-    searchDescription: {
-      values: [
-        {
-          locale: localeID,
-          value: seoData.searchDescription,
-        },
-      ],
-    },
-    facebookTitle: {
-      values: [
-        {
-          locale: localeID,
-          value: seoData.facebookTitle,
-        },
-      ],
-    },
-    facebookDescription: {
-      values: [
-        {
-          locale: localeID,
-          value: seoData.facebookDescription,
-        },
-      ],
-    },
-    twitterTitle: {
-      values: [
-        {
-          locale: localeID,
-          value: seoData.twitterTitle,
-        },
-      ],
-    },
-    twitterDescription: {
-      values: [
-        {
-          locale: localeID,
-          value: seoData.twitterDescription,
-        },
-      ],
-    },
+    content: { values: contentValues },
+    searchTitle: { values: searchTitleValues },
+    searchDescription: { values: searchDescriptionValues },
+    facebookTitle: {values: facebookTitleValues},
+    facebookDescription: {values: facebookDescriptionValues},
+    twitterTitle: {values: twitterTitleValues},
+    twitterDescription: {values: twitterDescriptionValues},
   };
 
   // only update or set these if we're publishing the article
@@ -1602,6 +1643,7 @@ function createArticleFrom(articleData) {
     data.lastPublishedOn = publishingInfo.lastPublishedOn;
   }
 
+  Logger.log("createArticleFrom data:", JSON.stringify(data))
   // Logger.log("tagIDs: ", tagIDs);
   var variables = {
     id: versionID,
@@ -1615,11 +1657,17 @@ function createArticleFrom(articleData) {
         updateArticle(id: $id, data: $data) {
           error {
             code
+            data
             message
           }
           data {
             id
             headline {
+              values {
+                value
+              }
+            }
+            searchTitle {
               values {
                 value
               }
@@ -1662,11 +1710,8 @@ function createArticleFrom(articleData) {
     CONTENT_API,
     options
   );
-  Logger.log("createArticleFrom response:", response);
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  // Logger.log("createArticleFrom responseData:", responseData);
-  Logger.log("END createArticleFrom:", responseText);
 
   var returnValue = {
     status: "",
@@ -1679,6 +1724,7 @@ function createArticleFrom(articleData) {
   } else if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.updateArticle && responseData.data.articles.updateArticle.error !== null) {
     returnValue.status = "error";
     returnValue.message = responseData.data.articles.updateArticle.error;
+    Logger.log(JSON.stringify(returnValue.message));
   }
 
   return returnValue;
@@ -1687,29 +1733,19 @@ function createArticleFrom(articleData) {
 /**
 . * Posts document contents to graphql, creating a new page
 . */
-function createPage(title, elements) {
+function createPage(articleData) {
+  var title = articleData.title;
+  var elements = articleData.formattedElements;
+  var localeID = articleData.localeID;
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
-  var localeID = getLocaleID();
-  if (localeID === null) {
-    var locales = getLocales();
-    setDefaultLocale(locales);
-    localeID = getLocaleID();
-    if (localeID === null) {
-      return 'Failed updating article: unable to find a default locale';
-    }
-  }
-
   var seoData = getSEO();
 
   var slug = getArticleSlug();
-  if (slug === null || typeof(slug) === "undefined") {
-    slug = slugify(title);
-    storeArticleSlug(slug);
-  }
+  Logger.log("SLUG:", slug);
 
   var formData = {
     query:
@@ -1863,27 +1899,39 @@ function createPage(title, elements) {
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
   Logger.log("responseData:", responseData);
-  return responseData.data.pages.createPage.data;
+
+  var returnValue = {
+    status: "",
+    message: ""
+  };
+  if (responseData && responseData.data && responseData.data.pages && responseData.data.pages.createPage && responseData.data.pages.createPage.error !== null) {
+    returnValue.status = "error";
+    returnValue.id = null;
+    returnValue.message = responseData.data.pages.createPage.error;
+  } else {
+    returnValue.message = "Created page with ID " +  returnValue.id;
+    returnValue.status = "success";
+    returnValue.id = responseData.data.pages.createPage.data.id;
+
+  }
+  return returnValue;
 }
 
 /**
 . * Posts document contents to graphql, creating a new article
 . */
-function createArticle(title, elements) {
+function createArticle(articleData) {
+  var title = articleData.headline;
+  var elements = articleData.formattedElements;
+  var localeID = articleData.localeID;
+  var localeName = articleData.localeName;
+  var articleAuthors = articleData.authors;
+  var articleTags = articleData.tags; // only id
+  var categoryID = articleData.categoryID;
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
-
-  var localeID = getLocaleID();
-  if (localeID === null) {
-    var locales = getLocales();
-    setDefaultLocale(locales);
-    localeID = getLocaleID();
-    if (localeID === null) {
-      return 'Failed updating article: unable to find a default locale';
-    }
-  }
 
   var customByline = getCustomByline();
   var publishingInfo = getPublishingInfo(true);
@@ -1895,7 +1943,11 @@ function createArticle(title, elements) {
     storeCategories(categories);
   }
 
-  var categoryID = getCategoryID();
+  storeAvailableLocales(localeName);
+
+  var googleDocs = {};
+  googleDocs[localeName] = articleData.documentID;
+
   var categoryName = getNameForCategoryID(categories, categoryID);
 
   var slug = getArticleSlug();
@@ -1904,14 +1956,10 @@ function createArticle(title, elements) {
     storeArticleSlug(slug);
   }
 
-  var articleAuthors = getAuthors(); // only id
-  // Logger.log("createArticle articleAuthors: ", articleAuthors);
-
   var allAuthors = getAllAuthors(); // don't request from the DB again - too slow
 
   let authorSlugsValue;
 
-  // compare all tags array to those selected for this article
   var authorIDs = [];
   var authorSlugs = [];
   allAuthors.forEach(author => {
@@ -1926,7 +1974,6 @@ function createArticle(title, elements) {
     authorSlugsValue = authorSlugs.join(' ');
   }
 
-  var articleTags = getTags(); // only id
   // Logger.log("createArticle articleTags: ", articleTags);
   // create any new tags
   const newTags = articleTags.filter(articleTag => articleTag.newTag === true);
@@ -1984,6 +2031,7 @@ function createArticle(title, elements) {
     }`;
   var gqlVariables = {
       data: {
+        availableLocales: localeName,
         headline: {
           values: [
             {
@@ -2056,7 +2104,8 @@ function createArticle(title, elements) {
           ],
         },
         firstPublishedOn: publishingInfo.firstPublishedOn,
-        lastPublishedOn: publishingInfo.lastPublishedOn
+        lastPublishedOn: publishingInfo.lastPublishedOn,
+        googleDocs: JSON.stringify(googleDocs)
       }
   };
   var formData = {
@@ -2101,6 +2150,67 @@ function createArticle(title, elements) {
 
   }
   return returnValue;
+}
+
+/**
+ * Deletes the page
+ */
+function deletePage() {
+  var versionID = getArticleID();
+  Logger.log("versionID:", versionID);
+
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  var formData = {
+    query: `mutation DeletePage($id: ID!) {
+      pages {
+        deletePage(id: $id) {
+          data
+          error {
+            code
+            message
+          }
+        }
+      }
+    }`,
+    variables: {
+      id: versionID,
+    }
+  };
+
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  // Logger.log(JSON.stringify(formData))
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  Logger.log(responseData);
+
+  storeIsPublished(false);
+  deleteSEO();
+  deleteArticleSlug();
+  deleteArticleID();
+  deletePublishingInfo();
+  // deleteTags();
+  // deleteCategories();
+  if (responseData && responseData.data && responseData.data.pages.deletePage.error === null) {
+    return "Deleted article at revision " + versionID;
+  } else if (responseData && responseData.data && responseData.data.pages.deletePage.error !== null) {
+    return responseData.data.pages.deletePage.error;
+  }
 }
 
 /**
@@ -2153,6 +2263,7 @@ function deleteArticle() {
   deleteArticleSlug();
   deleteArticleID();
   deletePublishingInfo();
+  deleteSEO();
   deleteTags();
   deleteCategories();
   if (responseData && responseData.data && responseData.data.articles.deleteArticle.error === null) {
@@ -2690,54 +2801,105 @@ function setDefaultLocale(locales) {
   return 'Stored localeID as ' + localeID;
 }
 
-function setArticleMeta() {
-  Logger.log("START setArticleMeta")
-  var articleID = getArticleID();
+function getPage(id) {
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
-  var documentType = getDocumentType();
-
-  // prefer custom headline (set in sidebar form) but fallback to document name
-  var headline = getHeadline();
-  if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
-    headline = getDocumentName();
-    storeHeadline(headline);
-  }
-
-  var slug = getArticleSlug();
-  if (slug === null || typeof(slug) === "undefined") {
-    if (documentType === "article") {
-      slug = createArticleSlug(categoryName, headline);
-    } else {
-      slug = slugify(headline);
+  var formData = {
+    query: `query GetPage($id: ID!) {
+      pages {
+        getPage(id: $id) {
+          data {
+            id
+            headline {
+              values {
+                value
+                locale
+              }
+            }
+            content {
+              values {
+                value
+                locale
+              }
+            }
+            searchTitle {
+              values {
+                value
+                locale
+              }
+            }
+            searchDescription {
+              values {
+                value
+                locale
+              }
+            }
+            facebookTitle {
+              values {
+                value
+                locale
+              }
+            }
+            facebookDescription {
+              values {
+                value
+                locale
+              }
+            }
+            twitterTitle {
+              values {
+                value
+                locale
+              }
+            }
+            twitterDescription {
+              values {
+                value
+                locale
+              }
+            }
+            slug
+    
+          }
+        }
+      }
+    }`,
+    variables: {
+      id: id,
     }
-    storeArticleSlug(slug);
-  }
+  };
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
 
-  if (documentType !== "article") {
-    return null;
-  }
+  // Logger.log(options);
 
-  var categories = getCategories();
-  if (categories === null || categories.length <= 0) {
-    categories = listCategories();
-    storeCategories(categories);
-  }
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  return responseData.data.pages.getPage.data;
+}
 
-  var categoryID = getCategoryID();
-  var categoryName = getNameForCategoryID(categories, categoryID);
-  // Logger.log("article category name: ", categoryName);
-
-  if (typeof(articleID) === "undefined" || articleID === null) {
-    return null;
-  }
+function getArticle(id) {
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
 
   var formData = {
-    query: `{
+    query: `query GetArticle($id: ID!) {
       articles {
-        getArticle(id: "5f7536413b4f94000752c423") {
+        getArticle(id: $id) {
           error {
             message
             code
@@ -2745,6 +2907,8 @@ function setArticleMeta() {
           }
           data {
             id
+            googleDocs
+            availableLocales
             firstPublishedOn
             lastPublishedOn
             headline {
@@ -2828,7 +2992,7 @@ function setArticleMeta() {
       }
     }`,
     variables: {
-      id: articleID,
+      id: id,
     }
   };
   var options = {
@@ -2849,9 +3013,51 @@ function setArticleMeta() {
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  // Logger.log(responseData);
+  return responseData.data.articles.getArticle.data;
+}
 
-  let articleData = responseData.data.articles.getArticle.data;
+function setArticleMeta() {
+  Logger.log("START setArticleMeta")
+  var articleID = getArticleID();
+
+  var documentType = getDocumentType();
+
+  // prefer custom headline (set in sidebar form) but fallback to document name
+  var headline = getHeadline();
+  if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
+    headline = getDocumentName();
+    storeHeadline(headline);
+  }
+
+  var slug = getArticleSlug();
+  if (slug === null || typeof(slug) === "undefined") {
+    if (documentType === "article") {
+      slug = createArticleSlug(categoryName, headline);
+    } else {
+      slug = slugify(headline);
+    }
+    storeArticleSlug(slug);
+  }
+
+  if (documentType !== "article") {
+    return null;
+  }
+
+  var categories = getCategories();
+  if (categories === null || categories.length <= 0) {
+    categories = listCategories();
+    storeCategories(categories);
+  }
+
+  var categoryID = getCategoryID();
+  var categoryName = getNameForCategoryID(categories, categoryID);
+  // Logger.log("article category name: ", categoryName);
+
+  if (typeof(articleID) === "undefined" || articleID === null) {
+    return null;
+  }
+
+  var articleData = getArticle(articleID);
   var articleID = articleData.id;
 
   // store publishing info like first & last dates published, latest version ID and whether or not it's been published
@@ -2860,7 +3066,7 @@ function setArticleMeta() {
   publishingInfo.lastPublishedOn = articleData.lastPublishedOn;
   publishingInfo.publishedOn = articleData.lastPublishedOn;
 
-  var tagsData = responseData.data.articles.getArticle.data.tags;
+  var tagsData = articleData.tags;
   var tagIDs = [];
   tagsData.forEach(tagData => {
     tagIDs.push(tagData.id)
@@ -2869,7 +3075,7 @@ function setArticleMeta() {
   storeTags(uniqueTags);
 
   Logger.log("END setArticleMeta")
-  return responseData;
+  return articleData;
 }
 
 /*
@@ -2882,6 +3088,37 @@ function processForm(formObject) {
   }
   var headline = formObject["article-headline"];
   storeHeadline(headline);
+
+  if (formObject["article-locale"] && formObject["article-locale"] !== null && formObject["article-locale"] !== undefined) {
+    var selectedLocale  = formObject["article-locale"];
+    if (selectedLocale !== null) {
+      storeLocaleID(selectedLocale);
+    }
+  }
+
+  // get the current locale code; if it's not stored already, store it
+  var selectedLocaleName = getSelectedLocaleName();
+  if (selectedLocaleName === null || selectedLocaleName === undefined || selectedLocaleName === "") {
+    Logger.log("processForm selectedLocaleName is null");
+    var locales = getLocales();
+    var selectedLocaleID = getLocaleID();
+    if (selectedLocaleID) {
+      Logger.log("processForm selectedLocaleName is null, got localeID", selectedLocaleID);
+      var selectedLocale = locales.find((locale) => locale.id === selectedLocaleID);
+      if (selectedLocale) {
+        Logger.log("processForm selectedLocaleName is null, found locale", selectedLocale);
+        selectedLocaleName = selectedLocale.code;
+        Logger.log("processForm selectedLocaleName is null, code:", selectedLocaleName);
+        storeSelectedLocaleName(selectedLocaleName);
+      } else {
+        Logger.log("processForm failed finding selected locale")
+      }
+    } else {
+      Logger.log("processForm failed finding selected locale ID in props")
+    }
+  } else {
+    Logger.log("processForm selected locale name FOUND:", selectedLocaleName)
+  }
 
   var documentType = getDocumentType();
 
@@ -3013,32 +3250,41 @@ function handleSearch(formObject) {
 .* called from ManualPage.html, this function associates the google doc with the selected article
 .*/
 function associateArticle(formObject) {
-  
-  // var scriptConfig = getScriptConfig();
-  // var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
-  // var CONTENT_API = scriptConfig['CONTENT_API'];
-
   Logger.log("associateArticle:", formObject);
 
+  var articleData = {};
+
   var articleID  = formObject["article-id"];
+  articleData.id = articleID;
+
+  var documentID = DocumentApp.getActiveDocument().getId();
+  articleData.documentID = documentID;
+
   var localeID  = formObject["article-locale"];
-  // var documentType = getDocumentType();
+  articleData.localeID = localeID;
+
+  var locales = getLocales();
+  var selectedLocale = locales.find((locale) => locale.id === localeID);
+  if (selectedLocale) {
+    storeSelectedLocaleName(selectedLocale.code);
+    articleData.localeName = selectedLocale.code;
+  }
 
   var headline = getHeadline();
   if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
     headline = getDocumentName();
     storeHeadline(headline);
   }
+  articleData.headline = headline;
 
   var formattedElements = formatElements();
-
-  var articleData = {};
-  articleData.id = articleID;
-  articleData.headline = headline;
   articleData.formattedElements = formattedElements;
-  articleData.localeID = localeID;
-  articleData.published = false;
 
+  articleData.published = false;
+  articleData.authors = getAuthors();
+  articleData.tags = getTags();
+
+  Logger.log("articleData:", articleData);
   var responseData = createArticleFrom(articleData);
   Logger.log("response:", responseData);
 
@@ -3050,8 +3296,73 @@ function associateArticle(formObject) {
     // finally store the articleID so we know whether to freshly associate the doc going forward.
     var articleID = responseData.id;
     storeArticleID(articleID);
-
   }
 
   return responseData;
+}
+
+function i18nGetLocales(currentLocaleID, exampleLocalisedValues) {
+
+  var availableLocales = null;
+
+  var localesAvailable = exampleLocalisedValues.map(value=>value.locale)
+  Logger.log("locales found in headline:", localesAvailable);
+
+  if (!localesAvailable.includes(currentLocaleID)) {
+    localesAvailable.push(currentLocaleID);
+  }
+
+  var allLocales = getLocales();
+  var localeNames = [];
+
+  localesAvailable.forEach( (item, index) => {
+    Logger.log("Looking for locale name for ID:", item);
+    var selectedLocale = allLocales.find((locale) => locale.id === item);
+    if (selectedLocale) {
+      Logger.log("-found locale name:", selectedLocale.code);
+      localeNames.push(selectedLocale.code);
+    }
+  });
+
+  availableLocales = localeNames.join(" ");
+  Logger.log("availableLocales:", availableLocales);
+  storeAvailableLocales(availableLocales);
+
+  return availableLocales;
+}
+
+function i18nSetValues(text, localeID, previousValues) {
+  // don't bother appending blank values for this locale
+  if (text === null || text === undefined || text === "") {
+    return previousValues;
+  }
+  var newValues;
+  if (previousValues && previousValues.length > 0) {
+    var foundIt = false;
+    newValues = previousValues.map( (obj) => {
+      if (obj.locale === localeID) {
+        foundIt = true;
+        obj.value = text;
+        Logger.log("found prior in locale", obj)
+      }
+      return obj;
+    });
+    // case handling when there was no search title set in this locale
+    if (!foundIt) {
+      newValues = previousValues;
+      newValues.push({
+        value: text,
+        locale: localeID
+      });
+      Logger.log("NO prior in locale, appended", newValues.length, newValues);
+    }
+  // case handling when there was NO previous value set in any language
+  } else {
+    newValues = [{
+      value: text,
+      locale: localeID
+    }]
+    Logger.log("NO prior in any locale, creating", newValues.length);
+  }
+  return newValues;
 }
