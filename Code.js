@@ -1,4 +1,5 @@
 const availableLocalesKey = 'AVAILABLE_LOCALES';
+const localeNameKey = 'LOCALE_NAME';
 /**
  * The event handler triggered when installing the add-on.
  * @param {Event} e The onInstall event.
@@ -306,11 +307,14 @@ function storeLocaleID(localeID) {
 }
 
 function getSelectedLocaleName() {
-  getValue('LOCALE_NAME');
+  var value = getValue(localeNameKey);
+  Logger.log("getSelectedLocaleName:", value);
+  return value;
 }
 
 function storeSelectedLocaleName(localeName) {
-  storeValue('LOCALE_NAME', localeName);
+  Logger.log("storing selected locale name:", localeName);
+  storeValue(localeNameKey, localeName);
 }
 
 function getAvailableLocales() {
@@ -319,6 +323,7 @@ function getAvailableLocales() {
 }
 
 function storeAvailableLocales(localesString) {
+  Logger.log("storeAvailableLocales:", localesString);
   storeValue(availableLocalesKey, localesString);
 }
 
@@ -977,6 +982,9 @@ function handlePreview(formObject) {
 . */
 function getCurrentDocContents(formObject, publishFlag) {
 
+  var activeDoc = DocumentApp.getActiveDocument();
+  var documentID = activeDoc.getId();
+
   var returnValue = {
     status: "",
     message: ""
@@ -993,6 +1001,7 @@ function getCurrentDocContents(formObject, publishFlag) {
 
   var articleData = {};
   articleData.id = articleID;
+  articleData.documentID = documentID;
   articleData.headline = title;
   articleData.formattedElements = formattedElements;
 
@@ -1006,11 +1015,11 @@ function getCurrentDocContents(formObject, publishFlag) {
     return returnValue;
   }
 
-  Logger.log("..LocaleName:", selectedLocaleName);
-  Logger.log("..LocaleID:", selectedLocale);
-
   articleData.localeName = selectedLocaleName;
   articleData.localeID = selectedLocale;
+
+  Logger.log("articleData for locale:", articleData.localeID, articleData.localeName);
+
   articleData.published = publishFlag;
   articleData.categoryID = getCategoryID();
   articleData.authors = getAuthors();
@@ -1911,6 +1920,9 @@ function createArticle(articleData) {
 
   storeAvailableLocales(localeName);
 
+  var googleDocs = {}
+  googleDocs[localeName] = articleData.documentID;
+
   var categoryName = getNameForCategoryID(categories, categoryID);
 
   var slug = getArticleSlug();
@@ -2067,7 +2079,8 @@ function createArticle(articleData) {
           ],
         },
         firstPublishedOn: publishingInfo.firstPublishedOn,
-        lastPublishedOn: publishingInfo.lastPublishedOn
+        lastPublishedOn: publishingInfo.lastPublishedOn,
+        googleDocs: JSON.stringify(googleDocs)
       }
   };
   var formData = {
@@ -3273,8 +3286,9 @@ function i18nGetLocales(currentLocaleID, exampleLocalisedValues) {
   });
 
   availableLocales = localeNames.join(" ");
-  Logger.log("so, locale names:", localeNames, "and availableLocales:", availableLocales);
+  Logger.log("availableLocales:", availableLocales);
   storeAvailableLocales(availableLocales);
+
   return availableLocales;
 }
 
