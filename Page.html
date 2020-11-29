@@ -19,6 +19,15 @@
         scriptForm.style.display = "none";
       }
 
+      function onSuccessNewDoc(contents) {
+        console.log("onSuccessNewDoc response:", contents);
+        var configDiv = document.getElementById('config');
+        configDiv.style.display = 'none';
+        var div = document.getElementById('loading');
+        div.style.display = 'block';
+        div.innerHTML = "<a href='https://docs.google.com/document/d/" + contents.docID + "/edit?parentID=" + contents.parentID + "' target='_blank'>Open new doc</a>";
+      }
+
       function onSuccess(contents) {
         console.log("onSuccess response:", contents);
         // first, switch the "published" text to say "No"
@@ -279,11 +288,28 @@
         if (data.googleDocs !== null) {
           var editDiv = document.getElementById('edit-links');
           var links = [];
+          var createLocales = data.locales.map(locale=>locale.code);
+          var existingLocales = Object.keys(data.googleDocs);
+
+          console.log("data.googleDocs:", data.googleDocs);
+          console.log("Object.keys(data.googleDocs):", Object.keys(data.googleDocs));
+
+          createLocales = createLocales.filter(function(item) {
+            return !existingLocales.includes(item); 
+          })
+
+          console.log("Locales for create links:", createLocales);
+
           $.each( data.googleDocs, function( locale, docID ) {
             if (locale !== data.localeName) {
               links.push("<li><a target='_blank' href='https://docs.google.com/document/d/" + docID + "/edit'>" + locale + "</a></li>")
             }
           });
+
+          $.each(createLocales, function( index, locale ) {
+            links.push("<li><a onclick='createNewDoc(\"" + locale + "\");'>" + locale + " (new)</a></li>");
+          });
+
           editDiv.innerHTML = "<p><b>Edit in other languages:</b></p><ul>" + links.join("")+ "</ul>";
         }
       }
@@ -321,6 +347,9 @@
         configDiv.innerHTML = "<p class='error'>An error occurred. This may be due to being logged into multiple google accounts at once. Try opening this doc in an incognito window.</p>";
       }
 
+      function createNewDoc(locale) {
+         google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessNewDoc).createNewDoc(locale);
+      }
       function handleScriptConfig() {
          google.script.run.withFailureHandler(onFailureConfig).withSuccessHandler(onSuccessConfig).getScriptConfig();
       }
@@ -375,6 +404,8 @@
         handleScriptConfig();
 
         handleMeta();
+
+
       });
 
       function displayConfigFormMessage(text) {

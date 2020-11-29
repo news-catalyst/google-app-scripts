@@ -1540,10 +1540,22 @@ function createPageFrom(articleData) {
 function createArticleFrom(articleData) {
   Logger.log("createArticleFrom data.published: ", articleData.published);
 
+  var returnValue = {
+    status: "",
+    message: ""
+  };
+
+  var localeID = articleData.localeID;
+  if (localeID === null || localeID === undefined) {
+    returnValue.status = "error";
+    returnValue.message = "Missing required localeID!";
+    return returnValue;
+  }
+
   var versionID = articleData.id;
   var title = articleData.headline;
   var elements = articleData.formattedElements;
-  var localeID = articleData.localeID;
+
   var localeName = articleData.localeName;
   var articleAuthors = articleData.authors;
   var articleTags = articleData.tags; // only id
@@ -1638,11 +1650,18 @@ function createArticleFrom(articleData) {
   var twitterDescriptionValues = i18nSetValues(seoData.twitterDescription, localeID, previousArticleData.twitterDescription.values);
 
   var updatedGoogleDocs = {};
-  if (previousArticleData && previousArticleData.googleDocs) {
-    var priorGoogleDocs = previousArticleData.googleDocs;
-    Logger.log("found prior googleDocs:", priorGoogleDocs);
 
-    var priorGoogleDocsParsed = JSON.parse(priorGoogleDocs);
+  var previousGoogleDocs = null;
+  if (articleData.googleDocs !== null) {
+    previousGoogleDocs = articleData.googleDocs;
+  } else if (previousArticleData.googleDocs !== null) {
+    previousGoogleDocs = previousArticleData.googleDocs;
+
+  }
+  if (previousGoogleDocs && previousGoogleDocs !== null) {
+    Logger.log("found prior googleDocs:", previousGoogleDocs);
+
+    var priorGoogleDocsParsed = JSON.parse(previousGoogleDocs);
     if (priorGoogleDocsParsed[localeName]) {
       Logger.log("found prior googleDocs for locale!", localeName, priorGoogleDocsParsed[localeName])
     } else {
@@ -1655,7 +1674,6 @@ function createArticleFrom(articleData) {
     Logger.log("no prior article data, creating google docs info now:", updatedGoogleDocs)
   }
   Logger.log("updatedGoogleDocs:", updatedGoogleDocs);
-
 
   var data = {
     availableLocales: availableLocaleNames,
@@ -1753,10 +1771,6 @@ function createArticleFrom(articleData) {
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
 
-  var returnValue = {
-    status: "",
-    message: ""
-  };
   if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.updateArticle && responseData.data.articles.updateArticle.error === null) {
     returnValue.status = "success";
     returnValue.id = responseData.data.articles.updateArticle.data.id;
@@ -3405,4 +3419,87 @@ function i18nSetValues(text, localeID, previousValues) {
     Logger.log("NO prior in any locale, creating", newValues.length);
   }
   return newValues;
+}
+
+function createNewDoc(newLocale) {
+  if (newLocale === null || typeof(newLocale) === "undefined") {
+    return;
+  }
+  var localeName = cleanContent(newLocale);
+
+  var currentHeadline = getHeadline();
+  var newHeadline = currentHeadline + " (" + localeName + ")";
+
+  var doc = DocumentApp.create(newHeadline);
+  Logger.log("created new doc:", doc)
+
+  var docID = doc.getId();
+  Logger.log("* new docID:", docID)
+
+  var parentDocID = DocumentApp.getActiveDocument().getId();
+  var parentArticleID = getArticleID();
+
+  // setup the articleData
+  var articleData = {};
+
+  articleData.id = parentArticleID;
+  articleData.headline = newHeadline;
+  articleData.formattedElements = formatElements();
+  articleData.categoryID = getCategoryID();
+  articleData.authors = getAuthors();
+  articleData.tags = getTags();
+
+  var locales = getLocales();
+  Logger.log("looking up locale name:", localeName, ";; in locales:", locales);
+  var selectedLocale = locales.find((locale) => locale.code === localeName);
+  if (selectedLocale) {
+    articleData.localeID = selectedLocale.id;
+    articleData.localeName = selectedLocale.code;
+  } else {
+    Logger.log("FAILED finding locale ID")
+    articleData.localeName = localeName;
+  }
+
+  // articleData.published
+  articleData.published = false;
+
+  var googleDocsInfo = {};
+  if (parentArticleID !== null && parentArticleID !== undefined) {
+    var latestArticle = getArticleDataByID(parentArticleID);
+
+    if (latestArticle && latestArticle.status === "success") {
+      var latestArticleData = latestArticle.data;
+      Logger.log("createNewDoc found latestArticleData")
+      if (latestArticleData.googleDocs) {
+        try {
+          googleDocsInfo = JSON.parse(latestArticleData.googleDocs);
+        } catch(e) {
+          Logger.log("error parsing googleDocs json:", e);
+        }
+      }
+    } else {
+      Logger.log("createNewDoc failed finding latest article data for", parentArticleID);
+    }
+  }
+  // store the new document ID for this locale
+  googleDocsInfo[localeName] = docID;
+  Logger.log("createNewDoc googleDocsInfo:", googleDocsInfo);
+
+  articleData.googleDocs = JSON.stringify(googleDocsInfo);
+
+  // update the article for this document
+  Logger.log("createNewDoc:", articleData.googleDocs, articleData.localeID, articleData.localeName, articleData.headline)
+  responseData = createArticleFrom(articleData);
+
+  if (responseData && responseData.status === "success" && responseData.id) {
+    Logger.log("createNewDoc update success");
+  } else {
+    Logger.log("createNewDoc update FAIL:", responseData);
+  }
+
+  return {
+    docID: docID,
+    parentID: parentDocID,
+    responseData: responseData
+  };
 }
