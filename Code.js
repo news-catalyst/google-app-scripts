@@ -1706,7 +1706,6 @@ function createArticleFrom(articleData) {
     data.lastPublishedOn = publishingInfo.lastPublishedOn;
   }
 
-  Logger.log("createArticleFrom data:", JSON.stringify(data))
   // Logger.log("tagIDs: ", tagIDs);
   var variables = {
     id: versionID,
@@ -3402,7 +3401,6 @@ function i18nSetValues(text, localeID, previousValues) {
       if (obj.locale === localeID) {
         foundIt = true;
         obj.value = text;
-        Logger.log("found prior in locale", obj)
       }
       return obj;
     });
@@ -3413,7 +3411,7 @@ function i18nSetValues(text, localeID, previousValues) {
         value: text,
         locale: localeID
       });
-      Logger.log("NO prior in locale, appended", newValues.length, newValues);
+      Logger.log("NO prior in locale, appended", newValues.length, "values");
     }
   // case handling when there was NO previous value set in any language
   } else {
@@ -3435,14 +3433,19 @@ function createNewDoc(newLocale) {
   var currentHeadline = getHeadline();
   var newHeadline = currentHeadline + " (" + localeName + ")";
 
-  var doc = DocumentApp.create(newHeadline);
-  Logger.log("created new doc:", doc)
-
-  var docID = doc.getId();
-  Logger.log("* new docID:", docID)
-
   var parentDocID = DocumentApp.getActiveDocument().getId();
   var parentArticleID = getArticleID();
+
+  var docID;
+  var driveFile = DriveApp.getFileById(parentDocID);
+  var newFile = driveFile.makeCopy(newHeadline);
+  Logger.log("created new doc:", newFile);
+  if (newFile) {
+    docID = newFile.getId();
+  } else {
+    Logger.log("failed creating new file via DriveApp")
+    return null;
+  }
 
   // setup the articleData
   var articleData = {};
