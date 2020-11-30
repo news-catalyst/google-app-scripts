@@ -715,17 +715,177 @@ function getArticleDataByID(articleID) {
 //
 
 /*
+. * Looks up an article in Webiny by Google Document ID
+. *
+*/
+function getArticleByDocumentID(documentID) {
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  var formData = {
+    query: `query SearchArticles($where: ArticleListWhere) {
+      articles {
+        listArticles(where: $where) {
+          error {
+            code
+            message
+            data
+          }
+          data {
+            id
+            slug
+            googleDocs
+            docIDs
+            availableLocales
+            twitterTitle {
+              values {
+                value
+              }
+            }
+            twitterDescription {
+              values {
+                value
+              }
+            }
+            facebookTitle {
+              values {
+                value
+              }
+            }
+            facebookDescription {
+              values {
+                value
+              }
+            }
+            searchTitle {
+              values {
+                value
+              }
+            }
+            searchDescription {
+              values {
+                value
+              }
+            }
+            headline {
+              values {
+                value
+              }
+            }
+            content {
+              values {
+                value
+              }
+            }
+          }
+        }
+      }
+    }`,
+    variables: {
+      where: {
+        docIDs_contains: documentID,
+      }
+    }
+  };
+  // Logger.log("formData: ", formData);
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var returnValue = {
+    status: "",
+    message: ""
+  };
+
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.listArticles && responseData.data.articles.listArticles.error === null && responseData.data.articles.listArticles.data) {
+    returnValue.status = "success";
+    var firstArticleData = responseData.data.articles.listArticles.data[0];
+    returnValue.id = firstArticleData.id;
+    returnValue.data = firstArticleData;
+    returnValue.message = "Retrieved article with ID " +  returnValue.id;
+  } else {
+    returnValue.status = "error";
+    if (responseData.data && responseData.data.articles && responseData.data.articles.listArticles && responseData.data.articles.listArticles.data && responseData.data.articles.listArticles.data.length !== 1) {
+      var numberArticles = responseData.data.articles.listArticles.data.length;
+      returnValue.message = "Found " + numberArticles + " matching articles and should be one";
+    } else if (responseData.data && responseData.data.articles && responseData.data.articles.listArticles && responseData.data.articles.listArticles.error && responseData.data.articles.listArticles.error !== null) {
+      returnValue.message = responseData.data.articles.listArticles.error;
+    } else {
+      returnValue.message = "Something else went wrong"
+    }
+  }
+  return returnValue;
+}
+
+/*
 . * Returns metadata about the article, including its id, whether it was published
 . * headline and byline
 . */
 function getArticleMeta() {
   Logger.log("getArticleMeta START");
 
+  var documentID = DocumentApp.getActiveDocument().getId();
+
+  var articleID = getArticleID();
+
+  // if there's no stored articleID on this document, try to find it by google document ID in webiny
+  if (articleID === null) {
+    Logger.log("No articleID found; looking up documentID", documentID, "in webiny now");
+    var existingArticleData = getArticleByDocumentID(documentID);
+    if (existingArticleData && existingArticleData.status === "success") {
+      Logger.log("found article with this documentID: ", existingArticleData.id);
+
+      articleID = existingArticleData.id;
+      storeArticleID(existingArticleData.id);
+
+      var headline = getDocumentName();
+      Logger.log("headline:", headline);
+      storeHeadline(headline);
+
+      var googleDocs = existingArticleData.data.googleDocs;
+      var googleDocsInfo = {};
+      if (googleDocs) {
+        try {
+          googleDocsInfo = JSON.parse(googleDocs);
+          Logger.log("googleDocs:", googleDocsInfo);
+
+          var locale = Object.keys(googleDocsInfo).find(key => googleDocsInfo[key] === documentID);
+          if (locale) {
+            Logger.log("found locale NAME for this doc:", locale);
+            storeSelectedLocaleName(locale);
+            var locales = getLocales();
+            var selectedLocaleID = null;
+            var selectedLocale = locales.find((l) => l.code === locale);
+            Logger.log("found localeID for this doc:", selectedLocale.id);
+            storeLocaleID(selectedLocale.id);
+          }
+
+        } catch(e) {
+          Logger.log("failed parsing googleDocs:", e);
+        }
+      }
+    } else {
+      Logger.log("error finding article with this documentID:", existingArticleData.message);
+    }
+  }
+
   // first determine if the document is an article or a static page for the site
   // this is based on which folder the document is in: 'pages' (static pages) or anything else (articles)
   // in order to do this we need to use the Google Drive API
   // which requires the "https://www.googleapis.com/auth/drive.readonly" scope
-  var documentID = DocumentApp.getActiveDocument().getId();
   var driveFile = DriveApp.getFileById(documentID)
   var fileParents = driveFile.getParents();
   var isStaticPage = false;
@@ -754,8 +914,6 @@ function getArticleMeta() {
       storeSelectedLocaleName(selectedLocaleName);
     }
   }
-
-  var articleID = getArticleID();
 
   var headline = getHeadline();
   if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
