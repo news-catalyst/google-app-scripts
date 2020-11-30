@@ -285,7 +285,7 @@
           }
         }
 
-        if (data.googleDocs !== null) {
+        if (data.googleDocs !== null && data.googleDocs !== undefined) {
           var editDiv = document.getElementById('edit-links');
           var links = [];
           var createLocales = data.locales.map(locale=>locale.code);
