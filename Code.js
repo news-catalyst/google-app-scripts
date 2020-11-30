@@ -1675,9 +1675,14 @@ function createArticleFrom(articleData) {
   }
   Logger.log("updatedGoogleDocs:", updatedGoogleDocs);
 
+  var documentIDsForArticle = Object.values(updatedGoogleDocs);
+  var documentIDsForArticleString = documentIDsForArticle.join(' ');
+  Logger.log("storing docIDs:", documentIDsForArticleString)
+
   var data = {
     availableLocales: availableLocaleNames,
     googleDocs: JSON.stringify(updatedGoogleDocs),
+    docIDs: documentIDsForArticleString,
     published: published,
     category: categoryID,
     customByline: customByline,
@@ -3442,6 +3447,7 @@ function createNewDoc(newLocale) {
   // setup the articleData
   var articleData = {};
 
+  articleData.documentID = docID;
   articleData.id = parentArticleID;
   articleData.headline = newHeadline;
   articleData.formattedElements = formatElements();
