@@ -272,17 +272,6 @@ function deleteArticleID() {
   deleteValue('ARTICLE_ID');
 }
 
-function storeLatestVersionPublished(isLatestVersionPublished) {
-  var documentProperties = PropertiesService.getDocumentProperties();
-  documentProperties.setProperty('LATEST_VERSION_PUBLISHED', isLatestVersionPublished);
-}
-
-function getLatestVersionPublished() {
-  var documentProperties = PropertiesService.getDocumentProperties();
-  var isLatestVersionPublished = documentProperties.getProperty('LATEST_VERSION_PUBLISHED');
-  return isLatestVersionPublished;
-}
-
 function getIsPublished() {
   return getValue('IS_PUBLISHED');
 }
