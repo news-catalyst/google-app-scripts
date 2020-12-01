@@ -810,9 +810,9 @@ function getArticleByDocumentID(documentID) {
 
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.listArticles && responseData.data.articles.listArticles.error === null && responseData.data.articles.listArticles.data) {
-    returnValue.status = "success";
+  if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.listArticles && responseData.data.articles.listArticles.error === null && responseData.data.articles.listArticles.data && responseData.data.articles.listArticles.data[0] !== undefined) {
     var firstArticleData = responseData.data.articles.listArticles.data[0];
+    returnValue.status = "success";
     returnValue.id = firstArticleData.id;
     returnValue.data = firstArticleData;
     returnValue.message = "Retrieved article with ID " +  returnValue.id;
@@ -824,7 +824,7 @@ function getArticleByDocumentID(documentID) {
     } else if (responseData.data && responseData.data.articles && responseData.data.articles.listArticles && responseData.data.articles.listArticles.error && responseData.data.articles.listArticles.error !== null) {
       returnValue.message = responseData.data.articles.listArticles.error;
     } else {
-      returnValue.message = "Something else went wrong"
+      returnValue.message = "Couldn't find an article for this Google Doc."
     }
   }
   return returnValue;
