@@ -229,6 +229,16 @@
         } else {
           loadingDiv.innerHTML = "<p>You can link this document to an existing article in Webiny to publish it to the web and mobile.</p>"
         }
+
+        var deleteArticleButton = document.getElementById("deleteArticleButton");
+        var deletePageButton = document.getElementById("deletePageButton");
+        if (data.documentType === "page") {
+          deleteArticleButton.style.display = "none";
+          deletePageButton.style.display = "block";
+        } else {
+          deletePageButton.style.display = "none";
+          deleteArticleButton.style.display = "block";
+        }
       }
 
       function handleMeta() {
@@ -408,8 +418,8 @@
         <button onclick="hideConfigForm();showSearchForm();">Hide Config</button>
       </div>
       <div class="block">
-        <button class="create" onclick="deleteArticle()">Delete Article</button>
-        <button class="create" onclick="deletePage()">Delete Page</button>
+        <button style="display: none;" id="deleteArticleButton" class="create" onclick="deleteArticle()">Delete Article</button>
+        <button style="display: none;" id="deletePageButton" class="create" onclick="deletePage()">Delete Page</button>
       </div>
     </div>
 
