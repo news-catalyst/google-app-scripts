@@ -383,10 +383,11 @@ function storePublishingInfo(info) {
 
 function getPublishingInfo(updateDates) {
   var publishingInfo = JSON.parse(getValue("PUBLISHING_INFO"));
-  if (updateDates || publishingInfo === null || publishingInfo === undefined) {
-    if (publishingInfo === null) {
-      publishingInfo = {};
-    }
+  if (publishingInfo === null) {
+    publishingInfo = {};
+  }
+  // if (updateDates || publishingInfo === null || publishingInfo === undefined) {
+  if (updateDates) {
     let pubDate = new Date();
     let pubDateString = pubDate.toISOString();
     publishingInfo.firstPublishedOn = pubDateString;
@@ -394,6 +395,7 @@ function getPublishingInfo(updateDates) {
     publishingInfo.publishedOn = pubDateString;
   }
 
+  Logger.log("publishingInfo:", publishingInfo);
   return publishingInfo;
 }
 
@@ -995,12 +997,12 @@ function getArticleMeta() {
     }
   }
 
-  var publishingInfo = getPublishingInfo();
   var published = getIsPublished();
   // obviously it isn't published if we don't have a webiny article ID
   if (articleID === null || articleID === undefined) {
     published = false;
   }
+  var publishingInfo = getPublishingInfo(published);
 
   var customByline = getCustomByline();
 
@@ -1142,14 +1144,12 @@ function handlePublish(formObject) {
  */
 function handlePreview(formObject) {
   Logger.log("START handlePreview:", formObject);
-  Logger.log("START handlePreview tags:", formObject['article-tags']);
   // save the article - pass publishFlag as false
   var response = getCurrentDocContents(formObject, false);
 
   if (response && response.status === "success") {
     // construct preview url
     var slug = getArticleSlug();
-
     var scriptConfig = getScriptConfig();
     var previewHost = scriptConfig['PREVIEW_URL'];
     var previewSecret = scriptConfig['PREVIEW_SECRET'];
@@ -1716,7 +1716,8 @@ function createArticleFrom(articleData) {
 
   var customByline = getCustomByline();
 
-  var publishingInfo = getPublishingInfo(true);
+  var publishingInfo = getPublishingInfo(articleData.published);
+
   var seoData = getSEO();
 
   var categories = getCategories();
@@ -1725,7 +1726,6 @@ function createArticleFrom(articleData) {
     storeCategories(categories);
   }
 
-  // var categoryName = getNameForCategoryID(categories, categoryID);
   // var articleAuthors = getAuthors(); // only id
 
   var allAuthors = getAllAuthors(); // don't request from the DB again - too slow
@@ -1746,22 +1746,17 @@ function createArticleFrom(articleData) {
     authorSlugsValue = authorSlugs.join(' ');
   }
 
-  // Logger.log("createArticleFrom articleTags: ", articleTags);
   // create any new tags
   const newTags = articleTags.filter(articleTag => articleTag.newTag === true);
-  // Logger.log("createArticleFrom newTags: ", newTags);
   if (newTags.length > 0) {
     newTags.forEach(newTag => {
-      // Logger.log("createArticleFrom creating new tag: ", newTag);
       createTag(newTag.title);
     })
   }
 
   var allTags = getAllTags(); // don't look up in the DB again, too slow
-  // Logger.log("allTags:", allTags);
 
   var articleTags = getTags(); // refresh list of tags for this article as some may have been created just above
-  // Logger.log("2 articleTags:", articleTags);
   // compare all tags array to those selected for this article
   var tagIDs = [];
   allTags.forEach(tag => {
@@ -1778,12 +1773,19 @@ function createArticleFrom(articleData) {
   }
   storeIsPublished(published);
 
+  var categoryName = getNameForCategoryID(categories, categoryID);
+  var slug = getArticleSlug();
+  if (!articleData.published) {
+    slug = createArticleSlug(categoryName, title);
+    storeArticleSlug(slug);
+  }
+
   // grab current article contents
   var previousArticleData = getArticle(versionID);
-
   if (!previousArticleData) {
     Logger.log("NO previous article data for:", versionID);
   }
+
   var availableLocaleNames = i18nGetLocales(localeID, previousArticleData.headline.values);
 
   // then merge in the new content with previous locale data
@@ -1851,6 +1853,10 @@ function createArticleFrom(articleData) {
   if (published) {
     data.firstPublishedOn = publishingInfo.firstPublishedOn;
     data.lastPublishedOn = publishingInfo.lastPublishedOn;
+  }
+  // update the slug on unpublished articles
+  if (!published) {
+    data.slug = slug;
   }
 
   // Logger.log("tagIDs: ", tagIDs);
@@ -2139,7 +2145,9 @@ function createArticle(articleData) {
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
   var customByline = getCustomByline();
-  var publishingInfo = getPublishingInfo(true);
+
+  // don't assume we're publishing the article - in fact, default to not publishing
+  var publishingInfo = getPublishingInfo(articleData.published);
   var seoData = getSEO();
 
   var categories = getCategories();
@@ -2308,6 +2316,7 @@ function createArticle(articleData) {
             },
           ],
         },
+        published: articleData.published,
         firstPublishedOn: publishingInfo.firstPublishedOn,
         lastPublishedOn: publishingInfo.lastPublishedOn,
         googleDocs: JSON.stringify(googleDocs)

@@ -322,10 +322,14 @@
       }
 
       function setPublishedFlag(value) {
+        console.log("setPublishedFlag:", value, typeof(value));
         var isPublishedSpan = document.getElementById('is-published');
         var isPublishedYesNo = "no";
-        if (value) {
+        if (value === "true" || value) {
+          console.log("setting published to 'yes'")
           isPublishedYesNo = "yes";
+        } else {
+          console.log("value is not 'true' or true:", value)
         }
         isPublishedSpan.innerHTML = isPublishedYesNo;
       }
