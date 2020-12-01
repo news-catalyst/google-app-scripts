@@ -637,6 +637,8 @@ function getArticleDataByID(articleID) {
             published
             firstPublishedOn
             lastPublishedOn
+            googleDocs
+            availableLocales
             authors {
               id
               name
@@ -713,17 +715,177 @@ function getArticleDataByID(articleID) {
 //
 
 /*
+. * Looks up an article in Webiny by Google Document ID
+. *
+*/
+function getArticleByDocumentID(documentID) {
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  var formData = {
+    query: `query SearchArticles($where: ArticleListWhere) {
+      articles {
+        listArticles(where: $where) {
+          error {
+            code
+            message
+            data
+          }
+          data {
+            id
+            slug
+            googleDocs
+            docIDs
+            availableLocales
+            twitterTitle {
+              values {
+                value
+              }
+            }
+            twitterDescription {
+              values {
+                value
+              }
+            }
+            facebookTitle {
+              values {
+                value
+              }
+            }
+            facebookDescription {
+              values {
+                value
+              }
+            }
+            searchTitle {
+              values {
+                value
+              }
+            }
+            searchDescription {
+              values {
+                value
+              }
+            }
+            headline {
+              values {
+                value
+              }
+            }
+            content {
+              values {
+                value
+              }
+            }
+          }
+        }
+      }
+    }`,
+    variables: {
+      where: {
+        docIDs_contains: documentID,
+      }
+    }
+  };
+  // Logger.log("formData: ", formData);
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var returnValue = {
+    status: "",
+    message: ""
+  };
+
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.listArticles && responseData.data.articles.listArticles.error === null && responseData.data.articles.listArticles.data && responseData.data.articles.listArticles.data[0] !== undefined) {
+    var firstArticleData = responseData.data.articles.listArticles.data[0];
+    returnValue.status = "success";
+    returnValue.id = firstArticleData.id;
+    returnValue.data = firstArticleData;
+    returnValue.message = "Retrieved article with ID " +  returnValue.id;
+  } else {
+    returnValue.status = "error";
+    if (responseData.data && responseData.data.articles && responseData.data.articles.listArticles && responseData.data.articles.listArticles.data && responseData.data.articles.listArticles.data.length !== 1) {
+      var numberArticles = responseData.data.articles.listArticles.data.length;
+      returnValue.message = "Found " + numberArticles + " matching articles and should be one";
+    } else if (responseData.data && responseData.data.articles && responseData.data.articles.listArticles && responseData.data.articles.listArticles.error && responseData.data.articles.listArticles.error !== null) {
+      returnValue.message = responseData.data.articles.listArticles.error;
+    } else {
+      returnValue.message = "Couldn't find an article for this Google Doc."
+    }
+  }
+  return returnValue;
+}
+
+/*
 . * Returns metadata about the article, including its id, whether it was published
 . * headline and byline
 . */
 function getArticleMeta() {
   Logger.log("getArticleMeta START");
 
+  var documentID = DocumentApp.getActiveDocument().getId();
+
+  var articleID = getArticleID();
+
+  // if there's no stored articleID on this document, try to find it by google document ID in webiny
+  if (articleID === null) {
+    Logger.log("No articleID found; looking up documentID", documentID, "in webiny now");
+    var existingArticleData = getArticleByDocumentID(documentID);
+    if (existingArticleData && existingArticleData.status === "success") {
+      Logger.log("found article with this documentID: ", existingArticleData.id);
+
+      articleID = existingArticleData.id;
+      storeArticleID(existingArticleData.id);
+
+      var headline = getDocumentName();
+      Logger.log("headline:", headline);
+      storeHeadline(headline);
+
+      var googleDocs = existingArticleData.data.googleDocs;
+      var googleDocsInfo = {};
+      if (googleDocs) {
+        try {
+          googleDocsInfo = JSON.parse(googleDocs);
+          Logger.log("googleDocs:", googleDocsInfo);
+
+          var locale = Object.keys(googleDocsInfo).find(key => googleDocsInfo[key] === documentID);
+          if (locale) {
+            Logger.log("found locale NAME for this doc:", locale);
+            storeSelectedLocaleName(locale);
+            var locales = getLocales();
+            var selectedLocaleID = null;
+            var selectedLocale = locales.find((l) => l.code === locale);
+            Logger.log("found localeID for this doc:", selectedLocale.id);
+            storeLocaleID(selectedLocale.id);
+          }
+
+        } catch(e) {
+          Logger.log("failed parsing googleDocs:", e);
+        }
+      }
+    } else {
+      Logger.log("error finding article with this documentID:", existingArticleData.message);
+    }
+  }
+
   // first determine if the document is an article or a static page for the site
   // this is based on which folder the document is in: 'pages' (static pages) or anything else (articles)
   // in order to do this we need to use the Google Drive API
   // which requires the "https://www.googleapis.com/auth/drive.readonly" scope
-  var documentID = DocumentApp.getActiveDocument().getId();
   var driveFile = DriveApp.getFileById(documentID)
   var fileParents = driveFile.getParents();
   var isStaticPage = false;
@@ -753,8 +915,6 @@ function getArticleMeta() {
     }
   }
 
-  var articleID = getArticleID();
-
   var headline = getHeadline();
   if (typeof(headline) === "undefined" || headline === null || headline.trim() === "") {
     headline = getDocumentName();
@@ -770,6 +930,7 @@ function getArticleMeta() {
     Logger.log("SLUG FOUND:", slug);
   }
 
+  var googleDocsInfo = {};
   if (articleID !== null && articleID !== undefined) {
     var latestArticle = getArticleDataByID(articleID);
 
@@ -779,6 +940,15 @@ function getArticleMeta() {
       if (latestArticleData.published !== undefined) {
         storeIsPublished(latestArticleData.published);
       }
+
+      if (latestArticleData.googleDocs) {
+        try {
+          googleDocsInfo = JSON.parse(latestArticleData.googleDocs);
+        } catch(e) {
+          Logger.log("error parsing googleDocs json:", e);
+        }
+      }
+
       if (latestArticleData.headline && latestArticleData.headline.values && latestArticleData.headline.values[0].value) {
         storeHeadline(latestArticleData.headline.values[0].value);
       }
@@ -786,6 +956,9 @@ function getArticleMeta() {
         storeCustomByline(latestArticleData.customByline);
       }
 
+      if (latestArticleData.availableLocales) {
+        storeAvailableLocales(latestArticleData.availableLocales);
+      }
       if (latestArticleData.authors) {
         latestArticleData.authors.forEach(author => {
             authorSlugs.push(author.slug);
@@ -937,6 +1110,7 @@ function getArticleMeta() {
     awsSecretKey: awsSecretKey,
     awsBucket: awsBucket,
     availableLocales: availableLocales,
+    googleDocs: googleDocsInfo,
     categories: categories,
     categoryID: categoryID,
     categoryName: categoryName,
@@ -1524,10 +1698,22 @@ function createPageFrom(articleData) {
 function createArticleFrom(articleData) {
   Logger.log("createArticleFrom data.published: ", articleData.published);
 
+  var returnValue = {
+    status: "",
+    message: ""
+  };
+
+  var localeID = articleData.localeID;
+  if (localeID === null || localeID === undefined) {
+    returnValue.status = "error";
+    returnValue.message = "Missing required localeID!";
+    return returnValue;
+  }
+
   var versionID = articleData.id;
   var title = articleData.headline;
   var elements = articleData.formattedElements;
-  var localeID = articleData.localeID;
+
   var localeName = articleData.localeName;
   var articleAuthors = articleData.authors;
   var articleTags = articleData.tags; // only id
@@ -1622,11 +1808,18 @@ function createArticleFrom(articleData) {
   var twitterDescriptionValues = i18nSetValues(seoData.twitterDescription, localeID, previousArticleData.twitterDescription.values);
 
   var updatedGoogleDocs = {};
-  if (previousArticleData && previousArticleData.googleDocs) {
-    var priorGoogleDocs = previousArticleData.googleDocs;
-    Logger.log("found prior googleDocs:", priorGoogleDocs);
 
-    var priorGoogleDocsParsed = JSON.parse(priorGoogleDocs);
+  var previousGoogleDocs = null;
+  if (articleData.googleDocs !== null) {
+    previousGoogleDocs = articleData.googleDocs;
+  } else if (previousArticleData.googleDocs !== null) {
+    previousGoogleDocs = previousArticleData.googleDocs;
+
+  }
+  if (previousGoogleDocs && previousGoogleDocs !== null) {
+    Logger.log("found prior googleDocs:", previousGoogleDocs);
+
+    var priorGoogleDocsParsed = JSON.parse(previousGoogleDocs);
     if (priorGoogleDocsParsed[localeName]) {
       Logger.log("found prior googleDocs for locale!", localeName, priorGoogleDocsParsed[localeName])
     } else {
@@ -1640,10 +1833,14 @@ function createArticleFrom(articleData) {
   }
   Logger.log("updatedGoogleDocs:", updatedGoogleDocs);
 
+  var documentIDsForArticle = Object.values(updatedGoogleDocs);
+  var documentIDsForArticleString = documentIDsForArticle.join(' ');
+  Logger.log("storing docIDs:", documentIDsForArticleString)
 
   var data = {
     availableLocales: availableLocaleNames,
     googleDocs: JSON.stringify(updatedGoogleDocs),
+    docIDs: documentIDsForArticleString,
     published: published,
     category: categoryID,
     customByline: customByline,
@@ -1667,7 +1864,6 @@ function createArticleFrom(articleData) {
     data.lastPublishedOn = publishingInfo.lastPublishedOn;
   }
 
-  Logger.log("createArticleFrom data:", JSON.stringify(data))
   // Logger.log("tagIDs: ", tagIDs);
   var variables = {
     id: versionID,
@@ -1737,10 +1933,6 @@ function createArticleFrom(articleData) {
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
 
-  var returnValue = {
-    status: "",
-    message: ""
-  };
   if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.updateArticle && responseData.data.articles.updateArticle.error === null) {
     returnValue.status = "success";
     returnValue.id = responseData.data.articles.updateArticle.data.id;
@@ -3367,7 +3559,6 @@ function i18nSetValues(text, localeID, previousValues) {
       if (obj.locale === localeID) {
         foundIt = true;
         obj.value = text;
-        Logger.log("found prior in locale", obj)
       }
       return obj;
     });
@@ -3378,7 +3569,7 @@ function i18nSetValues(text, localeID, previousValues) {
         value: text,
         locale: localeID
       });
-      Logger.log("NO prior in locale, appended", newValues.length, newValues);
+      Logger.log("NO prior in locale, appended", newValues.length, "values");
     }
   // case handling when there was NO previous value set in any language
   } else {
@@ -3389,4 +3580,93 @@ function i18nSetValues(text, localeID, previousValues) {
     Logger.log("NO prior in any locale, creating", newValues.length);
   }
   return newValues;
+}
+
+function createNewDoc(newLocale) {
+  if (newLocale === null || typeof(newLocale) === "undefined") {
+    return;
+  }
+  var localeName = cleanContent(newLocale);
+
+  var currentHeadline = getHeadline();
+  var newHeadline = currentHeadline + " (" + localeName + ")";
+
+  var parentDocID = DocumentApp.getActiveDocument().getId();
+  var parentArticleID = getArticleID();
+
+  var docID;
+  var driveFile = DriveApp.getFileById(parentDocID);
+  var newFile = driveFile.makeCopy(newHeadline);
+  Logger.log("created new doc:", newFile);
+  if (newFile) {
+    docID = newFile.getId();
+  } else {
+    Logger.log("failed creating new file via DriveApp")
+    return null;
+  }
+
+  // setup the articleData
+  var articleData = {};
+
+  articleData.documentID = docID;
+  articleData.id = parentArticleID;
+  articleData.headline = newHeadline;
+  articleData.formattedElements = formatElements();
+  articleData.categoryID = getCategoryID();
+  articleData.authors = getAuthors();
+  articleData.tags = getTags();
+
+  var locales = getLocales();
+  Logger.log("looking up locale name:", localeName, ";; in locales:", locales);
+  var selectedLocale = locales.find((locale) => locale.code === localeName);
+  if (selectedLocale) {
+    articleData.localeID = selectedLocale.id;
+    articleData.localeName = selectedLocale.code;
+  } else {
+    Logger.log("FAILED finding locale ID")
+    articleData.localeName = localeName;
+  }
+
+  // articleData.published
+  articleData.published = false;
+
+  var googleDocsInfo = {};
+  if (parentArticleID !== null && parentArticleID !== undefined) {
+    var latestArticle = getArticleDataByID(parentArticleID);
+
+    if (latestArticle && latestArticle.status === "success") {
+      var latestArticleData = latestArticle.data;
+      Logger.log("createNewDoc found latestArticleData")
+      if (latestArticleData.googleDocs) {
+        try {
+          googleDocsInfo = JSON.parse(latestArticleData.googleDocs);
+        } catch(e) {
+          Logger.log("error parsing googleDocs json:", e);
+        }
+      }
+    } else {
+      Logger.log("createNewDoc failed finding latest article data for", parentArticleID);
+    }
+  }
+  // store the new document ID for this locale
+  googleDocsInfo[localeName] = docID;
+  Logger.log("createNewDoc googleDocsInfo:", googleDocsInfo);
+
+  articleData.googleDocs = JSON.stringify(googleDocsInfo);
+
+  // update the article for this document
+  Logger.log("createNewDoc:", articleData.googleDocs, articleData.localeID, articleData.localeName, articleData.headline)
+  responseData = createArticleFrom(articleData);
+
+  if (responseData && responseData.status === "success" && responseData.id) {
+    Logger.log("createNewDoc update success");
+  } else {
+    Logger.log("createNewDoc update FAIL:", responseData);
+  }
+
+  return {
+    docID: docID,
+    parentID: parentDocID,
+    responseData: responseData
+  };
 }
