@@ -322,10 +322,19 @@
       }
 
       function setPublishedFlag(value) {
+        console.log("setPublishedFlag:", value, typeof(value));
         var isPublishedSpan = document.getElementById('is-published');
         var isPublishedYesNo = "no";
-        if (value) {
+
+        if (value === "false") { 
+          console.log("value is the string 'false'");
+        }
+
+        if (value === "true" || value === true) { // 😭 javascript + JSON + boolean `published: true` or `published: false` as string
+          console.log("setting published to 'yes' because value is:", value);
           isPublishedYesNo = "yes";
+        } else {
+          console.log("value is not 'true' or true:", value)
         }
         isPublishedSpan.innerHTML = isPublishedYesNo;
       }
@@ -355,10 +364,12 @@
       }
 
       function handleMetaPreserveLoading() {
+        console.log("call: handleMetaPreserveLoading");
          google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessMetaPreserveLoading).getArticleMeta();
       }
 
       function handleMeta() {
+        console.log("call: handleMeta");
          google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessMeta).getArticleMeta();
       }
 

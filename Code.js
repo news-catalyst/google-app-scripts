@@ -272,22 +272,19 @@ function deleteArticleID() {
   deleteValue('ARTICLE_ID');
 }
 
-function storeLatestVersionPublished(isLatestVersionPublished) {
-  var documentProperties = PropertiesService.getDocumentProperties();
-  documentProperties.setProperty('LATEST_VERSION_PUBLISHED', isLatestVersionPublished);
-}
-
-function getLatestVersionPublished() {
-  var documentProperties = PropertiesService.getDocumentProperties();
-  var isLatestVersionPublished = documentProperties.getProperty('LATEST_VERSION_PUBLISHED');
-  return isLatestVersionPublished;
-}
-
 function getIsPublished() {
-  return getValue('IS_PUBLISHED');
+  var value = getValue('IS_PUBLISHED');
+  if (value === "true" || value === true) {
+    Logger.log("getIsPublished:", typeof(value), value, "returning true");
+    return true;
+  } else {
+    Logger.log("getIsPublished:", typeof(value), value, "returning false");
+    return false
+  }
 }
 
 function storeIsPublished(value) {
+  Logger.log("storeIsPublished:", typeof(value), value);
   storeValue("IS_PUBLISHED", value);
 }
 
@@ -392,19 +389,18 @@ function storePublishingInfo(info) {
   storeValue("PUBLISHING_INFO", JSON.stringify(info));
 }
 
-function getPublishingInfo(updateDates) {
-  var publishingInfo = JSON.parse(getValue("PUBLISHING_INFO"));
-  if (updateDates || publishingInfo === null || publishingInfo === undefined) {
-    if (publishingInfo === null) {
-      publishingInfo = {};
-    }
-    let pubDate = new Date();
-    let pubDateString = pubDate.toISOString();
-    publishingInfo.firstPublishedOn = pubDateString;
-    publishingInfo.lastPublishedOn = pubDateString;
-    publishingInfo.publishedOn = pubDateString;
-  }
+function generatePublishDate() {
+  let pubDate = new Date();
+  let pubDateString = pubDate.toISOString();
+  return pubDateString;
+}
 
+function getPublishingInfo() {
+  var publishingInfo = JSON.parse(getValue("PUBLISHING_INFO"));
+  if (publishingInfo === null) {
+    publishingInfo = {};
+  }
+  Logger.log("publishingInfo:", publishingInfo);
   return publishingInfo;
 }
 
@@ -938,6 +934,7 @@ function getArticleMeta() {
       var latestArticleData = latestArticle.data;
       Logger.log("getArticleMeta found latestArticleData")
       if (latestArticleData.published !== undefined) {
+        Logger.log("getArticleMeta setting published to latestArticleData.published:", typeof(latestArticleData.published), latestArticleData.published);
         storeIsPublished(latestArticleData.published);
       }
 
@@ -1006,12 +1003,13 @@ function getArticleMeta() {
     }
   }
 
-  var publishingInfo = getPublishingInfo();
-  var published = getIsPublished();
+  var published = getIsPublished()
+  Logger.log("getArticleMeta published:", typeof(published), published);
   // obviously it isn't published if we don't have a webiny article ID
   if (articleID === null || articleID === undefined) {
     published = false;
   }
+  var publishingInfo = getPublishingInfo();
 
   var customByline = getCustomByline();
 
@@ -1066,6 +1064,7 @@ function getArticleMeta() {
   
   if (typeof(articleID) === "undefined" || articleID === null) {
 
+    Logger.log("returning articleMetadata published:", typeof(published), published);
     return {
       accessToken: accessToken,
       allAuthors: allAuthors,
@@ -1130,7 +1129,7 @@ function getArticleMeta() {
     republishUrl: republishUrl
   };
 
-  Logger.log("getArticleMeta END");
+  Logger.log("getArticleMeta END, published:", typeof(articleMetadata.published), articleMetadata.published);
   return articleMetadata;
 }
 /**
@@ -1153,14 +1152,12 @@ function handlePublish(formObject) {
  */
 function handlePreview(formObject) {
   Logger.log("START handlePreview:", formObject);
-  Logger.log("START handlePreview tags:", formObject['article-tags']);
   // save the article - pass publishFlag as false
   var response = getCurrentDocContents(formObject, false);
 
   if (response && response.status === "success") {
     // construct preview url
     var slug = getArticleSlug();
-
     var scriptConfig = getScriptConfig();
     var previewHost = scriptConfig['PREVIEW_URL'];
     var previewSecret = scriptConfig['PREVIEW_SECRET'];
@@ -1727,7 +1724,8 @@ function createArticleFrom(articleData) {
 
   var customByline = getCustomByline();
 
-  var publishingInfo = getPublishingInfo(true);
+  var publishingInfo = getPublishingInfo();
+
   var seoData = getSEO();
 
   var categories = getCategories();
@@ -1736,7 +1734,6 @@ function createArticleFrom(articleData) {
     storeCategories(categories);
   }
 
-  // var categoryName = getNameForCategoryID(categories, categoryID);
   // var articleAuthors = getAuthors(); // only id
 
   var allAuthors = getAllAuthors(); // don't request from the DB again - too slow
@@ -1757,22 +1754,17 @@ function createArticleFrom(articleData) {
     authorSlugsValue = authorSlugs.join(' ');
   }
 
-  // Logger.log("createArticleFrom articleTags: ", articleTags);
   // create any new tags
   const newTags = articleTags.filter(articleTag => articleTag.newTag === true);
-  // Logger.log("createArticleFrom newTags: ", newTags);
   if (newTags.length > 0) {
     newTags.forEach(newTag => {
-      // Logger.log("createArticleFrom creating new tag: ", newTag);
       createTag(newTag.title);
     })
   }
 
   var allTags = getAllTags(); // don't look up in the DB again, too slow
-  // Logger.log("allTags:", allTags);
 
   var articleTags = getTags(); // refresh list of tags for this article as some may have been created just above
-  // Logger.log("2 articleTags:", articleTags);
   // compare all tags array to those selected for this article
   var tagIDs = [];
   allTags.forEach(tag => {
@@ -1783,18 +1775,27 @@ function createArticleFrom(articleData) {
     }
   });
 
-  var published = true;
-  if (articleData !== undefined && articleData.published === false) {
-    published = false;
+  // err on the safe side and default this flag to false
+  var published = false;
+  if (articleData !== undefined && articleData.published !== undefined && articleData.published !== null) {
+    published = articleData.published;
   }
+  Logger.log("createArticleFrom setting published to:", published);
   storeIsPublished(published);
+
+  var categoryName = getNameForCategoryID(categories, categoryID);
+  var slug = getArticleSlug();
+  if (!articleData.published) {
+    slug = createArticleSlug(categoryName, title);
+    storeArticleSlug(slug);
+  }
 
   // grab current article contents
   var previousArticleData = getArticle(versionID);
-
   if (!previousArticleData) {
     Logger.log("NO previous article data for:", versionID);
   }
+
   var availableLocaleNames = i18nGetLocales(localeID, previousArticleData.headline.values);
 
   // then merge in the new content with previous locale data
@@ -1862,6 +1863,10 @@ function createArticleFrom(articleData) {
   if (published) {
     data.firstPublishedOn = publishingInfo.firstPublishedOn;
     data.lastPublishedOn = publishingInfo.lastPublishedOn;
+  }
+  // update the slug on unpublished articles
+  if (!published) {
+    data.slug = slug;
   }
 
   // Logger.log("tagIDs: ", tagIDs);
@@ -2150,7 +2155,8 @@ function createArticle(articleData) {
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
   var customByline = getCustomByline();
-  var publishingInfo = getPublishingInfo(true);
+
+  var publishingInfo = getPublishingInfo();
   var seoData = getSEO();
 
   var categories = getCategories();
@@ -2319,6 +2325,7 @@ function createArticle(articleData) {
             },
           ],
         },
+        published: articleData.published,
         firstPublishedOn: publishingInfo.firstPublishedOn,
         lastPublishedOn: publishingInfo.lastPublishedOn,
         googleDocs: JSON.stringify(googleDocs)
@@ -2498,7 +2505,7 @@ function publishPage() {
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
-  var publishingInfo = getPublishingInfo(true);
+  var publishingInfo = getPublishingInfo();
   var formData = {
     query: `mutation UpdatePage($id: ID!, $data: PageInput!) {
       pages { 
@@ -2540,8 +2547,6 @@ function publishPage() {
   var responseData = JSON.parse(responseText);
   Logger.log("publish page responseData:", responseData);
 
-  // TODO update latestVersionPublished flag
-
   Logger.log("END publishPage");
   if (responseData && responseData.data && responseData.data.pages && responseData.data.pages.updatePage && responseData.data.pages.updatePage.data) {
     return "Published page at revision " + versionID;
@@ -2563,7 +2568,7 @@ function publishArticle() {
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
-  var publishingInfo = getPublishingInfo(true);
+  var publishingInfo = getPublishingInfo();
   var formData = {
     query: `mutation UpdateArticle($id: ID!, $data: ArticleInput!) {
       articles { 
