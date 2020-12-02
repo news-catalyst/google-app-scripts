@@ -1168,6 +1168,8 @@ function handlePreview(formObject) {
 
     Logger.log("END handlePreview: ", response)
   }
+  var metadata = getArticleMeta();
+  response.data = metadata;
   return response;
 }
 

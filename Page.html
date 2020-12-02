@@ -59,6 +59,23 @@
         loadingDiv.innerHTML = "<p class='error'>An error occurred: " + error + "</p>";
       }
 
+      function onSuccessPreview(response) {
+        console.log("onSuccess response:", response);
+        var configDiv = document.getElementById('config');
+        configDiv.style.display = 'none';
+        var div = document.getElementById('loading');
+        div.style.display = 'block';
+        if (response && response.status && response.status === "error") {
+          div.innerHTML = "<p class='error'>An error occurred: " + response.message + '</p>';
+        } else {
+          div.innerHTML = '<p style="color: #48C774;">' + response.message + "</p>";
+        }
+        if (response.data) {
+          console.log(response.data);
+          onSuccessMetaPreserveLoading(response.data);
+        }
+      }
+
       function onSuccessMetaPreserveLoading(data) {
         console.log(data);
         var form = document.getElementById('article-meta-form');
@@ -385,7 +402,7 @@
 
         if (formObject.submitted === "Preview") {
           loadingDiv.innerHTML = "<p class='gray'>Loading preview...</p>"
-          google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).handlePreview(formObject);
+          google.script.run.withSuccessHandler(onSuccessPreview).withFailureHandler(onFailure).handlePreview(formObject);
         } else {
           loadingDiv.innerHTML = "<p class='gray'>Publishing article...</p>"
           google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).handlePublish(formObject);
