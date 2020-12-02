@@ -273,10 +273,18 @@ function deleteArticleID() {
 }
 
 function getIsPublished() {
-  return getValue('IS_PUBLISHED');
+  var value = getValue('IS_PUBLISHED');
+  if (value === "true" || value === true) {
+    Logger.log("getIsPublished:", typeof(value), value, "returning true");
+    return true;
+  } else {
+    Logger.log("getIsPublished:", typeof(value), value, "returning false");
+    return false
+  }
 }
 
 function storeIsPublished(value) {
+  Logger.log("storeIsPublished:", typeof(value), value);
   storeValue("IS_PUBLISHED", value);
 }
 
@@ -381,20 +389,17 @@ function storePublishingInfo(info) {
   storeValue("PUBLISHING_INFO", JSON.stringify(info));
 }
 
-function getPublishingInfo(updateDates) {
+function generatePublishDate() {
+  let pubDate = new Date();
+  let pubDateString = pubDate.toISOString();
+  return pubDateString;
+}
+
+function getPublishingInfo() {
   var publishingInfo = JSON.parse(getValue("PUBLISHING_INFO"));
   if (publishingInfo === null) {
     publishingInfo = {};
   }
-  // if (updateDates || publishingInfo === null || publishingInfo === undefined) {
-  if (updateDates) {
-    let pubDate = new Date();
-    let pubDateString = pubDate.toISOString();
-    publishingInfo.firstPublishedOn = pubDateString;
-    publishingInfo.lastPublishedOn = pubDateString;
-    publishingInfo.publishedOn = pubDateString;
-  }
-
   Logger.log("publishingInfo:", publishingInfo);
   return publishingInfo;
 }
@@ -929,6 +934,7 @@ function getArticleMeta() {
       var latestArticleData = latestArticle.data;
       Logger.log("getArticleMeta found latestArticleData")
       if (latestArticleData.published !== undefined) {
+        Logger.log("getArticleMeta setting published to latestArticleData.published:", typeof(latestArticleData.published), latestArticleData.published);
         storeIsPublished(latestArticleData.published);
       }
 
@@ -997,12 +1003,13 @@ function getArticleMeta() {
     }
   }
 
-  var published = getIsPublished();
+  var published = getIsPublished()
+  Logger.log("getArticleMeta published:", typeof(published), published);
   // obviously it isn't published if we don't have a webiny article ID
   if (articleID === null || articleID === undefined) {
     published = false;
   }
-  var publishingInfo = getPublishingInfo(published);
+  var publishingInfo = getPublishingInfo();
 
   var customByline = getCustomByline();
 
@@ -1057,6 +1064,7 @@ function getArticleMeta() {
   
   if (typeof(articleID) === "undefined" || articleID === null) {
 
+    Logger.log("returning articleMetadata published:", typeof(published), published);
     return {
       accessToken: accessToken,
       allAuthors: allAuthors,
@@ -1121,7 +1129,7 @@ function getArticleMeta() {
     republishUrl: republishUrl
   };
 
-  Logger.log("getArticleMeta END");
+  Logger.log("getArticleMeta END, published:", typeof(articleMetadata.published), articleMetadata.published);
   return articleMetadata;
 }
 /**
@@ -1716,7 +1724,7 @@ function createArticleFrom(articleData) {
 
   var customByline = getCustomByline();
 
-  var publishingInfo = getPublishingInfo(articleData.published);
+  var publishingInfo = getPublishingInfo();
 
   var seoData = getSEO();
 
@@ -1767,10 +1775,12 @@ function createArticleFrom(articleData) {
     }
   });
 
-  var published = true;
-  if (articleData !== undefined && articleData.published === false) {
-    published = false;
+  // err on the safe side and default this flag to false
+  var published = false;
+  if (articleData !== undefined && articleData.published !== undefined && articleData.published !== null) {
+    published = articleData.published;
   }
+  Logger.log("createArticleFrom setting published to:", published);
   storeIsPublished(published);
 
   var categoryName = getNameForCategoryID(categories, categoryID);
@@ -2146,8 +2156,7 @@ function createArticle(articleData) {
 
   var customByline = getCustomByline();
 
-  // don't assume we're publishing the article - in fact, default to not publishing
-  var publishingInfo = getPublishingInfo(articleData.published);
+  var publishingInfo = getPublishingInfo();
   var seoData = getSEO();
 
   var categories = getCategories();
@@ -2496,7 +2505,7 @@ function publishPage() {
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
-  var publishingInfo = getPublishingInfo(true);
+  var publishingInfo = getPublishingInfo();
   var formData = {
     query: `mutation UpdatePage($id: ID!, $data: PageInput!) {
       pages { 
@@ -2538,8 +2547,6 @@ function publishPage() {
   var responseData = JSON.parse(responseText);
   Logger.log("publish page responseData:", responseData);
 
-  // TODO update latestVersionPublished flag
-
   Logger.log("END publishPage");
   if (responseData && responseData.data && responseData.data.pages && responseData.data.pages.updatePage && responseData.data.pages.updatePage.data) {
     return "Published page at revision " + versionID;
@@ -2561,7 +2568,7 @@ function publishArticle() {
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
-  var publishingInfo = getPublishingInfo(true);
+  var publishingInfo = getPublishingInfo();
   var formData = {
     query: `mutation UpdateArticle($id: ID!, $data: ArticleInput!) {
       articles { 
