@@ -20,7 +20,6 @@
       }
 
       function onSuccessNewDoc(contents) {
-        console.log("onSuccessNewDoc response:", contents);
         var configDiv = document.getElementById('config');
         configDiv.style.display = 'none';
         var div = document.getElementById('loading');
@@ -29,7 +28,6 @@
       }
 
       function onSuccess(contents) {
-        console.log("onSuccess response:", contents);
         // first, switch the "published" text to say "No"
         // because the headline and/or byline has likely changed.
         setPublishedFlag(false);
@@ -52,15 +50,13 @@
       }
 
       function onFailure(error) {
-        console.log("onFailure contents:", error);
+        console.log("onFailure error:", error);
         var loadingDiv = document.getElementById('loading');
-        console.log(error);
         loadingDiv.style.display = "block";
         loadingDiv.innerHTML = "<p class='error'>An error occurred: " + error + "</p>";
       }
 
-      function onSuccessPreview(response) {
-        console.log("onSuccess response:", response);
+      function onSuccessPreviewPublish(response) {
         var configDiv = document.getElementById('config');
         configDiv.style.display = 'none';
         var div = document.getElementById('loading');
@@ -71,13 +67,11 @@
           div.innerHTML = '<p style="color: #48C774;">' + response.message + "</p>";
         }
         if (response.data) {
-          console.log(response.data);
           onSuccessMetaPreserveLoading(response.data);
         }
       }
 
       function onSuccessMetaPreserveLoading(data) {
-        console.log(data);
         var form = document.getElementById('article-meta-form');
         form.style.display = "block";
 
@@ -128,13 +122,9 @@
             let aTitle, bTitle;
             if (a.title && a.title.values && a.title.values[0].value) {
               aTitle = a.title.values[0].value;
-            } else {
-              console.log("categoryA unknown title");
             }
             if (b.title && b.title.values && b.title.values[0].value) {
               bTitle = b.title.values[0].value;
-            } else {
-              console.log("categoryB unknown title");
             }
             if (aTitle > bTitle) {
               comparison = 1;
@@ -308,14 +298,9 @@
           var createLocales = data.locales.map(locale=>locale.code);
           var existingLocales = Object.keys(data.googleDocs);
 
-          console.log("data.googleDocs:", data.googleDocs);
-          console.log("Object.keys(data.googleDocs):", Object.keys(data.googleDocs));
-
           createLocales = createLocales.filter(function(item) {
             return !existingLocales.includes(item); 
           })
-
-          console.log("Locales for create links:", createLocales);
 
           $.each( data.googleDocs, function( locale, docID ) {
             if (locale !== data.localeName) {
@@ -339,19 +324,11 @@
       }
 
       function setPublishedFlag(value) {
-        console.log("setPublishedFlag:", value, typeof(value));
         var isPublishedSpan = document.getElementById('is-published');
         var isPublishedYesNo = "no";
 
-        if (value === "false") { 
-          console.log("value is the string 'false'");
-        }
-
         if (value === "true" || value === true) { // 😭 javascript + JSON + boolean `published: true` or `published: false` as string
-          console.log("setting published to 'yes' because value is:", value);
           isPublishedYesNo = "yes";
-        } else {
-          console.log("value is not 'true' or true:", value)
         }
         isPublishedSpan.innerHTML = isPublishedYesNo;
       }
@@ -381,12 +358,10 @@
       }
 
       function handleMetaPreserveLoading() {
-        console.log("call: handleMetaPreserveLoading");
          google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessMetaPreserveLoading).getArticleMeta();
       }
 
       function handleMeta() {
-        console.log("call: handleMeta");
          google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessMeta).getArticleMeta();
       }
 
@@ -402,10 +377,10 @@
 
         if (formObject.submitted === "Preview") {
           loadingDiv.innerHTML = "<p class='gray'>Loading preview...</p>"
-          google.script.run.withSuccessHandler(onSuccessPreview).withFailureHandler(onFailure).handlePreview(formObject);
+          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handlePreview(formObject);
         } else {
           loadingDiv.innerHTML = "<p class='gray'>Publishing article...</p>"
-          google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).handlePublish(formObject);
+          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handlePublish(formObject);
         }
       }
       
