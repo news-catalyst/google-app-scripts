@@ -1142,6 +1142,9 @@ function handlePublish(formObject) {
   // save the article - pass publishFlag as true
   var response = getCurrentDocContents(formObject, true);
   Logger.log("END handlePublish: ", response)
+
+  var metadata = getArticleMeta();
+  response.data = metadata;
   return response;
 }
 
@@ -1168,6 +1171,8 @@ function handlePreview(formObject) {
 
     Logger.log("END handlePreview: ", response)
   }
+  var metadata = getArticleMeta();
+  response.data = metadata;
   return response;
 }
 
