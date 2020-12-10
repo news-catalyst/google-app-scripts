@@ -9,6 +9,19 @@
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/js/select2.min.js"></script>
 
     <script>
+      function onSuccessClear(contents) {
+        // hideLoading();
+        var div = document.getElementById('loading');
+        div.style.display = 'block';
+        div.innerHTML = JSON.stringify(contents);
+      }
+      function onFailureClear(contents) {
+        // hideLoading();
+        var div = document.getElementById('loading');
+        div.style.display = 'block';
+        div.innerHTML = JSON.stringify(contents);
+      }
+
       function onSuccessSearch(contents) {
 
         console.log("contents:", contents);
@@ -201,6 +214,10 @@
         google.script.run.withSuccessHandler(onSuccessSearch).withFailureHandler(onFailure).handleSearch(formObject);
       }
       
+      function clearCache() {
+         google.script.run.withFailureHandler(onFailureClear).withSuccessHandler(onSuccessClear).clearCache();
+      }
+
       function handleAssociate(formObject) {
         if (window.confirm("Are you sure you want to do this? Any content in the linked article in this locale will be replaced by your document!")) { 
           hideLoading();
@@ -416,6 +433,7 @@
       <div class="block">
         <button onclick="getConfigAndDisplayForm()">Show Config</button>
         <button onclick="hideConfigForm();showSearchForm();">Hide Config</button>
+        <button onclick="clearCache()">Clear Cache</button>
       </div>
       <div class="block">
         <button style="display: none;" id="deleteArticleButton" class="create" onclick="deleteArticle()">Delete Article</button>
