@@ -64,10 +64,6 @@ function onlyUnique(value, index, self) {
   return self.indexOf(value) === index;
 }
 
-// TODO Actual implementation TBD
-function getOrganizationName() {
-  return "News Catalyst"
-}
 
 /**
  * Gets the title of the article from the name of the Google Doc
@@ -184,6 +180,34 @@ function uploadImageToS3(imageID, contentUri) {
 .* Gets the script configuration, data available to all users and docs for this add-on
 .*/
 function getScriptConfig() {
+
+  // TODO: look up org name on this document in case we've figured it out before
+  var orgName = getOrganizationName();
+  if (orgName === null) {
+    var documentID = DocumentApp.getActiveDocument().getId();
+    var driveFile = DriveApp.getFileById(documentID)
+    var fileParents = driveFile.getParents();
+    while ( fileParents.hasNext() ) {
+      var folder = fileParents.next();
+      if (folder.getName() === 'articles') {
+        var folderParents = folder.getParents();
+        while ( folderParents.hasNext() ) {
+          var grandFolder = folderParents.next();
+          Logger.log("* storing OrgName:", grandFolder.getName());
+          orgName = grandFolder.getName();
+          storeOrganizationName(orgName);
+        }
+      }
+    }
+  } else {
+    Logger.log("found orgName:", orgName);
+  }
+
+  // If there's still no org name return an error
+  if (orgName === null) {
+    return { "status": "error", "message": "Failed to find an organization name; check the folder structure." }
+  }
+
   var scriptProperties = PropertiesService.getScriptProperties();
   var data = scriptProperties.getProperties();
   return data;
@@ -247,6 +271,15 @@ function deleteValue(key) {
   var documentProperties = PropertiesService.getDocumentProperties();
   documentProperties.deleteProperty(key);
 }
+
+function getOrganizationName() {
+  return getValue("ORG_NAME");
+}
+
+function storeOrganizationName(value) {
+  storeValue("ORG_NAME", value);
+}
+
 /**
  * Retrieves the ID of the article from the local document storage
  */
