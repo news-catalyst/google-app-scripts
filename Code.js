@@ -181,8 +181,11 @@ function uploadImageToS3(imageID, contentUri) {
 .*/
 function getScriptConfig() {
 
-  // TODO: look up org name on this document in case we've figured it out before
+  // look up org name on this document (scoped doc properties) in case we've figured it out before
   var orgName = getOrganizationName();
+
+  // otherwise, locate the folder that contains 'articles' or 'pages' - it should be
+  // named for the organisation; for example: 'oaklyn' > 'articles' > 'Article Document'
   if (orgName === null) {
     var documentID = DocumentApp.getActiveDocument().getId();
     var driveFile = DriveApp.getFileById(documentID)
@@ -210,18 +213,37 @@ function getScriptConfig() {
 
   var scriptProperties = PropertiesService.getScriptProperties();
   var data = scriptProperties.getProperties();
-  return data;
+  var orgData = {}
+  var pattern = `^${orgName}_`;
+  Logger.log("looking for", pattern)
+  var orgKeyRegEx = new RegExp(pattern, "i")
+    // value = value.replace(new RegExp(from.charAt(i), 'g'), to.charAt(i));
+  for (var key in data) {
+    if (orgKeyRegEx.test(key)) {
+      Logger.log("found matching key for this org:", key, data[key]);
+      var plainKey = key.replace(orgKeyRegEx, '');
+      orgData[plainKey] = data[key];
+    }
+  }
+  Logger.log("orgData:", orgData);
+  return orgData;
 }
 
 /*
 .* Sets script-wide configuration
 .*/
 function setScriptConfig(data) {
+  var orgName = getOrganizationName();
+  if (orgName === null) {
+    return { "status": "error", "message": "Failed to find an organization name; check the folder structure." }
+  }
   var scriptProperties = PropertiesService.getScriptProperties();
   for (var key in data) {
-    scriptProperties.setProperty(key, data[key]);
+    var orgKey = orgName + "_" + key;
+    Logger.log(orgKey, "=>", data[key]);
+    scriptProperties.setProperty(orgKey, data[key]);
   }
-  return "Saved configuration.";
+  return { status: "success", message: "Saved configuration." };
 }
 
 /*
@@ -748,9 +770,22 @@ function getArticleDataByID(articleID) {
 . *
 */
 function getArticleByDocumentID(documentID) {
+  var returnValue = {
+    status: "",
+    message: ""
+  };
+
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  if (ACCESS_TOKEN === null || CONTENT_API === null || ACCESS_TOKEN === undefined || CONTENT_API === undefined) {
+    returnValue.status = "error";
+    returnValue.message = "API not configured! Please ensure document is in the right folder structure and API is configured."
+    return returnValue;
+  } else {
+    Logger.log("ACCESS_TOKEN:", ACCESS_TOKEN, "CONTENT_API", CONTENT_API);
+  }
 
   var formData = {
     query: `query SearchArticles($where: ArticleListWhere) {
@@ -832,11 +867,6 @@ function getArticleByDocumentID(documentID) {
     CONTENT_API,
     options
   );
-  var returnValue = {
-    status: "",
-    message: ""
-  };
-
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
   if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.listArticles && responseData.data.articles.listArticles.error === null && responseData.data.articles.listArticles.data && responseData.data.articles.listArticles.data[0] !== undefined) {
@@ -865,6 +895,23 @@ function getArticleByDocumentID(documentID) {
 . */
 function getArticleMeta() {
   Logger.log("getArticleMeta START");
+
+  var returnValue = {
+    status: "",
+    message: ""
+  };
+
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  if (ACCESS_TOKEN === null || CONTENT_API === null || ACCESS_TOKEN === undefined || CONTENT_API === undefined) {
+    returnValue.status = "error";
+    returnValue.message = "API not configured! Please ensure document is in the right folder structure and API is configured."
+    return returnValue;
+  } else {
+    Logger.log("ACCESS_TOKEN:", ACCESS_TOKEN, "CONTENT_API", CONTENT_API);
+  }
 
   var documentID = DocumentApp.getActiveDocument().getId();
 
@@ -3008,9 +3055,22 @@ function createTag(tagTitle) {
 }
 
 function getLocales() {
+  var returnValue = {
+    status: "",
+    message: ""
+  };
+
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  if (ACCESS_TOKEN === null || CONTENT_API === null || ACCESS_TOKEN === undefined || CONTENT_API === undefined) {
+    returnValue.status = "error";
+    returnValue.message = "API not configured! Please ensure document is in the right folder structure and API is configured."
+    return returnValue;
+  } else {
+    Logger.log("ACCESS_TOKEN:", ACCESS_TOKEN, "CONTENT_API", CONTENT_API);
+  }
 
   query = `{
     i18n {
