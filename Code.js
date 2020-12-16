@@ -2501,6 +2501,21 @@ function deleteArticle() {
   }
 }
 
+/* This function clears out the google doc properties (articleID, anything stored) without expecting
+ * access to a webiny API
+ * it's useful if we have to relaunch the API and reconfigure the add-on in the event of an API failure
+ */
+function clearCache() {
+  storeIsPublished(false);
+  deleteArticleSlug();
+  deleteArticleID();
+  deletePublishingInfo();
+  deleteSEO();
+  deleteTags();
+  deleteCategories();
+  return "Cleared cache";
+}
+
 function publishPage() {
   Logger.log("START publishPage");
   var versionID = getArticleID();
