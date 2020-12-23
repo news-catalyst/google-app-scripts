@@ -1810,6 +1810,10 @@ function createArticleFrom(articleData) {
   var customByline = getCustomByline();
 
   var publishingInfo = getPublishingInfo();
+  if (publishingInfo.firstPublishedOn === null || publishingInfo.firstPublishedOn === undefined) {
+    publishingInfo.firstPublishedOn = generatePublishDate();
+  }
+  publishingInfo.lastPublishedOn = generatePublishDate();
 
   var seoData = getSEO();
 
@@ -1946,6 +1950,7 @@ function createArticleFrom(articleData) {
 
   // only update or set these if we're publishing the article
   if (published) {
+    Logger.log("createArticleFrom firstPublishedOn:", publishingInfo.firstPublishedOn)
     data.firstPublishedOn = publishingInfo.firstPublishedOn;
     data.lastPublishedOn = publishingInfo.lastPublishedOn;
   }
@@ -2242,6 +2247,11 @@ function createArticle(articleData) {
   var customByline = getCustomByline();
 
   var publishingInfo = getPublishingInfo();
+  if (publishingInfo.firstPublishedOn === null || publishingInfo.firstPublishedOn === undefined) {
+    publishingInfo.firstPublishedOn = generatePublishDate();
+  }
+  publishingInfo.lastPublishedOn = generatePublishDate();
+
   var seoData = getSEO();
 
   var categories = getCategories();
