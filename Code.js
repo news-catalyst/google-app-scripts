@@ -1810,10 +1810,6 @@ function createArticleFrom(articleData) {
   var customByline = getCustomByline();
 
   var publishingInfo = getPublishingInfo();
-  if (publishingInfo.firstPublishedOn === null || publishingInfo.firstPublishedOn === undefined) {
-    publishingInfo.firstPublishedOn = generatePublishDate();
-  }
-  publishingInfo.lastPublishedOn = generatePublishDate();
 
   var seoData = getSEO();
 
@@ -1948,12 +1944,6 @@ function createArticleFrom(articleData) {
     twitterDescription: {values: twitterDescriptionValues},
   };
 
-  // only update or set these if we're publishing the article
-  if (published) {
-    Logger.log("createArticleFrom firstPublishedOn:", publishingInfo.firstPublishedOn)
-    data.firstPublishedOn = publishingInfo.firstPublishedOn;
-    data.lastPublishedOn = publishingInfo.lastPublishedOn;
-  }
   // update the slug on unpublished articles
   if (!published) {
     data.slug = slug;
@@ -2247,10 +2237,6 @@ function createArticle(articleData) {
   var customByline = getCustomByline();
 
   var publishingInfo = getPublishingInfo();
-  if (publishingInfo.firstPublishedOn === null || publishingInfo.firstPublishedOn === undefined) {
-    publishingInfo.firstPublishedOn = generatePublishDate();
-  }
-  publishingInfo.lastPublishedOn = generatePublishDate();
 
   var seoData = getSEO();
 
@@ -2421,8 +2407,6 @@ function createArticle(articleData) {
           ],
         },
         published: articleData.published,
-        firstPublishedOn: publishingInfo.firstPublishedOn,
-        lastPublishedOn: publishingInfo.lastPublishedOn,
         googleDocs: JSON.stringify(googleDocs)
       }
   };
@@ -2615,7 +2599,6 @@ function publishPage() {
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
-  var publishingInfo = getPublishingInfo();
   var formData = {
     query: `mutation UpdatePage($id: ID!, $data: PageInput!) {
       pages { 
@@ -2633,8 +2616,6 @@ function publishPage() {
       id: versionID,
       data: {
         published: true,
-        firstPublishedOn: publishingInfo.firstPublishedOn,
-        lastPublishedOn: publishingInfo.lastPublishedOn,
       },
     },
   };
@@ -2678,7 +2659,6 @@ function publishArticle() {
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
-  var publishingInfo = getPublishingInfo();
   var formData = {
     query: `mutation UpdateArticle($id: ID!, $data: ArticleInput!) {
       articles { 
@@ -2700,8 +2680,6 @@ function publishArticle() {
       id: versionID,
       data: {
         published: true,
-        firstPublishedOn: publishingInfo.firstPublishedOn,
-        lastPublishedOn: publishingInfo.lastPublishedOn,
       },
     },
   };
@@ -3403,12 +3381,6 @@ function setArticleMeta() {
 
   var articleData = getArticle(articleID);
   var articleID = articleData.id;
-
-  // store publishing info like first & last dates published, latest version ID and whether or not it's been published
-  var publishingInfo = {};
-  publishingInfo.firstPublishedOn = articleData.firstPublishedOn;
-  publishingInfo.lastPublishedOn = articleData.lastPublishedOn;
-  publishingInfo.publishedOn = articleData.lastPublishedOn;
 
   var tagsData = articleData.tags;
   var tagIDs = [];
