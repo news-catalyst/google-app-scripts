@@ -220,7 +220,6 @@ function getScriptConfig() {
     // value = value.replace(new RegExp(from.charAt(i), 'g'), to.charAt(i));
   for (var key in data) {
     if (orgKeyRegEx.test(key)) {
-      Logger.log("found matching key for this org:", key, data[key]);
       var plainKey = key.replace(orgKeyRegEx, '');
       orgData[plainKey] = data[key];
     }
@@ -1013,7 +1012,7 @@ function getArticleMeta() {
     if (latestArticle && latestArticle.status === "success") {
       var latestArticleData = latestArticle.data;
       Logger.log("getArticleMeta found latestArticleData")
-      if (latestArticleData.published !== undefined) {
+      if (latestArticleData.published !== undefined && latestArticleData.published !== null) {
         Logger.log("getArticleMeta setting published to latestArticleData.published:", typeof(latestArticleData.published), latestArticleData.published);
         storeIsPublished(latestArticleData.published);
       }
@@ -1237,6 +1236,7 @@ function handlePreview(formObject) {
   Logger.log("START handlePreview:", formObject);
   // save the article - pass publishFlag as false
   var response = getCurrentDocContents(formObject, false);
+  Logger.log("handlePreview getCurrentDocContents response:", response);
 
   if (response && response.status === "success") {
     // construct preview url
@@ -1253,6 +1253,8 @@ function handlePreview(formObject) {
   }
   var metadata = getArticleMeta();
   response.data = metadata;
+
+  Logger.log("END handlePreview response:", response);
   return response;
 }
 
@@ -1349,7 +1351,12 @@ function getCurrentDocContents(formObject, publishFlag) {
 
   if (responseData.status !== "success") {
     returnValue.status = "error";
-    returnValue.message = responseData.message;
+    Logger.log("getCurrentDocContents status is not success:", responseData);
+    if (responseData.message !== null) {
+      returnValue.message = responseData.message;
+    } else {
+      returnValue.message = "An unknown error occurred (line 1359)"
+    }
     return returnValue;
   }
 
@@ -2017,10 +2024,12 @@ function createArticleFrom(articleData) {
   var responseData = JSON.parse(responseText);
 
   if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.updateArticle && responseData.data.articles.updateArticle.error === null) {
+    Logger.log("createArticleFrom returning success:", responseData);
     returnValue.status = "success";
     returnValue.id = responseData.data.articles.updateArticle.data.id;
     returnValue.message = "Updated article with ID " +  returnValue.id;
   } else if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.updateArticle && responseData.data.articles.updateArticle.error !== null) {
+    Logger.log("createArticleFrom returning error:", responseData);
     returnValue.status = "error";
     returnValue.message = responseData.data.articles.updateArticle.error;
     Logger.log(JSON.stringify(returnValue.message));
@@ -2438,10 +2447,12 @@ function createArticle(articleData) {
     message: ""
   };
   if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.createArticle && responseData.data.articles.createArticle.error !== null) {
+    Logger.log("createArticle returning failure:", responseData);
     returnValue.status = "error";
     returnValue.id = null;
     returnValue.message = responseData.data.articles.createArticle.error;
   } else {
+    Logger.log("createArticle returning success:", responseData);
     returnValue.message = "Created article with ID " +  returnValue.id;
     returnValue.status = "success";
     returnValue.id = responseData.data.articles.createArticle.data.id;

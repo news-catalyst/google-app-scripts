@@ -45,7 +45,7 @@
       
       function onFailureMeta(error) {
         var loadingDiv = document.getElementById('loading');
-        console.log(error);
+        console.log("onFailureMeta error:", error);
         loadingDiv.innerHTML = "<p class='error'>An error occurred: " + error + '</p>';
       }
 
