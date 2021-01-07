@@ -1809,8 +1809,6 @@ function createArticleFrom(articleData) {
 
   var customByline = getCustomByline();
 
-  var publishingInfo = getPublishingInfo();
-
   var seoData = getSEO();
 
   var categories = getCategories();
@@ -1860,6 +1858,8 @@ function createArticleFrom(articleData) {
     }
   });
 
+  // TODO: remove this, require a separate button 'publish' to actually go live with the content
+  // TODO also: determine the best UX for this!
   // err on the safe side and default this flag to false
   var published = false;
   if (articleData !== undefined && articleData.published !== undefined && articleData.published !== null) {
@@ -1927,7 +1927,7 @@ function createArticleFrom(articleData) {
     availableLocales: availableLocaleNames,
     googleDocs: JSON.stringify(updatedGoogleDocs),
     docIDs: documentIDsForArticleString,
-    published: published,
+    // published: published,
     category: categoryID,
     customByline: customByline,
     authors: authorIDs,
@@ -1949,17 +1949,15 @@ function createArticleFrom(articleData) {
     data.slug = slug;
   }
 
-  // Logger.log("tagIDs: ", tagIDs);
   var variables = {
     id: versionID,
-    data:  data
+    data: data
   };
-  // Logger.log("variables:", variables);
 
   var formData = {
-    query: `mutation UpdateArticle($id: ID!, $data: ArticleInput!) {
-      articles { 
-        updateArticle(id: $id, data: $data) {
+    query: `mutation CreateArticleFrom($revision: ID!, $data: ArticleInput!) {
+      articles {
+        createArticleFrom(revision: $revision, data: $data) {
           error {
             code
             data
@@ -2236,8 +2234,6 @@ function createArticle(articleData) {
 
   var customByline = getCustomByline();
 
-  var publishingInfo = getPublishingInfo();
-
   var seoData = getSEO();
 
   var categories = getCategories();
@@ -2406,7 +2402,7 @@ function createArticle(articleData) {
             },
           ],
         },
-        published: articleData.published,
+        // published: articleData.published,
         googleDocs: JSON.stringify(googleDocs)
       }
   };
@@ -2660,9 +2656,9 @@ function publishArticle() {
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
   var formData = {
-    query: `mutation UpdateArticle($id: ID!, $data: ArticleInput!) {
+    query: `mutation PublishArticle($revision: ID!) {
       articles { 
-        updateArticle(id: $id, data: $data) {
+        publishArticle(revision: $revision) {
           error {
             code
             message
@@ -2672,17 +2668,17 @@ function publishArticle() {
             firstPublishedOn
             lastPublishedOn
             published
+            latestVersion
+            version
           }
         }
       }
     }`,
     variables: {
-      id: versionID,
-      data: {
-        published: true,
-      },
+      revision: versionID
     },
   };
+
   var options = {
     method: 'post',
     muteHttpExceptions: true,
@@ -2705,12 +2701,75 @@ function publishArticle() {
   // TODO update latestVersionPublished flag
 
   Logger.log("END publishArticle");
-  if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.updateArticle && responseData.data.articles.updateArticle.data) {
+  if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.publishArticle && responseData.data.articles.publishArticle.data) {
     storeIsPublished(true);
     return "Published article at revision " + versionID;
   } else {
     storeIsPublished(false);
-    return responseData.data.articles.updateArticle.error;
+    return responseData.data.articles.publishArticle.error;
+  }
+}
+
+/**
+ * Unpublishes the article
+ */
+function unpublishArticle() {
+  Logger.log("START unpublishArticle");
+  var versionID = getArticleID();
+
+  var scriptConfig = getScriptConfig();
+  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
+  var CONTENT_API = scriptConfig['CONTENT_API'];
+
+  var formData = {
+    query: `mutation UnpublishArticle($revision: ID!) {
+      articles { 
+        unpublishArticle(revision: $revision) {
+          error {
+            code
+            message
+          }
+          data {
+            id
+            firstPublishedOn
+            lastPublishedOn
+            published
+            latestVersion
+            version
+          }
+        }
+      }
+    }`,
+    variables: {
+      revision: versionID
+    },
+  };
+
+  var options = {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      authorization: ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(formData),
+  };
+
+  var response = UrlFetchApp.fetch(
+    CONTENT_API,
+    options
+  );
+  var responseText = response.getContentText();
+  var responseData = JSON.parse(responseText);
+  Logger.log("unpublish response:", responseData);
+
+  Logger.log("END unpublishArticle");
+  if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.unpublishArticle && responseData.data.articles.unpublishArticle.data) {
+    storeIsPublished(false);
+    return "Unpublished article at revision " + versionID;
+  } else {
+    storeIsPublished(true);
+    return responseData.data.articles.unpublishArticle.error;
   }
 }
 
