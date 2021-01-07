@@ -1210,14 +1210,44 @@ function getArticleMeta() {
 }
 /**
  * 
- * Saves the article as a draft, then publishes
+ * Sets article as 'published: true'
  * @param {} formObject 
  */
 function handlePublish(formObject) {
   Logger.log("START handlePublish:", formObject);
+
+  var response = publishArticle()
+  Logger.log("handlePublish response:", response);
+  var metadata = getArticleMeta();
+  response.data = metadata;
+  return response;
+}
+
+/**
+ * 
+ * Sets article as 'published: false'
+ * @param {} formObject 
+ */
+function handleUnpublish(formObject) {
+  Logger.log("START handleUnpublish:", formObject);
+
+  var response = unpublishArticle()
+  Logger.log("handleUnpublish response:", response);
+  var metadata = getArticleMeta();
+  response.data = metadata;
+  return response;
+}
+
+/**
+ * 
+ * Saves the article as a draft
+ * @param {} formObject 
+ */
+function handleSave(formObject) {
+  Logger.log("START handleSave:", formObject);
   // save the article - pass publishFlag as true
-  var response = getCurrentDocContents(formObject, true);
-  Logger.log("END handlePublish: ", response)
+  var response = getCurrentDocContents(formObject, false);
+  Logger.log("END handleSave: ", response)
 
   var metadata = getArticleMeta();
   response.data = metadata;
@@ -2708,14 +2738,21 @@ function publishArticle() {
 
   // TODO update latestVersionPublished flag
 
+  var returnValue = {
+    status: "success",
+    message: ""
+  }
   Logger.log("END publishArticle");
   if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.publishArticle && responseData.data.articles.publishArticle.data) {
     storeIsPublished(true);
-    return "Published article at revision " + versionID;
+    returnValue.status = "success";
+    returnValue.message = "Published article at revision " + versionID;
   } else {
     storeIsPublished(false);
-    return responseData.data.articles.publishArticle.error;
+    returnValue.status = "error";
+    returnValue.message = "Failed to publish article because: " + JSON.stringify(responseData.data.articles.publishArticle.error);
   }
+  return returnValue;
 }
 
 /**
@@ -2771,14 +2808,21 @@ function unpublishArticle() {
   var responseData = JSON.parse(responseText);
   Logger.log("unpublish response:", responseData);
 
+  var returnValue = {
+    status: "success",
+    message: ""
+  }
   Logger.log("END unpublishArticle");
   if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.unpublishArticle && responseData.data.articles.unpublishArticle.data) {
     storeIsPublished(false);
-    return "Unpublished article at revision " + versionID;
+    returnValue.status = "success";
+    returnValue.message = "Unpublished article at revision " + versionID;
   } else {
     storeIsPublished(true);
-    return responseData.data.articles.unpublishArticle.error;
+    returnValue.status = "error";
+    returnValue.message = "Failed to unpublish article because: " + JSON.stringify(responseData.data.articles.unpublishArticle.error);
   }
+  return returnValue;
 }
 
 /**

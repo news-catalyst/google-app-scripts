@@ -266,17 +266,22 @@
         var revisionDiv = document.getElementById('revision-info');
         revisionDiv.style.display = "block";
 
-        var previewDivTop = document.getElementById('preview-button-top');
-        previewDivTop.style.display = "inline";
+        var buttonsDivBottom = document.getElementById('action-buttons-bottom')
+        buttonsDivBottom.style.display = "inline";
+        var buttonsDivTop = document.getElementById('action-buttons-top')
+        buttonsDivTop.style.display = "inline";
 
-        var previewDivBottom = document.getElementById('preview-button-bottom');
-        previewDivBottom.style.display = "inline";
+        // var previewDivTop = document.getElementById('preview-button-top');
+        // previewDivTop.style.display = "inline";
 
-        var saveDivTop = document.getElementById('save-button-top');
-        saveDivTop.style.display = "inline";
+        // var previewDivBottom = document.getElementById('preview-button-bottom');
+        // previewDivBottom.style.display = "inline";
 
-        var saveDivBottom = document.getElementById('save-button-bottom');
-        saveDivBottom.style.display = "inline";
+        // var saveDivTop = document.getElementById('save-button-top');
+        // saveDivTop.style.display = "inline";
+
+        // var saveDivBottom = document.getElementById('save-button-bottom');
+        // saveDivBottom.style.display = "inline";
 
         if (data.publishingInfo !== null && typeof(data.publishingInfo) !== 'undefined') {
           if (data.publishingInfo.firstPublishedOn !== null && typeof(data.publishingInfo.firstPublishedOn) !== 'undefined') {
@@ -378,9 +383,15 @@
         if (formObject.submitted === "Preview") {
           loadingDiv.innerHTML = "<p class='gray'>Loading preview...</p>"
           google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handlePreview(formObject);
-        } else {
+        } else if (formObject.submitted === "Save") {
+          loadingDiv.innerHTML = "<p class='gray'>Saving article...</p>"
+          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handleSave(formObject);
+        } else if (formObject.submitted === "Publish") {
           loadingDiv.innerHTML = "<p class='gray'>Publishing article...</p>"
           google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handlePublish(formObject);
+        } else {
+          loadingDiv.innerHTML = "<p class='gray'>Unpublishing article...</p>"
+          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handleUnpublish(formObject);
         }
       }
       
@@ -392,17 +403,22 @@
         var revisionDiv = document.getElementById('revision-info');
         revisionDiv.style.display = "none";
 
-        var saveDivTop = document.getElementById('save-button-top');
-        saveDivTop.style.display = "none";
+        var buttonsDivBottom = document.getElementById('action-buttons-bottom')
+        buttonsDivBottom.style.display = "none";
+        var buttonsDivTop = document.getElementById('action-buttons-top')
+        buttonsDivTop.style.display = "none";
 
-        var saveDivBottom = document.getElementById('save-button-bottom');
-        saveDivBottom.style.display = "none";
+        // var saveDivTop = document.getElementById('save-button-top');
+        // saveDivTop.style.display = "none";
 
-        var previewButtonTop = document.getElementById('preview-button-top');
-        previewButtonTop.style.display = "none";
+        // var saveDivBottom = document.getElementById('save-button-bottom');
+        // saveDivBottom.style.display = "none";
 
-        var previewButtonBottom = document.getElementById('preview-button-bottom');
-        previewButtonBottom.style.display = "none";
+        // var previewButtonTop = document.getElementById('preview-button-top');
+        // previewButtonTop.style.display = "none";
+
+        // var previewButtonBottom = document.getElementById('preview-button-bottom');
+        // previewButtonBottom.style.display = "none";
 
         handleScriptConfig();
 
@@ -514,9 +530,11 @@
 
       <div id="article-meta-form">
         <form onsubmit="handleClick(this)">
-          <div class="block">
+          <div class="block" id="action-buttons-top">
             <input type="submit" name="preview" id="preview-button-top" class="blue" value="Preview" onclick="this.form.submitted=this.value;"/>
-            <input type="submit" class="blue" id="save-button-top" value="Publish" onclick="this.form.submitted=this.value;"/>
+            <input type="submit" class="blue" id="save-button-top" value="Save" onclick="this.form.submitted=this.value;"/>
+            <input type="submit" class="blue" id="publish-button-top" value="Publish" onclick="this.form.submitted=this.value;"/>
+            <input type="submit" class="blue" id="unpublish-button-top" value="Unpublish" onclick="this.form.submitted=this.value;"/>
           </div>
 
           <div class="block form-group">
@@ -598,9 +616,11 @@
             </label>
             <input id="article-twitter-description" name="article-twitter-description" type="text" />
           </div>
-          <div class="block">
+          <div class="block" id="action-buttons-bottom">
             <input type="submit" name="preview" id="preview-button-bottom" class="blue" value="Preview" onclick="this.form.submitted=this.value;"/>
-            <input type="submit" class="blue" id="save-button-bottom" value="Publish" onclick="this.form.submitted=this.value;"/>
+            <input type="submit" class="blue" id="save-button-bottom" value="Save" onclick="this.form.submitted=this.value;"/>
+            <input type="submit" class="blue" id="publish-button-bottom" value="Publish" onclick="this.form.submitted=this.value;"/>
+            <input type="submit" class="blue" id="unpublish-button-bottom" value="Unpublish" onclick="this.form.submitted=this.value;"/>
           </div>
         </form>
       </div>
