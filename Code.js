@@ -202,8 +202,6 @@ function getScriptConfig() {
         }
       }
     }
-  } else {
-    Logger.log("found orgName:", orgName);
   }
 
   // If there's still no org name return an error
@@ -215,7 +213,6 @@ function getScriptConfig() {
   var data = scriptProperties.getProperties();
   var orgData = {}
   var pattern = `^${orgName}_`;
-  Logger.log("looking for", pattern)
   var orgKeyRegEx = new RegExp(pattern, "i")
     // value = value.replace(new RegExp(from.charAt(i), 'g'), to.charAt(i));
   for (var key in data) {
@@ -224,7 +221,7 @@ function getScriptConfig() {
       orgData[plainKey] = data[key];
     }
   }
-  Logger.log("orgData:", orgData);
+  // Logger.log("orgData:", orgData);
   return orgData;
 }
 
@@ -1788,7 +1785,7 @@ function createArticleFrom(articleData) {
   Logger.log("createArticleFrom data.published: ", articleData.published);
 
   var returnValue = {
-    status: "",
+    status: "success",
     message: ""
   };
 
