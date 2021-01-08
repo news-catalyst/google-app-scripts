@@ -56,6 +56,63 @@
         loadingDiv.innerHTML = "<p class='error'>An error occurred: " + error + "</p>";
       }
 
+      function onSuccessUnpublish(response) {
+        var configDiv = document.getElementById('config');
+        configDiv.style.display = 'none';
+        var div = document.getElementById('loading');
+        div.style.display = 'block';
+        if (response && response.status && response.status === "error") {
+          div.innerHTML = "<p class='error'>An error occurred: " + response.message + '</p>';
+        } else {
+          div.innerHTML = '<p style="color: #48C774;">' + response.message + "</p>";
+        }
+
+        // hide the publish buttons
+        console.log("onSuccessUnpublish: showing publish, hiding unpublish")
+        var publishButtonTop = document.getElementById('publish-button-top');
+        publishButtonTop.style.display = "inline";
+        var publishButtonBottom = document.getElementById('publish-button-bottom');
+        publishButtonBottom.style.display = "inline";
+
+        // display the unpublish buttons
+        var unpublishButtonTop = document.getElementById('unpublish-button-top');
+        unpublishButtonTop.style.display = "none";
+        var unpublishButtonBottom = document.getElementById('unpublish-button-bottom');
+        unpublishButtonBottom.style.display = "none";
+
+        if (response.data) {
+          onSuccessMetaPreserveLoading(response.data);
+        }
+      }
+      function onSuccessPublish(response) {
+        var configDiv = document.getElementById('config');
+        configDiv.style.display = 'none';
+        var div = document.getElementById('loading');
+        div.style.display = 'block';
+        if (response && response.status && response.status === "error") {
+          div.innerHTML = "<p class='error'>An error occurred: " + response.message + '</p>';
+        } else {
+          div.innerHTML = '<p style="color: #48C774;">' + response.message + "</p>";
+        }
+
+        // hide the publish buttons
+        console.log("onSuccessPublish: hiding publish, showing unpublish")
+        var publishButtonTop = document.getElementById('publish-button-top');
+        publishButtonTop.style.display = "none";
+        var publishButtonBottom = document.getElementById('publish-button-bottom');
+        publishButtonBottom.style.display = "none";
+
+        // display the unpublish buttons
+        var unpublishButtonTop = document.getElementById('unpublish-button-top');
+        unpublishButtonTop.style.display = "inline";
+        var unpublishButtonBottom = document.getElementById('unpublish-button-bottom');
+        unpublishButtonBottom.style.display = "inline";
+
+        if (response.data) {
+          onSuccessMetaPreserveLoading(response.data);
+        }
+      }
+
       function onSuccessPreviewPublish(response) {
         var configDiv = document.getElementById('config');
         configDiv.style.display = 'none';
@@ -333,9 +390,38 @@
         var isPublishedYesNo = "no";
 
         if (value === "true" || value === true) { // 😭 javascript + JSON + boolean `published: true` or `published: false` as string
+          // hide the publish buttons
+          console.log("setPublishedFlag: hiding publish, showing unpublish")
+          var publishButtonTop = document.getElementById('publish-button-top');
+          publishButtonTop.style.display = "none";
+          var publishButtonBottom = document.getElementById('publish-button-bottom');
+          publishButtonBottom.style.display = "none";
+
+          // display the unpublish buttons
+          var unpublishButtonTop = document.getElementById('unpublish-button-top');
+          unpublishButtonTop.style.display = "inline";
+          var unpublishButtonBottom = document.getElementById('unpublish-button-bottom');
+          unpublishButtonBottom.style.display = "inline";
+
           isPublishedYesNo = "yes";
+
+        } else {
+          console.log("setPublishedFlag: showing publish, hiding unpublish")
+          // show the publish buttons
+          var publishButtonTop = document.getElementById('publish-button-top');
+          publishButtonTop.style.display = "inline";
+          var publishButtonBottom = document.getElementById('publish-button-bottom');
+          publishButtonBottom.style.display = "inline";
+
+          // hide the unpublish buttons
+          var unpublishButtonTop = document.getElementById('unpublish-button-top');
+          unpublishButtonTop.style.display = "none";
+          var unpublishButtonBottom = document.getElementById('unpublish-button-bottom');
+          unpublishButtonBottom.style.display = "none";
         }
         isPublishedSpan.innerHTML = isPublishedYesNo;
+
+
       }
 
       function onSuccessConfig(data) {
@@ -388,10 +474,10 @@
           google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handleSave(formObject);
         } else if (formObject.submitted === "Publish") {
           loadingDiv.innerHTML = "<p class='gray'>Publishing article...</p>"
-          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handlePublish(formObject);
+          google.script.run.withSuccessHandler(onSuccessPublish).withFailureHandler(onFailure).handlePublish(formObject);
         } else {
           loadingDiv.innerHTML = "<p class='gray'>Unpublishing article...</p>"
-          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handleUnpublish(formObject);
+          google.script.run.withSuccessHandler(onSuccessUnpublish).withFailureHandler(onFailure).handleUnpublish(formObject);
         }
       }
       
