@@ -1216,8 +1216,12 @@ function getArticleMeta() {
 function handlePublish(formObject) {
   Logger.log("START handlePublish:", formObject);
 
-  var response = publishArticle()
-  Logger.log("handlePublish response:", response);
+  var response = getCurrentDocContents(formObject, false);
+  Logger.log("getCurrentDocContents response: ", response)
+
+  var response = publishArticle();
+  Logger.log("publishArticle response:", response);
+
   var metadata = getArticleMeta();
   response.data = metadata;
   return response;
@@ -1232,22 +1236,7 @@ function handleUnpublish(formObject) {
   Logger.log("START handleUnpublish:", formObject);
 
   var response = unpublishArticle()
-  Logger.log("handleUnpublish response:", response);
-  var metadata = getArticleMeta();
-  response.data = metadata;
-  return response;
-}
-
-/**
- * 
- * Saves the article as a draft
- * @param {} formObject 
- */
-function handleSave(formObject) {
-  Logger.log("START handleSave:", formObject);
-  // save the article - pass publishFlag as true
-  var response = getCurrentDocContents(formObject, false);
-  Logger.log("END handleSave: ", response)
+  Logger.log("unpublishArticle response:", response);
 
   var metadata = getArticleMeta();
   response.data = metadata;

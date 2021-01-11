@@ -271,18 +271,6 @@
         var buttonsDivTop = document.getElementById('action-buttons-top')
         buttonsDivTop.style.display = "inline";
 
-        // var previewDivTop = document.getElementById('preview-button-top');
-        // previewDivTop.style.display = "inline";
-
-        // var previewDivBottom = document.getElementById('preview-button-bottom');
-        // previewDivBottom.style.display = "inline";
-
-        // var saveDivTop = document.getElementById('save-button-top');
-        // saveDivTop.style.display = "inline";
-
-        // var saveDivBottom = document.getElementById('save-button-bottom');
-        // saveDivBottom.style.display = "inline";
-
         if (data.publishingInfo !== null && typeof(data.publishingInfo) !== 'undefined') {
           if (data.publishingInfo.firstPublishedOn !== null && typeof(data.publishingInfo.firstPublishedOn) !== 'undefined') {
             var firstPubDiv = document.getElementById('first-published');
@@ -334,6 +322,29 @@
 
         if (value === "true" || value === true) { // 😭 javascript + JSON + boolean `published: true` or `published: false` as string
           isPublishedYesNo = "yes";
+
+          var publishButtonTop = document.getElementById('publish-button-top');
+          publishButtonTop.value = "Re-publish";
+          var publishButtonBottom = document.getElementById('publish-button-bottom');
+          publishButtonBottom.value = "Re-publish";
+
+          // display the unpublish button
+          var unpublishButtonTop = document.getElementById('unpublish-button-top');
+          unpublishButtonTop.style.display = "inline";
+          var unpublishButtonBottom = document.getElementById('unpublish-button-bottom');
+          unpublishButtonBottom.style.display = "inline";
+
+        } else {
+          var publishButtonTop = document.getElementById('publish-button-top');
+          publishButtonTop.value = "Publish";
+          var publishButtonBottom = document.getElementById('publish-button-bottom');
+          publishButtonBottom.value = "Publish";
+
+          // hide the unpublish button
+          var unpublishButtonTop = document.getElementById('unpublish-button-top');
+          unpublishButtonTop.style.display = "none";
+          var unpublishButtonBottom = document.getElementById('unpublish-button-bottom');
+          unpublishButtonBottom.style.display = "none";
         }
         isPublishedSpan.innerHTML = isPublishedYesNo;
       }
@@ -383,10 +394,7 @@
         if (formObject.submitted === "Preview") {
           loadingDiv.innerHTML = "<p class='gray'>Loading preview...</p>"
           google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handlePreview(formObject);
-        } else if (formObject.submitted === "Save") {
-          loadingDiv.innerHTML = "<p class='gray'>Saving article...</p>"
-          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handleSave(formObject);
-        } else if (formObject.submitted === "Publish") {
+        } else if ( (formObject.submitted === "Publish") || (formObject.submitted === "Re-publish") ) {
           loadingDiv.innerHTML = "<p class='gray'>Publishing article...</p>"
           google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handlePublish(formObject);
         } else {
@@ -407,18 +415,6 @@
         buttonsDivBottom.style.display = "none";
         var buttonsDivTop = document.getElementById('action-buttons-top')
         buttonsDivTop.style.display = "none";
-
-        // var saveDivTop = document.getElementById('save-button-top');
-        // saveDivTop.style.display = "none";
-
-        // var saveDivBottom = document.getElementById('save-button-bottom');
-        // saveDivBottom.style.display = "none";
-
-        // var previewButtonTop = document.getElementById('preview-button-top');
-        // previewButtonTop.style.display = "none";
-
-        // var previewButtonBottom = document.getElementById('preview-button-bottom');
-        // previewButtonBottom.style.display = "none";
 
         handleScriptConfig();
 
@@ -532,7 +528,6 @@
         <form onsubmit="handleClick(this)">
           <div class="block" id="action-buttons-top">
             <input type="submit" name="preview" id="preview-button-top" class="blue" value="Preview" onclick="this.form.submitted=this.value;"/>
-            <input type="submit" class="blue" id="save-button-top" value="Save" onclick="this.form.submitted=this.value;"/>
             <input type="submit" class="blue" id="publish-button-top" value="Publish" onclick="this.form.submitted=this.value;"/>
             <input type="submit" class="blue" id="unpublish-button-top" value="Unpublish" onclick="this.form.submitted=this.value;"/>
           </div>
@@ -618,7 +613,6 @@
           </div>
           <div class="block" id="action-buttons-bottom">
             <input type="submit" name="preview" id="preview-button-bottom" class="blue" value="Preview" onclick="this.form.submitted=this.value;"/>
-            <input type="submit" class="blue" id="save-button-bottom" value="Save" onclick="this.form.submitted=this.value;"/>
             <input type="submit" class="blue" id="publish-button-bottom" value="Publish" onclick="this.form.submitted=this.value;"/>
             <input type="submit" class="blue" id="unpublish-button-bottom" value="Unpublish" onclick="this.form.submitted=this.value;"/>
           </div>
