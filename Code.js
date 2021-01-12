@@ -1257,10 +1257,11 @@ function handlePreview(formObject) {
   if (response && response.status === "success") {
     // construct preview url
     var slug = getArticleSlug();
+    var locale = getSelectedLocaleName();
     var scriptConfig = getScriptConfig();
     var previewHost = scriptConfig['PREVIEW_URL'];
     var previewSecret = scriptConfig['PREVIEW_SECRET'];
-    var fullPreviewUrl = previewHost + "?secret=" + previewSecret + "&slug=" + slug;
+    var fullPreviewUrl = previewHost + "?secret=" + previewSecret + "&slug=" + slug + "&locale=" + locale;
 
     // open preview url in new window
     response.message += "<br><a href='" + fullPreviewUrl + "' target='_blank'>Preview article in new window</a>"
