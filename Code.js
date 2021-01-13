@@ -285,6 +285,17 @@ function storeValueJSON(key, value) {
   storeValue(key, valueString);
 }
 
+function deleteAllValues() {
+  var documentPropertiesService = PropertiesService.getDocumentProperties();
+  var allDocumentProperties = documentPropertiesService.getProperties();
+  for (var key in allDocumentProperties) {
+    documentPropertiesService.deleteProperty(key);
+  }
+  var documentPropertiesServiceAfter = PropertiesService.getDocumentProperties();
+  var allDocumentPropertiesAfter = documentPropertiesServiceAfter.getProperties();
+  return allDocumentPropertiesAfter;
+}
+
 function deleteValue(key) {
   var documentProperties = PropertiesService.getDocumentProperties();
   documentProperties.deleteProperty(key);
@@ -1306,6 +1317,7 @@ function getCurrentDocContents(formObject, publishFlag) {
 
   var selectedLocale = getLocaleID();
   var selectedLocaleName = getSelectedLocaleName();
+  Logger.log("getCurrentDocContents formObject['article-locale']:" + formObject['article-locale'] + "selectedLocale:" + selectedLocale + "selectedLocaleName:" + selectedLocaleName);
   // if no locale was selected, refuse to try publishing the article
   if (selectedLocale === null || selectedLocale === undefined) {
     Logger.log("FAILED FINDING A LOCALE FOR THIS ARTICLE, ERROR");
@@ -1317,7 +1329,7 @@ function getCurrentDocContents(formObject, publishFlag) {
   articleData.localeName = selectedLocaleName;
   articleData.localeID = selectedLocale;
 
-  Logger.log("articleData for locale:", articleData.localeID, articleData.localeName);
+  Logger.log("articleData for locale: " + articleData.localeID + articleData.localeName);
 
   articleData.published = publishFlag;
   articleData.categoryID = getCategoryID();
@@ -2246,6 +2258,8 @@ function createPage(articleData) {
 . * Posts document contents to graphql, creating a new article
 . */
 function createArticle(articleData) {
+  Logger.log(articleData.localeID)
+  Logger.log(articleData.localeName)
   var title = articleData.headline;
   var elements = articleData.formattedElements;
   var localeID = articleData.localeID;
@@ -2253,6 +2267,7 @@ function createArticle(articleData) {
   var articleAuthors = articleData.authors;
   var articleTags = articleData.tags; // only id
   var categoryID = articleData.categoryID;
+
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
@@ -2268,7 +2283,14 @@ function createArticle(articleData) {
     storeCategories(categories);
   }
 
-  storeAvailableLocales(localeName);
+  if (localeName === null || localeName === undefined) {
+    Logger.log("MISSING LOCALE NAME");
+  } else {
+    Logger.log("STORING LOCALE NAME " + localeName);
+    console.log({message: 'localename storage', initialData: localeName});
+
+    storeAvailableLocales(localeName);
+  }
 
   var googleDocs = {};
   googleDocs[localeName] = articleData.documentID;
@@ -2592,6 +2614,7 @@ function deleteArticle() {
   deleteSEO();
   deleteTags();
   deleteCategories();
+  deleteAllValues();
   if (responseData && responseData.data && responseData.data.articles.deleteArticle.error === null) {
     return "Deleted article at revision " + versionID;
   } else if (responseData && responseData.data && responseData.data.articles.deleteArticle.error !== null) {
@@ -2611,6 +2634,10 @@ function clearCache() {
   deleteSEO();
   deleteTags();
   deleteCategories();
+
+  var result = deleteAllValues();
+  Logger.log("deleted all doc properties; current store is: ", result);
+
   return "Cleared cache";
 }
 
@@ -3506,11 +3533,9 @@ function processForm(formObject) {
   var headline = formObject["article-headline"];
   storeHeadline(headline);
 
-  if (formObject["article-locale"] && formObject["article-locale"] !== null && formObject["article-locale"] !== undefined) {
-    var selectedLocale  = formObject["article-locale"];
-    if (selectedLocale !== null) {
-      storeLocaleID(selectedLocale);
-    }
+  var formSelectedLocale  = formObject["article-locale"];
+  if (formSelectedLocale !== null && formSelectedLocale !== undefined) {
+    storeLocaleID(formSelectedLocale);
   }
 
   // get the current locale code; if it's not stored already, store it
@@ -3519,13 +3544,25 @@ function processForm(formObject) {
     Logger.log("processForm selectedLocaleName is null");
     var locales = getLocales();
     var selectedLocaleID = getLocaleID();
-    if (selectedLocaleID) {
-      Logger.log("processForm selectedLocaleName is null, got localeID", selectedLocaleID);
+    if (formSelectedLocale) {
+      Logger.log("processForm selectedLocaleName is null, got formselectedlocale " + formSelectedLocale);
+      var selectedLocale = locales.find((locale) => locale.id === formSelectedLocale);
+      if (selectedLocale && selectedLocale !== null && selectedLocale !== undefined) {
+        Logger.log("processForm selectedLocaleName is null, found locale" + selectedLocale);
+        selectedLocaleName = selectedLocale.code;
+        Logger.log("processForm selectedLocaleName is null, code:" + selectedLocaleName);
+        storeSelectedLocaleName(selectedLocaleName);
+      } else {
+        Logger.log("processForm failed finding selected locale")
+      }
+
+    } else if (selectedLocaleID) {
+      Logger.log("processForm selectedLocaleName is null, got localeID" + selectedLocaleID);
       var selectedLocale = locales.find((locale) => locale.id === selectedLocaleID);
       if (selectedLocale) {
-        Logger.log("processForm selectedLocaleName is null, found locale", selectedLocale);
+        Logger.log("processForm selectedLocaleName is null, found locale" + selectedLocale);
         selectedLocaleName = selectedLocale.code;
-        Logger.log("processForm selectedLocaleName is null, code:", selectedLocaleName);
+        Logger.log("processForm selectedLocaleName is null, code:" + selectedLocaleName);
         storeSelectedLocaleName(selectedLocaleName);
       } else {
         Logger.log("processForm failed finding selected locale")
@@ -3534,7 +3571,7 @@ function processForm(formObject) {
       Logger.log("processForm failed finding selected locale ID in props")
     }
   } else {
-    Logger.log("processForm selected locale name FOUND:", selectedLocaleName)
+    Logger.log("processForm selected locale name FOUND:" + selectedLocaleName)
   }
 
   var documentType = getDocumentType();
