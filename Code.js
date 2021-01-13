@@ -285,6 +285,17 @@ function storeValueJSON(key, value) {
   storeValue(key, valueString);
 }
 
+function deleteAllValues() {
+  var documentPropertiesService = PropertiesService.getDocumentProperties();
+  var allDocumentProperties = documentPropertiesService.getProperties();
+  for (var key in allDocumentProperties) {
+    documentPropertiesService.deleteProperty(key);
+  }
+  var documentPropertiesServiceAfter = PropertiesService.getDocumentProperties();
+  var allDocumentPropertiesAfter = documentPropertiesServiceAfter.getProperties();
+  return allDocumentPropertiesAfter;
+}
+
 function deleteValue(key) {
   var documentProperties = PropertiesService.getDocumentProperties();
   documentProperties.deleteProperty(key);
@@ -779,8 +790,6 @@ function getArticleByDocumentID(documentID) {
     returnValue.status = "error";
     returnValue.message = "API not configured! Please ensure document is in the right folder structure and API is configured."
     return returnValue;
-  } else {
-    Logger.log("ACCESS_TOKEN:", ACCESS_TOKEN, "CONTENT_API", CONTENT_API);
   }
 
   var formData = {
@@ -915,10 +924,10 @@ function getArticleMeta() {
 
   // if there's no stored articleID on this document, try to find it by google document ID in webiny
   if (articleID === null) {
-    Logger.log("No articleID found; looking up documentID", documentID, "in webiny now");
+    Logger.log("No articleID found; looking up documentID " + documentID + " in webiny now");
     var existingArticleData = getArticleByDocumentID(documentID);
     if (existingArticleData && existingArticleData.status === "success") {
-      Logger.log("found article with this documentID: ", existingArticleData.id);
+      Logger.log("found article with this documentID: " + existingArticleData.id);
 
       articleID = existingArticleData.id;
       storeArticleID(existingArticleData.id);
@@ -932,25 +941,25 @@ function getArticleMeta() {
       if (googleDocs) {
         try {
           googleDocsInfo = JSON.parse(googleDocs);
-          Logger.log("googleDocs:", googleDocsInfo);
+          Logger.log("googleDocs:" + JSON.stringify(googleDocsInfo));
 
           var locale = Object.keys(googleDocsInfo).find(key => googleDocsInfo[key] === documentID);
           if (locale) {
-            Logger.log("found locale NAME for this doc:", locale);
+            Logger.log("found locale NAME for this doc: " + locale);
             storeSelectedLocaleName(locale);
             var locales = getLocales();
             var selectedLocaleID = null;
             var selectedLocale = locales.find((l) => l.code === locale);
-            Logger.log("found localeID for this doc:", selectedLocale.id);
+            Logger.log("found localeID for this doc: " + selectedLocale.id);
             storeLocaleID(selectedLocale.id);
           }
 
         } catch(e) {
-          Logger.log("failed parsing googleDocs:", e);
+          Logger.log("failed parsing googleDocs:" + e);
         }
       }
     } else {
-      Logger.log("error finding article with this documentID:", existingArticleData.message);
+      Logger.log("error finding article with this documentID:" + existingArticleData.message);
     }
   }
 
@@ -1257,10 +1266,11 @@ function handlePreview(formObject) {
   if (response && response.status === "success") {
     // construct preview url
     var slug = getArticleSlug();
+    var locale = getSelectedLocaleName();
     var scriptConfig = getScriptConfig();
     var previewHost = scriptConfig['PREVIEW_URL'];
     var previewSecret = scriptConfig['PREVIEW_SECRET'];
-    var fullPreviewUrl = previewHost + "?secret=" + previewSecret + "&slug=" + slug;
+    var fullPreviewUrl = previewHost + "?secret=" + previewSecret + "&slug=" + slug + "&locale=" + locale;
 
     // open preview url in new window
     response.message += "<br><a href='" + fullPreviewUrl + "' target='_blank'>Preview article in new window</a>"
@@ -1305,6 +1315,7 @@ function getCurrentDocContents(formObject, publishFlag) {
 
   var selectedLocale = getLocaleID();
   var selectedLocaleName = getSelectedLocaleName();
+  Logger.log("getCurrentDocContents formObject['article-locale']:" + formObject['article-locale'] + "selectedLocale:" + selectedLocale + "selectedLocaleName:" + selectedLocaleName);
   // if no locale was selected, refuse to try publishing the article
   if (selectedLocale === null || selectedLocale === undefined) {
     Logger.log("FAILED FINDING A LOCALE FOR THIS ARTICLE, ERROR");
@@ -1316,7 +1327,7 @@ function getCurrentDocContents(formObject, publishFlag) {
   articleData.localeName = selectedLocaleName;
   articleData.localeID = selectedLocale;
 
-  Logger.log("articleData for locale:", articleData.localeID, articleData.localeName);
+  Logger.log("articleData for locale: " + articleData.localeID + articleData.localeName);
 
   articleData.published = publishFlag;
   articleData.categoryID = getCategoryID();
@@ -1923,28 +1934,27 @@ function createArticleFrom(articleData) {
     previousGoogleDocs = articleData.googleDocs;
   } else if (previousArticleData.googleDocs !== null) {
     previousGoogleDocs = previousArticleData.googleDocs;
-
   }
   if (previousGoogleDocs && previousGoogleDocs !== null) {
-    Logger.log("found prior googleDocs:", previousGoogleDocs);
+    Logger.log("found prior googleDocs:" + JSON.stringify(previousGoogleDocs));
 
     var priorGoogleDocsParsed = JSON.parse(previousGoogleDocs);
     if (priorGoogleDocsParsed[localeName]) {
-      Logger.log("found prior googleDocs for locale!", localeName, priorGoogleDocsParsed[localeName])
+      Logger.log("found prior googleDocs for locale!" +  localeName + JSON.stringify(priorGoogleDocsParsed[localeName]));
     } else {
-      Logger.log("NO prior googleDocs for locale:", localeName)
+      Logger.log("NO prior googleDocs for locale:" + localeName)
     }
     priorGoogleDocsParsed[localeName] = articleData.documentID;
     updatedGoogleDocs = priorGoogleDocsParsed;
   } else {
     updatedGoogleDocs[localeName] = articleData.documentID;
-    Logger.log("no prior article data, creating google docs info now:", updatedGoogleDocs)
+    Logger.log("no prior article data, creating google docs info now:" + JSON.stringify(updatedGoogleDocs));
   }
-  Logger.log("updatedGoogleDocs:", updatedGoogleDocs);
+  Logger.log("updatedGoogleDocs:" + JSON.stringify(updatedGoogleDocs));
 
   var documentIDsForArticle = Object.values(updatedGoogleDocs);
   var documentIDsForArticleString = documentIDsForArticle.join(' ');
-  Logger.log("storing docIDs:", documentIDsForArticleString)
+  Logger.log("storing docIDs:" + documentIDsForArticleString)
 
   var data = {
     availableLocales: availableLocaleNames,
@@ -1973,7 +1983,7 @@ function createArticleFrom(articleData) {
   }
 
   var variables = {
-    id: versionID,
+    revision: versionID,
     data: data
   };
 
@@ -2021,7 +2031,7 @@ function createArticleFrom(articleData) {
     }`,
     variables: variables
   };
-  // Logger.log("formData: ", formData);
+  Logger.log("formData: ", JSON.stringify(formData));
   var options = {
     method: 'post',
     muteHttpExceptions: true,
@@ -2038,6 +2048,7 @@ function createArticleFrom(articleData) {
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
+  Logger.log(responseData);
 
   if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.updateArticle && responseData.data.articles.updateArticle.error === null) {
     Logger.log("createArticleFrom returning success:", responseData);
@@ -2245,6 +2256,8 @@ function createPage(articleData) {
 . * Posts document contents to graphql, creating a new article
 . */
 function createArticle(articleData) {
+  Logger.log(articleData.localeID)
+  Logger.log(articleData.localeName)
   var title = articleData.headline;
   var elements = articleData.formattedElements;
   var localeID = articleData.localeID;
@@ -2252,6 +2265,7 @@ function createArticle(articleData) {
   var articleAuthors = articleData.authors;
   var articleTags = articleData.tags; // only id
   var categoryID = articleData.categoryID;
+
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
@@ -2267,7 +2281,14 @@ function createArticle(articleData) {
     storeCategories(categories);
   }
 
-  storeAvailableLocales(localeName);
+  if (localeName === null || localeName === undefined) {
+    Logger.log("MISSING LOCALE NAME");
+  } else {
+    Logger.log("STORING LOCALE NAME " + localeName);
+    console.log({message: 'localename storage', initialData: localeName});
+
+    storeAvailableLocales(localeName);
+  }
 
   var googleDocs = {};
   googleDocs[localeName] = articleData.documentID;
@@ -2591,6 +2612,7 @@ function deleteArticle() {
   deleteSEO();
   deleteTags();
   deleteCategories();
+  deleteAllValues();
   if (responseData && responseData.data && responseData.data.articles.deleteArticle.error === null) {
     return "Deleted article at revision " + versionID;
   } else if (responseData && responseData.data && responseData.data.articles.deleteArticle.error !== null) {
@@ -2610,6 +2632,10 @@ function clearCache() {
   deleteSEO();
   deleteTags();
   deleteCategories();
+
+  var result = deleteAllValues();
+  Logger.log("deleted all doc properties; current store is: ", result);
+
   return "Cleared cache";
 }
 
@@ -3505,11 +3531,9 @@ function processForm(formObject) {
   var headline = formObject["article-headline"];
   storeHeadline(headline);
 
-  if (formObject["article-locale"] && formObject["article-locale"] !== null && formObject["article-locale"] !== undefined) {
-    var selectedLocale  = formObject["article-locale"];
-    if (selectedLocale !== null) {
-      storeLocaleID(selectedLocale);
-    }
+  var formSelectedLocale  = formObject["article-locale"];
+  if (formSelectedLocale !== null && formSelectedLocale !== undefined) {
+    storeLocaleID(formSelectedLocale);
   }
 
   // get the current locale code; if it's not stored already, store it
@@ -3518,13 +3542,25 @@ function processForm(formObject) {
     Logger.log("processForm selectedLocaleName is null");
     var locales = getLocales();
     var selectedLocaleID = getLocaleID();
-    if (selectedLocaleID) {
-      Logger.log("processForm selectedLocaleName is null, got localeID", selectedLocaleID);
+    if (formSelectedLocale) {
+      Logger.log("processForm selectedLocaleName is null, got formselectedlocale " + formSelectedLocale);
+      var selectedLocale = locales.find((locale) => locale.id === formSelectedLocale);
+      if (selectedLocale && selectedLocale !== null && selectedLocale !== undefined) {
+        Logger.log("processForm selectedLocaleName is null, found locale" + selectedLocale);
+        selectedLocaleName = selectedLocale.code;
+        Logger.log("processForm selectedLocaleName is null, code:" + selectedLocaleName);
+        storeSelectedLocaleName(selectedLocaleName);
+      } else {
+        Logger.log("processForm failed finding selected locale")
+      }
+
+    } else if (selectedLocaleID) {
+      Logger.log("processForm selectedLocaleName is null, got localeID" + selectedLocaleID);
       var selectedLocale = locales.find((locale) => locale.id === selectedLocaleID);
       if (selectedLocale) {
-        Logger.log("processForm selectedLocaleName is null, found locale", selectedLocale);
+        Logger.log("processForm selectedLocaleName is null, found locale" + selectedLocale);
         selectedLocaleName = selectedLocale.code;
-        Logger.log("processForm selectedLocaleName is null, code:", selectedLocaleName);
+        Logger.log("processForm selectedLocaleName is null, code:" + selectedLocaleName);
         storeSelectedLocaleName(selectedLocaleName);
       } else {
         Logger.log("processForm failed finding selected locale")
@@ -3533,7 +3569,7 @@ function processForm(formObject) {
       Logger.log("processForm failed finding selected locale ID in props")
     }
   } else {
-    Logger.log("processForm selected locale name FOUND:", selectedLocaleName)
+    Logger.log("processForm selected locale name FOUND:" + selectedLocaleName)
   }
 
   var documentType = getDocumentType();
@@ -3722,7 +3758,6 @@ function i18nGetLocales(currentLocaleID, exampleLocalisedValues) {
   var availableLocales = null;
 
   var localesAvailable = exampleLocalisedValues.map(value=>value.locale)
-  Logger.log("locales found in headline:", localesAvailable);
 
   if (!localesAvailable.includes(currentLocaleID)) {
     localesAvailable.push(currentLocaleID);
@@ -3732,16 +3767,13 @@ function i18nGetLocales(currentLocaleID, exampleLocalisedValues) {
   var localeNames = [];
 
   localesAvailable.forEach( (item, index) => {
-    Logger.log("Looking for locale name for ID:", item);
     var selectedLocale = allLocales.find((locale) => locale.id === item);
     if (selectedLocale) {
-      Logger.log("-found locale name:", selectedLocale.code);
       localeNames.push(selectedLocale.code);
     }
   });
 
   availableLocales = localeNames.join(" ");
-  Logger.log("availableLocales:", availableLocales);
   storeAvailableLocales(availableLocales);
 
   return availableLocales;
@@ -3797,7 +3829,7 @@ function createNewDoc(newLocale) {
   var docID;
   var driveFile = DriveApp.getFileById(parentDocID);
   var newFile = driveFile.makeCopy(newHeadline);
-  Logger.log("created new doc:", newFile);
+  Logger.log("created new doc:" + JSON.stringify(newFile));
   if (newFile) {
     docID = newFile.getId();
   } else {
@@ -3817,7 +3849,7 @@ function createNewDoc(newLocale) {
   articleData.tags = getTags();
 
   var locales = getLocales();
-  Logger.log("looking up locale name:", localeName, ";; in locales:", locales);
+  Logger.log("looking up locale name: " + localeName + " ;; in locales: ", JSON.stringify(locales));
   var selectedLocale = locales.find((locale) => locale.code === localeName);
   if (selectedLocale) {
     articleData.localeID = selectedLocale.id;
@@ -3841,27 +3873,27 @@ function createNewDoc(newLocale) {
         try {
           googleDocsInfo = JSON.parse(latestArticleData.googleDocs);
         } catch(e) {
-          Logger.log("error parsing googleDocs json:", e);
+          Logger.log("error parsing googleDocs json: " + e);
         }
       }
     } else {
-      Logger.log("createNewDoc failed finding latest article data for", parentArticleID);
+      Logger.log("createNewDoc failed finding latest article data for " + parentArticleID);
     }
   }
   // store the new document ID for this locale
   googleDocsInfo[localeName] = docID;
-  Logger.log("createNewDoc googleDocsInfo:", googleDocsInfo);
+  Logger.log("createNewDoc googleDocsInfo: " + JSON.stringify(googleDocsInfo));
 
   articleData.googleDocs = JSON.stringify(googleDocsInfo);
 
   // update the article for this document
-  Logger.log("createNewDoc:", articleData.googleDocs, articleData.localeID, articleData.localeName, articleData.headline)
+  Logger.log("createNewDoc:" + JSON.stringify(articleData.googleDocs) + articleData.localeID + articleData.localeName + JSON.stringify(articleData.headline));
   responseData = createArticleFrom(articleData);
 
-  if (responseData && responseData.status === "success" && responseData.id) {
+  if (responseData && responseData.status === "success") {
     Logger.log("createNewDoc update success");
   } else {
-    Logger.log("createNewDoc update FAIL:", responseData);
+    Logger.log("createNewDoc update FAIL:" + JSON.stringify(responseData));
   }
 
   return {

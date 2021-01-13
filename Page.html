@@ -22,7 +22,7 @@
       function onSuccessNewDoc(contents) {
         var configDiv = document.getElementById('config');
         configDiv.style.display = 'none';
-        var div = document.getElementById('loading');
+        var div = document.getElementById('output');
         div.style.display = 'block';
         div.innerHTML = "<a href='https://docs.google.com/document/d/" + contents.docID + "/edit?parentID=" + contents.parentID + "' target='_blank'>Open new doc</a>";
       }
