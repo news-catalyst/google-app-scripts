@@ -108,8 +108,9 @@
       }
 
       function displayConfigFormMessage(text) {
+        console.log("displaying response from saving config form...")
         var configDiv = document.getElementById('loading');
-        configDiv.innerHTML = text;
+        configDiv.innerHTML = JSON.stringify(text);
 
         hideConfigForm();
         showSearchForm();
