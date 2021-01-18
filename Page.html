@@ -206,23 +206,35 @@
           }
         }
 
-        var articleSearchTitle = document.getElementById('article-search-title');
-        articleSearchTitle.value = data.seo.searchTitle;
+        if (data.seo.searchTitle !== undefined) {
+          var articleSearchTitle = document.getElementById('article-search-title');
+          articleSearchTitle.value = data.seo.searchTitle;
+        }
 
-        var articleSearchDescription = document.getElementById('article-search-description');
-        articleSearchDescription.value = data.seo.searchDescription;
+        if (data.seo.searchDescription !== undefined) {
+          var articleSearchDescription = document.getElementById('article-search-description');
+          articleSearchDescription.value = data.seo.searchDescription;
+        }
 
-        var articleFacebookTitle = document.getElementById('article-facebook-title');
-        articleFacebookTitle.value = data.seo.facebookTitle;
+        if (data.seo.facebookTitle !== undefined) {
+          var articleFacebookTitle = document.getElementById('article-facebook-title');
+          articleFacebookTitle.value = data.seo.facebookTitle;
+        }
 
-        var articleFacebookDescription = document.getElementById('article-facebook-description');
-        articleFacebookDescription.value = data.seo.facebookDescription;
+        if (data.seo.facebookDescription !== undefined) {
+          var articleFacebookDescription = document.getElementById('article-facebook-description');
+          articleFacebookDescription.value = data.seo.facebookDescription;
+        }
 
-        var articleTwitterTitle = document.getElementById('article-twitter-title');
-        articleTwitterTitle.value = data.seo.twitterTitle;
+        if (data.seo.twitterTitle !== undefined) {
+          var articleTwitterTitle = document.getElementById('article-twitter-title');
+          articleTwitterTitle.value = data.seo.twitterTitle;
+        }
 
-        var articleTwitterDescription = document.getElementById('article-twitter-description');
-        articleTwitterDescription.value = data.seo.twitterDescription;
+        if (data.seo.twitterDescription !== undefined) {
+          var articleTwitterDescription = document.getElementById('article-twitter-description');
+          articleTwitterDescription.value = data.seo.twitterDescription;
+        }
 
         var previewUrl = document.getElementById('preview-url');
         previewUrl.value = data.previewUrl;
