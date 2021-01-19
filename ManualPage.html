@@ -9,6 +9,19 @@
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/js/select2.min.js"></script>
 
     <script>
+      function toggleConfigForm() {
+        var scriptForm = document.getElementById('script-config-form')
+
+        // if the config form is being displayed, hide it
+        if (scriptForm.style.display === "block") {
+          hideConfigForm();
+          showSearchForm();
+
+        // otherwise, display it
+        } else {
+          getConfigAndDisplayForm();
+        }
+      }
       function onSuccessClear(contents) {
         // hideLoading();
         var div = document.getElementById('loading');
@@ -243,7 +256,7 @@
 
         console.log(data);
         if ( data.articleID !== null && data.articleID !== undefined) {
-          loadingDiv.innerHTML = "<p>This document is already associated with an article in Webiny (ID #" + data.articleID +").</p>\n<p>Open the Publishing Tools to work with it. Or, stay here to change which article this document is linked to.</p>"
+          loadingDiv.innerHTML = "<p>This document is already associated with an article in Webiny (ID #" + data.articleID +").</p>\n<p>Open the Publishing Tools to work with it. Or, stay here to change which article this document is linked to.</p><hr/>"
         } else {
           loadingDiv.innerHTML = "<p>You can link this document to an existing article in Webiny to publish it to the web and mobile.</p>"
         }
@@ -336,7 +349,7 @@
   <body>
     <a id='top' href="#"></a>
     <div id="sidebar-wrapper" class="sidebar branding-below">
-      <h1 class="title">Admin this Document</h1>
+      <h1 class="title">Admin Tools</h1>
 
       <div class="block gray" id="loading">Loading...</div>
 
@@ -395,11 +408,12 @@
         </div>
       </form>
 
-      <div id="article-search-form">
+      <div id="article-search-form" class="block">
+        <h2>Link Doc with Existing Article</h2>
         <form onsubmit="handleSearch(this)">
           <div class="block form-group">
             <label for="article-headline">
-              <b>Search Articles</b>
+              <b>Find an article by headline</b>
             </label>
             <input id="article-search" name="article-search" type="text" />
           </div>
@@ -409,7 +423,7 @@
         </form>
       </div>
 
-      <div id="associate-article-form">
+      <div id="associate-article-form" class="block">
         <form onsubmit="handleAssociate(this)">
           <div class="block form-group">
             <label for="article-id">
@@ -431,14 +445,17 @@
         </form>
       </div>
 
+
       <div class="block">
-        <button onclick="getConfigAndDisplayForm()">Show Config</button>
-        <button onclick="hideConfigForm();showSearchForm();">Hide Config</button>
+        <hr/>
+        <button onclick="toggleConfigForm()">Toggle Config Form</button>
+        <hr/>
         <button onclick="clearCache()">Clear Cache</button>
-      </div>
-      <div class="block">
+        <hr/>
+        <br/>
         <button style="display: none;" id="deleteArticleButton" class="create" onclick="deleteArticle()">Delete Article</button>
         <button style="display: none;" id="deletePageButton" class="create" onclick="deletePage()">Delete Page</button>
+        <br/>
       </div>
     </div>
 
