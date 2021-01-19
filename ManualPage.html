@@ -131,31 +131,36 @@
 
       function onSuccessConfigFormValues(data) {
         var accessToken = document.getElementById('access-token');
-        accessToken.value = data.accessToken;
+        accessToken.value = data.accessToken ? data.accessToken : data['ACCESS_TOKEN'];
 
         var contentApi = document.getElementById('content-api');
-        contentApi.value = data.contentApi;
+        contentApi.value = data.contentApi ? data.contentApi : data['CONTENT_API'];
 
         var previewUrl = document.getElementById('preview-url');
-        previewUrl.value = data.previewUrl;
+        previewUrl.value = data.previewUrl ? data.previewUrl : data['PREVIEW_URL'];
 
         var previewSecret = document.getElementById('preview-secret');
-        previewSecret.value = data.previewSecret;
+        previewSecret.value = data.previewSecret ? data.previewSecret : data['PREVIEW_SECRET'];
 
         var awsAccessKey = document.getElementById('aws-access-key');
-        awsAccessKey.value = data.awsAccessKey;
+        awsAccessKey.value = data.awsAccessKey ? data.awsAccessKey : data['AWS_ACCESS_KEY_ID'];
 
         var awsSecretKey = document.getElementById('aws-secret-key');
-        awsSecretKey.value = data.awsSecretKey;
+        awsSecretKey.value = data.awsSecretKey ? data.awsSecretKey : data['AWS_SECRET_KEY'];
 
         var awsBucket = document.getElementById('aws-bucket');
-        awsBucket.value = data.awsBucket;
+        awsBucket.value = data.awsBucket ? data.awsBucket : data['AWS_BUCKET'];
+
+        var deployHook = document.getElementById('aws-bucket');
+        deployHook.value = data.vercelDeployHook ? data.vercelDeployHook : data['VERCEL_DEPLOY_HOOK'];
+
+        showConfigForm();
       }
 
       function getConfigAndDisplayForm() {
         hideSearchForm();
         showConfigForm();
-        google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessConfigFormValues).getArticleMeta();
+        // google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessConfigFormValues).getArticleMeta();
       }
 
       function showArticleForm() {
@@ -200,9 +205,10 @@
 
       function onSuccessConfig(data) {
         // hideLoading();
-        var loadingDiv = document.getElementById('loading');
+        // var loadingDiv = document.getElementById('loading');
         if (data !== null && data !== {} && Object.keys(data).length > 0) {
-          loadingDiv.innerHTML = "<div class='success'>Configuration loaded.</div><hr/>"
+          // loadingDiv.innerHTML = "<div class='success'>Configuration loaded.</div><hr/>"
+          onSuccessConfigFormValues(data);
           hideConfigForm();
           showSearchForm();
         } else {
