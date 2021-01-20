@@ -9,6 +9,37 @@
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/js/select2.min.js"></script>
 
     <script>
+      // flags for a subset of all locales
+      // I started with the ones I figured were the most likely; then grabbed more from this
+      // full locale list from https://github.com/ladjs/i18n-locales
+      // emoji flags from https://emojipedia.org/flags/
+      // I took all the major seeming english variants too: Australia, Canada, Ireland, GB, NZ, US, and South Africa
+      const emojiFor = {
+        "es": "🇪🇸",
+        "es-ES": "🇪🇸",
+        "fr": "🇫🇷",
+        "fr-FR": "🇫🇷",
+        "de": "🇩🇪",
+        "de-DE": "🇩🇪",
+        "pt-BR": "🇧🇷",
+        "pt": "🇵🇹",
+        "pt-PT": "🇵🇹",
+        "en": "🇬🇧",
+        "en-AU": "🇦🇺",
+        "en-CA": "🇨🇦",
+        "en-IE": "🇮🇪",
+        "en-GB": "🇬🇧",
+        "en-US": "🇺🇸",
+        "en-NZ": "🇳🇿",
+        "en-ZA": "🇿🇦",
+        "jp": "🇯🇵",
+        "zh": "🇨🇳",
+        "zh-CN": "🇨🇳",
+        "it": "🇮🇹",
+        "ru": "🇷🇺",
+        "ru-RU": "🇷🇺"
+      }
+
       function showConfigForm() {
         var scriptForm = document.getElementById('script-config-form')
         scriptForm.style.display = "block";
@@ -274,7 +305,8 @@
 
         if (data.googleDocs !== null && data.googleDocs !== undefined) {
           var editDiv = document.getElementById('edit-links');
-          var links = [];
+          var createLinks = [];
+          var editLinks = [];
           var createLocales = data.locales.map(locale=>locale.code);
           var existingLocales = Object.keys(data.googleDocs);
 
@@ -283,16 +315,23 @@
           })
 
           $.each( data.googleDocs, function( locale, docID ) {
+            var emojiFlag = emojiFor[locale];
             if (locale !== data.localeName) {
-              links.push("<li><a target='_blank' href='https://docs.google.com/document/d/" + docID + "/edit'>" + locale + "</a></li>")
+              editLinks.push("<li><a target='_blank' href='https://docs.google.com/document/d/" + docID + "/edit'>" + emojiFlag + locale + "</a></li>")
             }
           });
 
           $.each(createLocales, function( index, locale ) {
-            links.push("<li><a onclick='createNewDoc(\"" + locale + "\");'>" + locale + " (new)</a></li>");
+            var emojiFlag = emojiFor[locale];
+            createLinks.push("<li><a onclick='createNewDoc(\"" + locale + "\");'>" + emojiFlag + locale + "</li>");
           });
 
-          editDiv.innerHTML = "<p><b>Edit in other languages:</b></p><ul>" + links.join("")+ "</ul>";
+          if (createLinks.length > 0) {
+            editDiv.innerHTML = "<p><b>Create new translation:</b></p><ul>" + createLinks.join("")+ "</ul>";
+          }
+          if (editLinks.length > 0) {
+            editDiv.innerHTML += "<p><b>Existing translations:</b></p><ul>" + editLinks.join("")+ "</ul>";
+          }
         }
       }
 
