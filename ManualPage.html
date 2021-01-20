@@ -253,6 +253,16 @@
         }
       }
 
+      function setPublishedFlag(value) {
+        var isPublishedSpan = document.getElementById('is-published');
+        var isPublishedYesNo = "no";
+
+        if (value === "true" || value === true) { // 😭 javascript + JSON + boolean `published: true` or `published: false` as string
+          isPublishedYesNo = "yes";
+        }
+        isPublishedSpan.innerHTML = isPublishedYesNo;
+      }
+
       function handleScriptConfigSubmit(formObject) {
         google.script.run.withSuccessHandler(displayConfigFormMessage).setScriptConfig(formObject);
       }
@@ -261,10 +271,38 @@
         var loadingDiv = document.getElementById('loading');
 
         console.log(data);
+
+        setPublishedFlag(data.published);
+
         if ( data.articleID !== null && data.articleID !== undefined) {
           loadingDiv.innerHTML = "<p>This document is already associated with an article in Webiny (ID #" + data.articleID +").</p>\n<p>Open the Publishing Tools to work with it. Or, stay here to change which article this document is linked to.</p><hr/>"
         } else {
           loadingDiv.innerHTML = "<p>You can link this document to an existing article in Webiny to publish it to the web and mobile.</p>"
+
+        }
+
+        var revisionIdSpan = document.getElementById('revision-id');
+        revisionIdSpan.innerHTML = data.articleID;
+
+        var slugDiv = document.getElementById('slug');
+        slugDiv.innerHTML = data.slug;
+
+        var availableLocalesDiv = document.getElementById('available-locales');
+        availableLocalesDiv.innerHTML = data.availableLocales;
+
+        var sitewideLocalesDiv = document.getElementById('sitewide-locales');
+        sitewideLocalesDiv.innerHTML = data.locales.map(locale=>locale.code).join(" | ");
+
+        if (data.firstPublishedOn !== null && typeof(data.firstPublishedOn) !== 'undefined') {
+          var firstPubDiv = document.getElementById('first-published');
+          var localisedDate = new Date(data.firstPublishedOn).toLocaleString();
+          firstPubDiv.innerHTML = localisedDate;
+        }
+
+        if (data.lastPublishedOn !== null && typeof(data.lastPublishedOn) !== 'undefined') {
+          var lastPubDiv = document.getElementById('last-published');
+          var localisedDate = new Date(data.lastPublishedOn).toLocaleString();
+          lastPubDiv.innerHTML = localisedDate;
         }
 
         var deleteArticleButton = document.getElementById("deleteArticleButton");
@@ -462,6 +500,30 @@
         <button style="display: none;" id="deleteArticleButton" class="create" onclick="deleteArticle()">Delete Article</button>
         <button style="display: none;" id="deletePageButton" class="create" onclick="deletePage()">Delete Page</button>
         <br/>
+        <hr/>
+        <br/>
+        <h3 class="gray">Debugging Info:</h3>
+          <p class="gray">
+            <b>Article slug:</b> <span id="slug"></span>
+          </p>
+          <p class="gray">
+            <b>Available locales:</b> <span id="available-locales"></span>
+          </p>
+          <p class="gray">
+            <b>Revision ID:</b> <span id="revision-id"></span>
+          </p>
+          <p class="gray">
+            <b>Published?</b> <span id="is-published"></span>
+          </p>
+          <p class="gray">
+            <b>First published:</b> <span id="first-published"></span>
+          </p>
+          <p class="gray">
+            <b>Last published:</b> <span id="last-published"></span>
+          </p>
+          <p class="gray">
+            <b>Site-wide Locales:</b> <span id="sitewide-locales"></span>
+          </p>
       </div>
     </div>
 

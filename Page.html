@@ -192,9 +192,6 @@
           }
         })
 
-        var revisionIdSpan = document.getElementById('revision-id');
-        revisionIdSpan.innerHTML = data.articleID;
-
         setPublishedFlag(data.published);
 
         var articleHeadline = document.getElementById('article-headline');
@@ -234,12 +231,6 @@
         var slugDiv = document.getElementById('slug');
         slugDiv.innerHTML = data.slug;
 
-        var availableLocalesDiv = document.getElementById('available-locales');
-        availableLocalesDiv.innerHTML = data.availableLocales;
-
-        var sitewideLocalesDiv = document.getElementById('sitewide-locales');
-        sitewideLocalesDiv.innerHTML = data.locales.map(locale=>locale.code).join(" | ");
-
         if (data.documentType === 'article') {
           $('#article-authors').select2({
             width: 'resolve',
@@ -264,25 +255,22 @@
           });
         }
 
-        var revisionDiv = document.getElementById('revision-info');
-        revisionDiv.style.display = "block";
-
         var buttonsDivBottom = document.getElementById('action-buttons-bottom')
         buttonsDivBottom.style.display = "inline";
         var buttonsDivTop = document.getElementById('action-buttons-top')
         buttonsDivTop.style.display = "inline";
 
-        if (data.firstPublishedOn !== null && typeof(data.firstPublishedOn) !== 'undefined') {
-          var firstPubDiv = document.getElementById('first-published');
-          var localisedDate = new Date(data.firstPublishedOn).toLocaleString();
-          firstPubDiv.innerHTML = localisedDate;
-        }
+        // if (data.firstPublishedOn !== null && typeof(data.firstPublishedOn) !== 'undefined') {
+        //   var firstPubDiv = document.getElementById('first-published');
+        //   var localisedDate = new Date(data.firstPublishedOn).toLocaleString();
+        //   firstPubDiv.innerHTML = localisedDate;
+        // }
 
-        if (data.lastPublishedOn !== null && typeof(data.lastPublishedOn) !== 'undefined') {
-          var lastPubDiv = document.getElementById('last-published');
-          var localisedDate = new Date(data.lastPublishedOn).toLocaleString();
-          lastPubDiv.innerHTML = localisedDate;
-        }
+        // if (data.lastPublishedOn !== null && typeof(data.lastPublishedOn) !== 'undefined') {
+        //   var lastPubDiv = document.getElementById('last-published');
+        //   var localisedDate = new Date(data.lastPublishedOn).toLocaleString();
+        //   lastPubDiv.innerHTML = localisedDate;
+        // }
 
         if (data.googleDocs !== null && data.googleDocs !== undefined) {
           var editDiv = document.getElementById('edit-links');
@@ -316,7 +304,7 @@
       }
 
       function setPublishedFlag(value) {
-        var isPublishedSpan = document.getElementById('is-published');
+        // var isPublishedSpan = document.getElementById('is-published');
         var isPublishedYesNo = "no";
 
         if (value === "true" || value === true) { // 😭 javascript + JSON + boolean `published: true` or `published: false` as string
@@ -345,7 +333,7 @@
           var unpublishButtonBottom = document.getElementById('unpublish-button-bottom');
           unpublishButtonBottom.style.display = "none";
         }
-        isPublishedSpan.innerHTML = isPublishedYesNo;
+        // isPublishedSpan.innerHTML = isPublishedYesNo;
       }
 
       function onSuccessConfig(data) {
@@ -406,9 +394,6 @@
         var form = document.getElementById('article-meta-form');
         form.style.display = "none";
         hideConfigForm();
-        
-        var revisionDiv = document.getElementById('revision-info');
-        revisionDiv.style.display = "none";
 
         var buttonsDivBottom = document.getElementById('action-buttons-bottom')
         buttonsDivBottom.style.display = "none";
@@ -540,6 +525,13 @@
           </div>
 
           <div class="block form-group">
+            <label for="article-slug">
+              <b>Article slug</b>
+            </label>
+            <div id="slug"></div>
+          </div>
+
+          <div class="block form-group">
             <label for="article-headline">
               <b>Headline</b>
             </label>
@@ -616,32 +608,6 @@
             <input type="submit" class="blue" id="unpublish-button-bottom" value="Unpublish" onclick="this.form.submitted=this.value;"/>
           </div>
         </form>
-      </div>
-
-      <div class="block">
-        <div id="revision-info">
-          <p>
-            <b>Article slug:</b> <span id="slug"></span>
-          </p>
-          <p>
-            <b>Available locales:</b> <span id="available-locales"></span>
-          </p>
-          <p>
-            <b>Revision ID:</b> <span id="revision-id"></span>
-          </p>
-          <p>
-            <b>Published?</b> <span id="is-published"></span>
-          </p>
-          <p>
-            <b>First published:</b> <span id="first-published"></span>
-          </p>
-          <p>
-            <b>Last published:</b> <span id="last-published"></span>
-          </p>
-          <p>
-            <b>Site-wide Locales:</b> <span id="sitewide-locales"></span>
-          </p>
-        </div>
       </div>
 
       <div id="edit-links" class="block">
