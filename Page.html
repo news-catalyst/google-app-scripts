@@ -9,6 +9,37 @@
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/js/select2.min.js"></script>
 
     <script>
+      // flags for a subset of all locales
+      // I started with the ones I figured were the most likely; then grabbed more from this
+      // full locale list from https://github.com/ladjs/i18n-locales
+      // emoji flags from https://emojipedia.org/flags/
+      // I took all the major seeming english variants too: Australia, Canada, Ireland, GB, NZ, US, and South Africa
+      const emojiFor = {
+        "es": "🇪🇸",
+        "es-ES": "🇪🇸",
+        "fr": "🇫🇷",
+        "fr-FR": "🇫🇷",
+        "de": "🇩🇪",
+        "de-DE": "🇩🇪",
+        "pt-BR": "🇧🇷",
+        "pt": "🇵🇹",
+        "pt-PT": "🇵🇹",
+        "en": "🇬🇧",
+        "en-AU": "🇦🇺",
+        "en-CA": "🇨🇦",
+        "en-IE": "🇮🇪",
+        "en-GB": "🇬🇧",
+        "en-US": "🇺🇸",
+        "en-NZ": "🇳🇿",
+        "en-ZA": "🇿🇦",
+        "jp": "🇯🇵",
+        "zh": "🇨🇳",
+        "zh-CN": "🇨🇳",
+        "it": "🇮🇹",
+        "ru": "🇷🇺",
+        "ru-RU": "🇷🇺"
+      }
+
       function showConfigForm() {
         var scriptForm = document.getElementById('script-config-form')
         scriptForm.style.display = "block";
@@ -72,6 +103,7 @@
       }
 
       function onSuccessMetaPreserveLoading(data) {
+        console.log("onSuccessMeta data:", data);
         var form = document.getElementById('article-meta-form');
         form.style.display = "block";
 
@@ -191,9 +223,6 @@
           }
         })
 
-        var revisionIdSpan = document.getElementById('revision-id');
-        revisionIdSpan.innerHTML = data.articleID;
-
         setPublishedFlag(data.published);
 
         var articleHeadline = document.getElementById('article-headline');
@@ -233,12 +262,6 @@
         var slugDiv = document.getElementById('slug');
         slugDiv.innerHTML = data.slug;
 
-        var availableLocalesDiv = document.getElementById('available-locales');
-        availableLocalesDiv.innerHTML = data.availableLocales;
-
-        var sitewideLocalesDiv = document.getElementById('sitewide-locales');
-        sitewideLocalesDiv.innerHTML = data.locales.map(locale=>locale.code).join(" | ");
-
         if (data.documentType === 'article') {
           $('#article-authors').select2({
             width: 'resolve',
@@ -263,31 +286,27 @@
           });
         }
 
-        var revisionDiv = document.getElementById('revision-info');
-        revisionDiv.style.display = "block";
-
         var buttonsDivBottom = document.getElementById('action-buttons-bottom')
         buttonsDivBottom.style.display = "inline";
         var buttonsDivTop = document.getElementById('action-buttons-top')
         buttonsDivTop.style.display = "inline";
 
-        if (data.publishingInfo !== null && typeof(data.publishingInfo) !== 'undefined') {
-          if (data.publishingInfo.firstPublishedOn !== null && typeof(data.publishingInfo.firstPublishedOn) !== 'undefined') {
-            var firstPubDiv = document.getElementById('first-published');
-            var localisedDate = new Date(data.publishingInfo.firstPublishedOn).toLocaleString();
-            firstPubDiv.innerHTML = localisedDate;
-          }
+        // if (data.firstPublishedOn !== null && typeof(data.firstPublishedOn) !== 'undefined') {
+        //   var firstPubDiv = document.getElementById('first-published');
+        //   var localisedDate = new Date(data.firstPublishedOn).toLocaleString();
+        //   firstPubDiv.innerHTML = localisedDate;
+        // }
 
-          if (data.publishingInfo.lastPublishedOn !== null && typeof(data.publishingInfo.lastPublishedOn) !== 'undefined') {
-            var lastPubDiv = document.getElementById('last-published');
-            var localisedDate = new Date(data.publishingInfo.lastPublishedOn).toLocaleString();
-            lastPubDiv.innerHTML = localisedDate;
-          }
-        }
+        // if (data.lastPublishedOn !== null && typeof(data.lastPublishedOn) !== 'undefined') {
+        //   var lastPubDiv = document.getElementById('last-published');
+        //   var localisedDate = new Date(data.lastPublishedOn).toLocaleString();
+        //   lastPubDiv.innerHTML = localisedDate;
+        // }
 
         if (data.googleDocs !== null && data.googleDocs !== undefined) {
           var editDiv = document.getElementById('edit-links');
-          var links = [];
+          var createLinks = [];
+          var editLinks = [];
           var createLocales = data.locales.map(locale=>locale.code);
           var existingLocales = Object.keys(data.googleDocs);
 
@@ -296,16 +315,23 @@
           })
 
           $.each( data.googleDocs, function( locale, docID ) {
+            var emojiFlag = emojiFor[locale];
             if (locale !== data.localeName) {
-              links.push("<li><a target='_blank' href='https://docs.google.com/document/d/" + docID + "/edit'>" + locale + "</a></li>")
+              editLinks.push("<li><a target='_blank' href='https://docs.google.com/document/d/" + docID + "/edit'>" + emojiFlag + locale + "</a></li>")
             }
           });
 
           $.each(createLocales, function( index, locale ) {
-            links.push("<li><a onclick='createNewDoc(\"" + locale + "\");'>" + locale + " (new)</a></li>");
+            var emojiFlag = emojiFor[locale];
+            createLinks.push("<li><a onclick='createNewDoc(\"" + locale + "\");'>" + emojiFlag + locale + "</li>");
           });
 
-          editDiv.innerHTML = "<p><b>Edit in other languages:</b></p><ul>" + links.join("")+ "</ul>";
+          if (createLinks.length > 0) {
+            editDiv.innerHTML = "<p><b>Create new translation:</b></p><ul>" + createLinks.join("")+ "</ul>";
+          }
+          if (editLinks.length > 0) {
+            editDiv.innerHTML += "<p><b>Existing translations:</b></p><ul>" + editLinks.join("")+ "</ul>";
+          }
         }
       }
 
@@ -317,7 +343,7 @@
       }
 
       function setPublishedFlag(value) {
-        var isPublishedSpan = document.getElementById('is-published');
+        // var isPublishedSpan = document.getElementById('is-published');
         var isPublishedYesNo = "no";
 
         if (value === "true" || value === true) { // 😭 javascript + JSON + boolean `published: true` or `published: false` as string
@@ -346,7 +372,7 @@
           var unpublishButtonBottom = document.getElementById('unpublish-button-bottom');
           unpublishButtonBottom.style.display = "none";
         }
-        isPublishedSpan.innerHTML = isPublishedYesNo;
+        // isPublishedSpan.innerHTML = isPublishedYesNo;
       }
 
       function onSuccessConfig(data) {
@@ -407,9 +433,6 @@
         var form = document.getElementById('article-meta-form');
         form.style.display = "none";
         hideConfigForm();
-        
-        var revisionDiv = document.getElementById('revision-info');
-        revisionDiv.style.display = "none";
 
         var buttonsDivBottom = document.getElementById('action-buttons-bottom')
         buttonsDivBottom.style.display = "none";
@@ -541,6 +564,13 @@
           </div>
 
           <div class="block form-group">
+            <label for="article-slug">
+              <b>Article slug</b>
+            </label>
+            <div id="slug"></div>
+          </div>
+
+          <div class="block form-group">
             <label for="article-headline">
               <b>Headline</b>
             </label>
@@ -617,32 +647,6 @@
             <input type="submit" class="blue" id="unpublish-button-bottom" value="Unpublish" onclick="this.form.submitted=this.value;"/>
           </div>
         </form>
-      </div>
-
-      <div class="block">
-        <div id="revision-info">
-          <p>
-            <b>Article slug:</b> <span id="slug"></span>
-          </p>
-          <p>
-            <b>Available locales:</b> <span id="available-locales"></span>
-          </p>
-          <p>
-            <b>Revision ID:</b> <span id="revision-id"></span>
-          </p>
-          <p>
-            <b>Published?</b> <span id="is-published"></span>
-          </p>
-          <p>
-            <b>First published:</b> <span id="first-published"></span>
-          </p>
-          <p>
-            <b>Last published:</b> <span id="last-published"></span>
-          </p>
-          <p>
-            <b>Site-wide Locales:</b> <span id="sitewide-locales"></span>
-          </p>
-        </div>
       </div>
 
       <div id="edit-links" class="block">
