@@ -72,6 +72,7 @@
       }
 
       function onSuccessMetaPreserveLoading(data) {
+        console.log("onSuccessMeta data:", data);
         var form = document.getElementById('article-meta-form');
         form.style.display = "block";
 
@@ -271,18 +272,16 @@
         var buttonsDivTop = document.getElementById('action-buttons-top')
         buttonsDivTop.style.display = "inline";
 
-        if (data.publishingInfo !== null && typeof(data.publishingInfo) !== 'undefined') {
-          if (data.publishingInfo.firstPublishedOn !== null && typeof(data.publishingInfo.firstPublishedOn) !== 'undefined') {
-            var firstPubDiv = document.getElementById('first-published');
-            var localisedDate = new Date(data.publishingInfo.firstPublishedOn).toLocaleString();
-            firstPubDiv.innerHTML = localisedDate;
-          }
+        if (data.firstPublishedOn !== null && typeof(data.firstPublishedOn) !== 'undefined') {
+          var firstPubDiv = document.getElementById('first-published');
+          var localisedDate = new Date(data.firstPublishedOn).toLocaleString();
+          firstPubDiv.innerHTML = localisedDate;
+        }
 
-          if (data.publishingInfo.lastPublishedOn !== null && typeof(data.publishingInfo.lastPublishedOn) !== 'undefined') {
-            var lastPubDiv = document.getElementById('last-published');
-            var localisedDate = new Date(data.publishingInfo.lastPublishedOn).toLocaleString();
-            lastPubDiv.innerHTML = localisedDate;
-          }
+        if (data.lastPublishedOn !== null && typeof(data.lastPublishedOn) !== 'undefined') {
+          var lastPubDiv = document.getElementById('last-published');
+          var localisedDate = new Date(data.lastPublishedOn).toLocaleString();
+          lastPubDiv.innerHTML = localisedDate;
         }
 
         if (data.googleDocs !== null && data.googleDocs !== undefined) {

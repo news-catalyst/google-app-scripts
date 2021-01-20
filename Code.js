@@ -756,6 +756,7 @@ function getArticleDataByID(articleID) {
     returnValue.status = "success";
     returnValue.id = responseData.data.articles.getArticle.data.id;
     returnValue.data = responseData.data.articles.getArticle.data;
+    Logger.log("**getArticleDataByID dates**: " + returnValue.data.firstPublishedOn + " " + returnValue.data.lastPublishedOn)
     returnValue.message = "Retrieved article with ID " +  returnValue.id;
   } else {
     returnValue.status = "error";
@@ -807,6 +808,9 @@ function getArticleByDocumentID(documentID) {
             googleDocs
             docIDs
             availableLocales
+            firstPublishedOn
+            lastPublishedOn
+            published
             twitterTitle {
               values {
                 value
@@ -922,6 +926,9 @@ function getArticleMeta() {
 
   var articleID = getArticleID();
 
+  var firstPublishedOn = null;
+  var lastPublishedOn = null;
+
   // if there's no stored articleID on this document, try to find it by google document ID in webiny
   if (articleID === null) {
     Logger.log("No articleID found; looking up documentID " + documentID + " in webiny now");
@@ -931,6 +938,11 @@ function getArticleMeta() {
 
       articleID = existingArticleData.id;
       storeArticleID(existingArticleData.id);
+
+      firstPublishedOn = existingArticleData.firstPublishedOn;
+      lastPublishedOn = existingArticleData.lastPublishedOn;
+
+      Logger.log("firstPublishedOn: " + firstPublishedOn + "; lastPublishedOn:" + lastPublishedOn)
 
       var headline = getDocumentName();
       Logger.log("headline:", headline);
@@ -1017,7 +1029,9 @@ function getArticleMeta() {
 
     if (latestArticle && latestArticle.status === "success") {
       var latestArticleData = latestArticle.data;
-      Logger.log("getArticleMeta found latestArticleData")
+      firstPublishedOn = latestArticleData.firstPublishedOn;
+      lastPublishedOn = latestArticleData.lastPublishedOn;
+
       if (latestArticleData.published !== undefined && latestArticleData.published !== null) {
         Logger.log("getArticleMeta setting published to latestArticleData.published:", typeof(latestArticleData.published), latestArticleData.published);
         storeIsPublished(latestArticleData.published);
@@ -1168,6 +1182,8 @@ function getArticleMeta() {
       contentApi: contentApi,
       customByline: customByline,
       documentType: documentType,
+      firstPublishedOn: null,
+      lastPublishedOn: null,
       headline: headline,
       localeID: null,
       localeName: null,
@@ -1201,6 +1217,8 @@ function getArticleMeta() {
     contentApi: contentApi,
     customByline: customByline,
     documentType: documentType,
+    firstPublishedOn: firstPublishedOn,
+    lastPublishedOn: lastPublishedOn,
     localeID: selectedLocaleID,
     localeName: selectedLocaleName,
     locales: locales,
@@ -1214,7 +1232,7 @@ function getArticleMeta() {
     republishUrl: republishUrl
   };
 
-  Logger.log("getArticleMeta END, published:", typeof(articleMetadata.published), articleMetadata.published);
+  Logger.log("getArticleMeta END, firstPublishedOn:", firstPublishedOn);
   return articleMetadata;
 }
 /**
