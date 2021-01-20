@@ -337,16 +337,13 @@ function deleteArticleID() {
 function getIsPublished() {
   var value = getValue('IS_PUBLISHED');
   if (value === "true" || value === true) {
-    Logger.log("getIsPublished:", typeof(value), value, "returning true");
     return true;
   } else {
-    Logger.log("getIsPublished:", typeof(value), value, "returning false");
     return false
   }
 }
 
 function storeIsPublished(value) {
-  Logger.log("storeIsPublished:", typeof(value), value);
   storeValue("IS_PUBLISHED", value);
 }
 
@@ -367,12 +364,10 @@ function storeLocaleID(localeID) {
 
 function getSelectedLocaleName() {
   var value = getValue(localeNameKey);
-  Logger.log("getSelectedLocaleName:", value);
   return value;
 }
 
 function storeSelectedLocaleName(localeName) {
-  Logger.log("storing selected locale name:", localeName);
   storeValue(localeNameKey, localeName);
 }
 
@@ -382,7 +377,6 @@ function getAvailableLocales() {
 }
 
 function storeAvailableLocales(localesString) {
-  Logger.log("storeAvailableLocales:", localesString);
   storeValue(availableLocalesKey, localesString);
 }
 
@@ -462,7 +456,6 @@ function getPublishingInfo() {
   if (publishingInfo === null) {
     publishingInfo = {};
   }
-  Logger.log("publishingInfo:", publishingInfo);
   return publishingInfo;
 }
 
@@ -756,7 +749,6 @@ function getArticleDataByID(articleID) {
     returnValue.status = "success";
     returnValue.id = responseData.data.articles.getArticle.data.id;
     returnValue.data = responseData.data.articles.getArticle.data;
-    Logger.log("**getArticleDataByID dates**: " + returnValue.data.firstPublishedOn + " " + returnValue.data.lastPublishedOn)
     returnValue.message = "Retrieved article with ID " +  returnValue.id;
   } else {
     returnValue.status = "error";
@@ -918,8 +910,6 @@ function getArticleMeta() {
     returnValue.status = "error";
     returnValue.message = "API not configured! Please ensure document is in the right folder structure and API is configured."
     return returnValue;
-  } else {
-    Logger.log("ACCESS_TOKEN:", ACCESS_TOKEN, "CONTENT_API", CONTENT_API);
   }
 
   var documentID = DocumentApp.getActiveDocument().getId();
@@ -1016,11 +1006,9 @@ function getArticleMeta() {
 
   var slug = getArticleSlug();
   if (slug === null || slug === undefined || slug.match(/^\s+$/) || slug === '') {
-    Logger.log("NULL SLUG:", headline);
+    Logger.log("no stored slug found for: " + headline);
     slug = slugify(headline);
     storeArticleSlug(slug);
-  } else {
-    Logger.log("SLUG FOUND:", slug);
   }
 
   var googleDocsInfo = {};
@@ -1103,7 +1091,6 @@ function getArticleMeta() {
   }
 
   var published = getIsPublished()
-  Logger.log("getArticleMeta published:", typeof(published), published);
   // obviously it isn't published if we don't have a webiny article ID
   if (articleID === null || articleID === undefined) {
     published = false;
@@ -1119,7 +1106,6 @@ function getArticleMeta() {
     allAuthors.forEach(author => {
       const result = articleAuthors.find( ({ id }) => id === author.id );
       if (result !== undefined) {
-        Logger.log("storing author slug:", author.slug)
         authorSlugs.push(author.slug);
       }
     });
@@ -1159,7 +1145,6 @@ function getArticleMeta() {
   var republishUrl = scriptConfig['VERCEL_DEPLOY_HOOK_URL'];
 
   var availableLocales = getAvailableLocales();
-  Logger.log("availableLocales:", availableLocales);
   
   if (typeof(articleID) === "undefined" || articleID === null) {
 
@@ -1232,7 +1217,7 @@ function getArticleMeta() {
     republishUrl: republishUrl
   };
 
-  Logger.log("getArticleMeta END, firstPublishedOn:", firstPublishedOn);
+  Logger.log("getArticleMeta END, firstPublishedOn: " + firstPublishedOn);
   return articleMetadata;
 }
 /**
@@ -1893,7 +1878,8 @@ function createArticleFrom(articleData) {
   const newTags = articleTags.filter(articleTag => articleTag.newTag === true);
   if (newTags.length > 0) {
     newTags.forEach(newTag => {
-      createTag(newTag.title);
+      var outcome = createTag(newTag.title);
+      Logger.log("newTag outcome: " + JSON.stringify(outcome));
     })
   }
 
@@ -2344,7 +2330,8 @@ function createArticle(articleData) {
   if (newTags.length > 0) {
     newTags.forEach(newTag => {
       // Logger.log("createArticle creating new tag: ", newTag);
-      createTag(newTag.title);
+      var outcome = createTag(newTag.title);
+      Logger.log("newTag outcome: " + JSON.stringify(outcome));
     })
   }
 
@@ -2938,7 +2925,6 @@ function loadAuthorsFromDB() {
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
-  Logger.log("CONTENT_API:", CONTENT_API, "ACCESS_TOKEN:", ACCESS_TOKEN);
   var formData = {
     query: `
     {
@@ -3038,7 +3024,7 @@ function loadTagsFromDB() {
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log("tag response:", responseData);
+  Logger.log("tag response:" + responseText);
 
   if (responseData && responseData.data && responseData.data.tags && responseData.data.tags.listTags && responseData.data.tags.listTags.data !== null) {
     return responseData.data.tags.listTags.data;
@@ -3148,16 +3134,26 @@ function createTag(tagTitle) {
 
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  // Logger.log(responseData);
+  Logger.log("responseData: ", JSON.stringify(responseData));
 
   var newTagData = responseData.data.tags.createTag.data;
+  var returnValue = {
+    status: "success",
+    data: newTagData
+  }
+  if (newTagData === null || newTagData === undefined) {
+    returnValue.status = "error";
+    returnValue.data = responseData;
+    returnValue.message = "An error occurred trying to create tag " + tagTitle;
+    return returnValue;
+  }
+  Logger.log("newTagData: ", JSON.stringify(newTagData));
 
   var allTags = getAllTags();
 
   // if we found this tag already in the articleTags, update it with the ID and mark it as no longer new
   const tagIndex = articleTags.findIndex( ({title}) => title === tagTitle);
   if (tagIndex >= 0) {
-    console.log("articleTags:", articleTags);
     console.log("Found tag at index:", tagIndex, articleTags[tagIndex]);
     // Logger.log("created new tag, now updating articleTags data: ", articleTags[tagIndex]);
     articleTags[tagIndex].newTag = false;
@@ -3215,8 +3211,6 @@ function getLocales() {
     returnValue.status = "error";
     returnValue.message = "API not configured! Please ensure document is in the right folder structure and API is configured."
     return returnValue;
-  } else {
-    Logger.log("ACCESS_TOKEN:", ACCESS_TOKEN, "CONTENT_API", CONTENT_API);
   }
 
   query = `{
