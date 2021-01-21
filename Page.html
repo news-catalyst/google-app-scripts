@@ -203,6 +203,14 @@
         }
 
         var articleTagsSelect = document.getElementById('article-tags');
+
+        // first clear out previous tags - without doing this, we end up with dupes of all the tags
+        // after previewing or publishing
+        var length = articleTagsSelect.options.length;
+        for (i = length-1; i >= 0; i--) {
+          articleTagsSelect.options[i] = null;
+        }
+
         data.allTags.forEach(tag => {
           // first check if this option already exists; don't add dupes!
           var selectorString = "#article-tags option[value='" + tag.id + "']";
