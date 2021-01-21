@@ -491,6 +491,9 @@
 
     </script>
     <style>
+      textarea {
+        width: 100%;
+      }
       .branding-below {
         bottom: 56px;
         top: 0;
@@ -635,7 +638,7 @@
             <label for="article-search-description">
               <b>Search description</b>
             </label>
-            <input id="article-search-description" name="article-search-description" type="text" />
+            <textarea id="article-search-description" name="article-search-description"></textarea>
           </div>
           <div class="block form-group">
             <label for="article-facebook-title">
@@ -647,7 +650,7 @@
             <label for="article-facebook-description">
               <b>Facebook description</b>
             </label>
-            <input id="article-facebook-description" name="article-facebook-description" type="text" />
+            <textarea id="article-facebook-description" name="article-facebook-description"></textarea>
           </div>
           <div class="block form-group">
             <label for="article-twitter-title">
@@ -659,7 +662,7 @@
             <label for="article-twitter-description">
               <b>Twitter description</b>
             </label>
-            <input id="article-twitter-description" name="article-twitter-description" type="text" />
+            <textarea id="article-twitter-description" name="article-twitter-description"></textarea>
           </div>
           <div class="block" id="action-buttons-bottom">
             <input type="submit" name="preview" id="preview-button-bottom" class="blue" value="Preview" onclick="this.form.submitted=this.value;"/>
