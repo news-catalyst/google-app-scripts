@@ -102,6 +102,14 @@
         }
       }
 
+      function actualTitleOrDefault(title, defaultTitle) {
+        if (title === undefined || title === "" || title === null) {
+          return defaultTitle;
+        } else {
+          return title;
+        }
+      }
+
       function onSuccessMetaPreserveLoading(data) {
         console.log("onSuccessMeta data:", data);
         var form = document.getElementById('article-meta-form');
@@ -243,9 +251,12 @@
           }
         }
 
+        
+        var articleSearchTitle = document.getElementById('article-search-title');
         if (data.seo.searchTitle !== undefined) {
-          var articleSearchTitle = document.getElementById('article-search-title');
-          articleSearchTitle.value = data.seo.searchTitle;
+          articleSearchTitle.value = actualTitleOrDefault(data.seo.searchTitle, data.headline);
+        } else {
+          articleSearchTitle.value = data.headline;
         }
 
         if (data.seo.searchDescription !== undefined) {
@@ -253,9 +264,11 @@
           articleSearchDescription.value = data.seo.searchDescription;
         }
 
+        var articleFacebookTitle = document.getElementById('article-facebook-title');
         if (data.seo.facebookTitle !== undefined) {
-          var articleFacebookTitle = document.getElementById('article-facebook-title');
-          articleFacebookTitle.value = data.seo.facebookTitle;
+          articleFacebookTitle.value = actualTitleOrDefault(data.seo.facebookTitle, data.headline);
+        } else {
+          articleFacebookTitle.value = data.headline;
         }
 
         if (data.seo.facebookDescription !== undefined) {
@@ -263,9 +276,11 @@
           articleFacebookDescription.value = data.seo.facebookDescription;
         }
 
+        var articleTwitterTitle = document.getElementById('article-twitter-title');
         if (data.seo.twitterTitle !== undefined) {
-          var articleTwitterTitle = document.getElementById('article-twitter-title');
-          articleTwitterTitle.value = data.seo.twitterTitle;
+          articleTwitterTitle.value = actualTitleOrDefault(data.seo.twitterTitle, data.headline);
+        } else {
+          articleTwitterTitle.value = data.headline;
         }
 
         if (data.seo.twitterDescription !== undefined) {
