@@ -340,6 +340,8 @@
 
         if (data.googleDocs !== null && data.googleDocs !== undefined) {
           var editDiv = document.getElementById('edit-links');
+          editDiv.innerHTML = ""; // blank this out to prevent subsequent publish calls to duplicate links
+
           var createLinks = [];
           var editLinks = [];
           var createLocales = data.locales.map(locale=>locale.code);
