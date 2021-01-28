@@ -136,6 +136,9 @@
         var contentApi = document.getElementById('content-api');
         contentApi.value = data.contentApi ? data.contentApi : data['CONTENT_API'];
 
+        var publishUrl = document.getElementById('publish-url');
+        publishUrl.value = data.publishUrl ? data.publishUrl : data['PUBLISH_URL'];
+
         var previewUrl = document.getElementById('preview-url');
         previewUrl.value = data.previewUrl ? data.previewUrl : data['PREVIEW_URL'];
 
@@ -410,6 +413,12 @@
             <b>Content API URL</b>
           </label>
           <input id="content-api" name="CONTENT_API" type="text" />
+        </div>
+        <div class="block form-group">
+          <label for="publish-url">
+            <b>Publish Host URL</b>
+          </label>
+          <input id="publish-url" name="PUBLISH_URL" type="text" placeholder="http://localhost:3000" />
         </div>
         <div class="block form-group">
           <label for="preview-url">

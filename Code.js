@@ -5,7 +5,6 @@ const localeNameKey = 'LOCALE_NAME';
  * @param {Event} e The onInstall event.
  */
 function onInstall(e) {
-  // Logger.log("onInstall running in authMode: ", e.authMode);
   onOpen(e);
 }
 
@@ -16,13 +15,6 @@ function onInstall(e) {
  * This adds a "Webiny" menu option.
  */
 function onOpen(e) {
-  // Logger.log("onOpen running in authMode: ", e.authMode);
-  // if (e && e.authMode === ScriptApp.AuthMode.NONE) {
-  //   Logger.log("AuthMode is NONE")
-  // } else {
-  //   Logger.log("AuthMode is > NONE")
-  // }
-
   // display sidebar
   DocumentApp.getUi()
     .createMenu('Webiny')
@@ -163,7 +155,7 @@ function uploadImageToS3(imageID, contentUri) {
   }
 
   try {
-    s3.putObject(AWS_BUCKET, destinationPath, imageData, {logRequests:true});
+    s3.putObject(AWS_BUCKET, destinationPath, imageData, {logRequests:false});
   } catch (e) {
     Logger.log("Failed putting object: ", e)
   }
@@ -196,7 +188,6 @@ function getScriptConfig() {
         var folderParents = folder.getParents();
         while ( folderParents.hasNext() ) {
           var grandFolder = folderParents.next();
-          Logger.log("* storing OrgName:", grandFolder.getName());
           orgName = grandFolder.getName();
           storeOrganizationName(orgName);
         }
@@ -221,7 +212,6 @@ function getScriptConfig() {
       orgData[plainKey] = data[key];
     }
   }
-  // Logger.log("orgData:", orgData);
   return orgData;
 }
 
@@ -236,7 +226,7 @@ function setScriptConfig(data) {
   var scriptProperties = PropertiesService.getScriptProperties();
   for (var key in data) {
     var orgKey = orgName + "_" + key;
-    Logger.log(orgKey, "=>", data[key]);
+    // (orgKey, "=>", data[key]);
     scriptProperties.setProperty(orgKey, data[key]);
   }
   return { status: "success", message: "Saved configuration." };
@@ -459,6 +449,18 @@ function getPublishingInfo() {
   return publishingInfo;
 }
 
+function storeImageList(imageList) {
+  storeValue("IMAGE_LIST", JSON.stringify(imageList));
+}
+
+function getImageList() {
+  var imageList = JSON.parse(getValue("IMAGE_LIST"));
+  if (imageList === null) {
+    imageList = {};
+  }
+  return imageList;
+}
+
 /**
  * Deletes the article's publishing info
  * this is used when deleting the article from webiny
@@ -494,7 +496,6 @@ function getAuthors() {
 // array of author data
 function storeAuthors(authors) {
   if (authors === undefined) {
-    Logger.log("storeAuthors called with undefined authors argument")
     return;
   }
   var allAuthors = getAllAuthors(); // don't request from the DB again - too slow
@@ -550,7 +551,6 @@ function storeAllTags(tags) {
 
 function storeTags(tags) {
   if (tags === undefined) {
-    Logger.log("storeTags called with undefined tags argument")
     return;
   }
   var allTags = getAllTags(); // don't request from the DB again - too slow
@@ -588,7 +588,6 @@ function storeTags(tags) {
     }
   })
 
-  // Logger.log("storableTags:", storableTags);
   storeValueJSON("ARTICLE_TAGS", storableTags);
 }
 
@@ -723,7 +722,6 @@ function getArticleDataByID(articleID) {
       id: articleID,
     }
   };
-  // Logger.log("formData: ", formData);
   var options = {
     method: 'post',
     muteHttpExceptions: true,
@@ -853,7 +851,6 @@ function getArticleByDocumentID(documentID) {
       }
     }
   };
-  // Logger.log("formData: ", formData);
   var options = {
     method: 'post',
     muteHttpExceptions: true,
@@ -895,8 +892,6 @@ function getArticleByDocumentID(documentID) {
 . * headline and byline
 . */
 function getArticleMeta() {
-  Logger.log("getArticleMeta START");
-
   var returnValue = {
     status: "",
     message: ""
@@ -921,10 +916,8 @@ function getArticleMeta() {
 
   // if there's no stored articleID on this document, try to find it by google document ID in webiny
   if (articleID === null) {
-    Logger.log("No articleID found; looking up documentID " + documentID + " in webiny now");
     var existingArticleData = getArticleByDocumentID(documentID);
     if (existingArticleData && existingArticleData.status === "success") {
-      Logger.log("found article with this documentID: " + existingArticleData.id);
 
       articleID = existingArticleData.id;
       storeArticleID(existingArticleData.id);
@@ -932,10 +925,7 @@ function getArticleMeta() {
       firstPublishedOn = existingArticleData.firstPublishedOn;
       lastPublishedOn = existingArticleData.lastPublishedOn;
 
-      Logger.log("firstPublishedOn: " + firstPublishedOn + "; lastPublishedOn:" + lastPublishedOn)
-
       var headline = getDocumentName();
-      Logger.log("headline:", headline);
       storeHeadline(headline);
 
       var googleDocs = existingArticleData.data.googleDocs;
@@ -943,16 +933,13 @@ function getArticleMeta() {
       if (googleDocs) {
         try {
           googleDocsInfo = JSON.parse(googleDocs);
-          Logger.log("googleDocs:" + JSON.stringify(googleDocsInfo));
 
           var locale = Object.keys(googleDocsInfo).find(key => googleDocsInfo[key] === documentID);
           if (locale) {
-            Logger.log("found locale NAME for this doc: " + locale);
             storeSelectedLocaleName(locale);
             var locales = getLocales();
             var selectedLocaleID = null;
             var selectedLocale = locales.find((l) => l.code === locale);
-            Logger.log("found localeID for this doc: " + selectedLocale.id);
             storeLocaleID(selectedLocale.id);
           }
 
@@ -1006,7 +993,6 @@ function getArticleMeta() {
 
   var slug = getArticleSlug();
   if (slug === null || slug === undefined || slug.match(/^\s+$/) || slug === '') {
-    Logger.log("no stored slug found for: " + headline);
     slug = slugify(headline);
     storeArticleSlug(slug);
   }
@@ -1021,7 +1007,6 @@ function getArticleMeta() {
       lastPublishedOn = latestArticleData.lastPublishedOn;
 
       if (latestArticleData.published !== undefined && latestArticleData.published !== null) {
-        Logger.log("getArticleMeta setting published to latestArticleData.published:", typeof(latestArticleData.published), latestArticleData.published);
         storeIsPublished(latestArticleData.published);
       }
 
@@ -1135,6 +1120,7 @@ function getArticleMeta() {
   var seoData = getSEO();
 
   var scriptConfig = getScriptConfig();
+  var publishUrl = scriptConfig['PUBLISH_URL']
   var previewUrl = scriptConfig['PREVIEW_URL']
   var previewSecret = scriptConfig['PREVIEW_SECRET'];
   var accessToken = scriptConfig['ACCESS_TOKEN'];
@@ -1148,7 +1134,6 @@ function getArticleMeta() {
   
   if (typeof(articleID) === "undefined" || articleID === null) {
 
-    Logger.log("returning articleMetadata published:", typeof(published), published);
     return {
       accessToken: accessToken,
       allAuthors: allAuthors,
@@ -1177,6 +1162,7 @@ function getArticleMeta() {
       previewUrl: previewUrl,
       published: published,
       publishingInfo: publishingInfo,
+      publishUrl: publishUrl,
       seo: seoData,
       slug: slug,
       republishUrl: republishUrl
@@ -1212,12 +1198,12 @@ function getArticleMeta() {
     headline: headline,
     published: published,
     publishingInfo: publishingInfo,
+    publishUrl: publishUrl,
     slug: slug,
     seo: seoData,
     republishUrl: republishUrl
   };
 
-  Logger.log("getArticleMeta END, firstPublishedOn: " + firstPublishedOn);
   return articleMetadata;
 }
 /**
@@ -1226,15 +1212,20 @@ function getArticleMeta() {
  * @param {} formObject 
  */
 function handlePublish(formObject) {
-  Logger.log("START handlePublish:", formObject);
-
+  // var t0 = new Date().getTime();
   var response = getCurrentDocContents(formObject, false);
-  Logger.log("getCurrentDocContents response: ", response)
+  // var t1 = new Date().getTime();
+  // Logger.log("getCurrentDocContents took: " + (t1 - t0) + " milliseconds.")
 
+  var t2 = new Date().getTime();
   var response = publishArticle();
-  Logger.log("publishArticle response:", response);
+  var t3 = new Date().getTime();
+  Logger.log("publishArticle took: " + (t3 - t2) + " milliseconds.")
 
+  var t4 = new Date().getTime();
   var metadata = getArticleMeta();
+  var t5 = new Date().getTime();
+  Logger.log("getArticleMeta took: " + (t5 - t4) + " milliseconds.")
   response.data = metadata;
   return response;
 }
@@ -1245,10 +1236,8 @@ function handlePublish(formObject) {
  * @param {} formObject 
  */
 function handleUnpublish(formObject) {
-  Logger.log("START handleUnpublish:", formObject);
 
   var response = unpublishArticle()
-  Logger.log("unpublishArticle response:", response);
 
   var metadata = getArticleMeta();
   response.data = metadata;
@@ -1261,10 +1250,8 @@ function handleUnpublish(formObject) {
  * @param {} formObject 
  */
 function handlePreview(formObject) {
-  Logger.log("START handlePreview:", formObject);
   // save the article - pass publishFlag as false
   var response = getCurrentDocContents(formObject, false);
-  Logger.log("handlePreview getCurrentDocContents response:", response);
 
   if (response && response.status === "success") {
     // construct preview url
@@ -1277,13 +1264,10 @@ function handlePreview(formObject) {
 
     // open preview url in new window
     response.message += "<br><a href='" + fullPreviewUrl + "' target='_blank'>Preview article in new window</a>"
-
-    Logger.log("END handlePreview: ", response)
   }
   var metadata = getArticleMeta();
   response.data = metadata;
 
-  Logger.log("END handlePreview response:", response);
   return response;
 }
 
@@ -1308,7 +1292,11 @@ function getCurrentDocContents(formObject, publishFlag) {
 
   var title = getHeadline();
 
+  var t2 = new Date().getTime();
   var formattedElements = formatElements();
+  var t3 = new Date().getTime();
+  var diff2 = t3 - t2;
+  Logger.log("formatElements: " + diff2 + " ms")
 
   var articleData = {};
   articleData.id = articleID;
@@ -1318,7 +1306,6 @@ function getCurrentDocContents(formObject, publishFlag) {
 
   var selectedLocale = getLocaleID();
   var selectedLocaleName = getSelectedLocaleName();
-  Logger.log("getCurrentDocContents formObject['article-locale']:" + formObject['article-locale'] + "selectedLocale:" + selectedLocale + "selectedLocaleName:" + selectedLocaleName);
   // if no locale was selected, refuse to try publishing the article
   if (selectedLocale === null || selectedLocale === undefined) {
     Logger.log("FAILED FINDING A LOCALE FOR THIS ARTICLE, ERROR");
@@ -1330,8 +1317,6 @@ function getCurrentDocContents(formObject, publishFlag) {
   articleData.localeName = selectedLocaleName;
   articleData.localeID = selectedLocale;
 
-  Logger.log("articleData for locale: " + articleData.localeID + articleData.localeName);
-
   articleData.published = publishFlag;
   articleData.categoryID = getCategoryID();
   articleData.authors = getAuthors();
@@ -1341,27 +1326,34 @@ function getCurrentDocContents(formObject, publishFlag) {
     storeCategoryID(articleData.categoryID);
   }
 
-  Logger.log("articleData:", articleData);
-
   // first save the latest article content - either create a new article, or create a new revision on an existing article
   var responseData;
   // if we already have an articleID and latest version info, we need to create a new version of the article
   if (articleID !== null) {
     if (documentType === "article") {
-      Logger.log("updating article id#", articleID)
+      var t4 = new Date().getTime();
       responseData = createArticleFrom(articleData);
+      var t5 = new Date().getTime();
+      var diff3 = t5 - t4;
+      Logger.log("createArticleFrom: " + diff3 + " ms")
     } else {
-      Logger.log("updating page id#", articleID)
+      var t6 = new Date().getTime();
       responseData = createPageFrom(articleData);
+      var t7 = new Date().getTime();
+      Logger.log("createPageFrom: " + t7-t6 + " ms")
     }
   // otherwise, we create a new article
   } else {
     if (documentType === "article") {
-      Logger.log("creating new article")
+      var t8 = new Date().getTime();
       responseData = createArticle(articleData);
+      var t9 = new Date().getTime();
+      Logger.log("createArticle: " + t9-t8 + " ms")
     } else {
-      Logger.log("creating new page")
+      var t10 = new Date().getTime();
       responseData = createPage(articleData);
+      var t11 = new Date().getTime();
+      Logger.log("createPage: " + t11-t10 + " ms")
       // title, formattedElements);
     }
 
@@ -1371,8 +1363,6 @@ function getCurrentDocContents(formObject, publishFlag) {
     }
   }
 
-  Logger.log("responseData:", responseData);
-
   if (responseData === null) {
     returnValue.status = "error";
     returnValue.message = "An unknown error occurred, contact your administrator.";
@@ -1381,11 +1371,10 @@ function getCurrentDocContents(formObject, publishFlag) {
 
   if (responseData.status !== "success") {
     returnValue.status = "error";
-    Logger.log("getCurrentDocContents status is not success:", responseData);
     if (responseData.message !== null) {
       returnValue.message = responseData.message;
     } else {
-      returnValue.message = "An unknown error occurred (line 1359)"
+      returnValue.message = "An unknown error occurred (line 1402)"
     }
     return returnValue;
   }
@@ -1393,17 +1382,14 @@ function getCurrentDocContents(formObject, publishFlag) {
   responseText = `Successfully stored ${documentType} in webiny.`;
 
   if (publishFlag) {
-    // Logger.log(`Publishing ${documentType}...`)
     if (documentType === "article") {
       // publish article
       var publishResponse = publishArticle();
-      // Logger.log(`Done publishing ${documentType}:`, publishResponse);
 
       responseText += "<br>" + JSON.stringify(publishResponse);
     } else {
       // publish page
       var publishResponse = publishPage();
-      // Logger.log(`Done publishing ${documentType}:`, publishResponse);
 
       responseText += "<br>" + JSON.stringify(publishResponse);
     }
@@ -1449,6 +1435,9 @@ function getElements() {
   })
 
   var foundMainImage = false;
+
+  // used to track which images have already been uploaded
+  var imageList = getImageList();
 
   elements.forEach(element => {
     if (element.paragraph && element.paragraph.elements) {
@@ -1536,11 +1525,7 @@ function getElements() {
             eleData.type = "embed";
             eleData.link = linkUrl;
             orderedElements.push(eleData);
-          } else {
-            // Logger.log("url not embeddable: ", linkUrl);
           }
-        } else {
-          // Logger.log("linkUrl is null: ", subElements[0].textRun.content);
         }
       }
 
@@ -1569,23 +1554,28 @@ function getElements() {
 
           // found an image
           if ( subElement.inlineObjectElement && subElement.inlineObjectElement.inlineObjectId) {
+            var t10 = new Date().getTime();
 
             var imageID = subElement.inlineObjectElement.inlineObjectId;
             eleData.type = "image";
 
             // treat the first image as the main article image used in featured links
             if (!foundMainImage) {
-              // Logger.log("treating this image as the main image:", imageID)
               eleData.type = "mainImage";
               foundMainImage = true;
-            // } else {
-            //   Logger.log("treating this image as a regular image:", imageID)
             }
 
             var fullImageData = inlineObjects[imageID];
             if (fullImageData) {
 
-              var s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri);
+              var s3Url = imageList[imageID];
+              if (s3Url === null || s3Url === undefined) {
+                Logger.log(imageID + " has not been uploaded yet, uploading now...")
+                s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri);
+                imageList[imageID] = s3Url;
+              } else {
+                Logger.log(imageID + " has already been uploaded");
+              }
 
               var childImage = {
                 index: subElement.endIndex,
@@ -1607,6 +1597,8 @@ function getElements() {
     }
   });
 
+  Logger.log("storing image list: " + JSON.stringify(imageList))
+  storeImageList(imageList);
   return orderedElements;
 }
 
@@ -1653,8 +1645,6 @@ function formatElements() {
  * @param elements
  */
 function createPageFrom(articleData) {
-  Logger.log("createPageFrom data: ", articleData);
-
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
@@ -1697,8 +1687,6 @@ function createPageFrom(articleData) {
     twitterTitle: {values: twitterTitleValues},
     twitterDescription: {values: twitterDescriptionValues},
   }
-
-  Logger.log("data (String):", JSON.stringify(data));
 
   var formData = {
     query: `mutation UpdatePage($id: ID!, $data: PageInput!) {
@@ -1767,7 +1755,6 @@ function createPageFrom(articleData) {
       data: data
     },
   };
-  // Logger.log("formData: ", formData);
   var options = {
     method: 'post',
     muteHttpExceptions: true,
@@ -1783,26 +1770,20 @@ function createPageFrom(articleData) {
     options
   );
   var responseText = response.getContentText();
-  // Logger.log("createPageFrom response:", responseText);
   var responseData = JSON.parse(responseText);
-  Logger.log("createPageFrom responseData:", responseData);
-  // var latestVersionID = responseData.data.content.data.id;
-  // storeArticleID(latestVersionID);
   var returnValue = {
     status: "",
     message: ""
   };
   if (responseData && responseData.data && responseData.data.pages && responseData.data.pages.updatePage && responseData.data.pages.updatePage.error === null) {
-    Logger.log("FOUND NO ERROR in UPDATE PAGE")
     returnValue.status = "success";
     returnValue.id = responseData.data.pages.updatePage.data.id;
     returnValue.message = "Updated page with ID " +  returnValue.id;
   } else if (responseData && responseData.data && responseData.data.pages && responseData.data.pages.updatePage && responseData.data.pages.updatePage.error !== null) {
-    Logger.log("ERROR in UPDATE PAGE", responseData.data.pages.updatePage.error)
     returnValue.status = "error";
     returnValue.message = responseData.data.pages.updatePage.error;
   } else {
-    Logger.log("wtf?", responseData.data);
+    Logger.log("Unknown error: " + JSON.stringify(responseData.data));
   }
 
   return returnValue;
@@ -1815,8 +1796,6 @@ function createPageFrom(articleData) {
  * @param elements
  */
 function createArticleFrom(articleData) {
-  Logger.log("createArticleFrom data.published: ", articleData.published);
-
   var returnValue = {
     status: "success",
     message: ""
@@ -1879,7 +1858,6 @@ function createArticleFrom(articleData) {
   if (newTags.length > 0) {
     newTags.forEach(newTag => {
       var outcome = createTag(newTag.title);
-      Logger.log("newTag outcome: " + JSON.stringify(outcome));
     })
   }
 
@@ -1891,7 +1869,6 @@ function createArticleFrom(articleData) {
   allTags.forEach(tag => {
     const result = articleTags.find( ({ id }) => id === tag.id );
     if (result !== undefined) {
-      // Logger.log("found tag: ", tag);
       tagIDs.push(tag.id);
     }
   });
@@ -1903,7 +1880,6 @@ function createArticleFrom(articleData) {
   if (articleData !== undefined && articleData.published !== undefined && articleData.published !== null) {
     published = articleData.published;
   }
-  Logger.log("createArticleFrom setting published to:", published);
   storeIsPublished(published);
 
   var categoryName = getNameForCategoryID(categories, categoryID);
@@ -1916,7 +1892,6 @@ function createArticleFrom(articleData) {
   // grab current article contents
   var previousArticleData = getArticle(versionID);
   if (!previousArticleData) {
-    Logger.log("NO previous article data for:", versionID);
   }
 
   var availableLocaleNames = i18nGetLocales(localeID, previousArticleData.headline.values);
@@ -1940,25 +1915,15 @@ function createArticleFrom(articleData) {
     previousGoogleDocs = previousArticleData.googleDocs;
   }
   if (previousGoogleDocs && previousGoogleDocs !== null) {
-    Logger.log("found prior googleDocs:" + JSON.stringify(previousGoogleDocs));
-
     var priorGoogleDocsParsed = JSON.parse(previousGoogleDocs);
-    if (priorGoogleDocsParsed[localeName]) {
-      Logger.log("found prior googleDocs for locale!" +  localeName + JSON.stringify(priorGoogleDocsParsed[localeName]));
-    } else {
-      Logger.log("NO prior googleDocs for locale:" + localeName)
-    }
     priorGoogleDocsParsed[localeName] = articleData.documentID;
     updatedGoogleDocs = priorGoogleDocsParsed;
   } else {
     updatedGoogleDocs[localeName] = articleData.documentID;
-    Logger.log("no prior article data, creating google docs info now:" + JSON.stringify(updatedGoogleDocs));
   }
-  Logger.log("updatedGoogleDocs:" + JSON.stringify(updatedGoogleDocs));
 
   var documentIDsForArticle = Object.values(updatedGoogleDocs);
   var documentIDsForArticleString = documentIDsForArticle.join(' ');
-  Logger.log("storing docIDs:" + documentIDsForArticleString)
 
   var data = {
     availableLocales: availableLocaleNames,
@@ -2035,7 +2000,6 @@ function createArticleFrom(articleData) {
     }`,
     variables: variables
   };
-  Logger.log("formData: ", JSON.stringify(formData));
   var options = {
     method: 'post',
     muteHttpExceptions: true,
@@ -2052,18 +2016,14 @@ function createArticleFrom(articleData) {
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log(responseData);
 
   if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.updateArticle && responseData.data.articles.updateArticle.error === null) {
-    Logger.log("createArticleFrom returning success:", responseData);
     returnValue.status = "success";
     returnValue.id = responseData.data.articles.updateArticle.data.id;
     returnValue.message = "Updated article with ID " +  returnValue.id;
   } else if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.updateArticle && responseData.data.articles.updateArticle.error !== null) {
-    Logger.log("createArticleFrom returning error:", responseData);
     returnValue.status = "error";
     returnValue.message = responseData.data.articles.updateArticle.error;
-    Logger.log(JSON.stringify(returnValue.message));
   }
 
   return returnValue;
@@ -2084,7 +2044,6 @@ function createPage(articleData) {
   var seoData = getSEO();
 
   var slug = getArticleSlug();
-  Logger.log("SLUG:", slug);
 
   var formData = {
     query:
@@ -2237,7 +2196,6 @@ function createPage(articleData) {
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log("responseData:", responseData);
 
   var returnValue = {
     status: "",
@@ -2260,8 +2218,6 @@ function createPage(articleData) {
 . * Posts document contents to graphql, creating a new article
 . */
 function createArticle(articleData) {
-  Logger.log(articleData.localeID)
-  Logger.log(articleData.localeName)
   var title = articleData.headline;
   var elements = articleData.formattedElements;
   var localeID = articleData.localeID;
@@ -2285,12 +2241,7 @@ function createArticle(articleData) {
     storeCategories(categories);
   }
 
-  if (localeName === null || localeName === undefined) {
-    Logger.log("MISSING LOCALE NAME");
-  } else {
-    Logger.log("STORING LOCALE NAME " + localeName);
-    console.log({message: 'localename storage', initialData: localeName});
-
+  if (localeName !== null && localeName !== undefined) {
     storeAvailableLocales(localeName);
   }
 
@@ -2323,23 +2274,17 @@ function createArticle(articleData) {
     authorSlugsValue = authorSlugs.join(' ');
   }
 
-  // Logger.log("createArticle articleTags: ", articleTags);
   // create any new tags
   const newTags = articleTags.filter(articleTag => articleTag.newTag === true);
-  // Logger.log("createArticle newTags: ", newTags);
   if (newTags.length > 0) {
     newTags.forEach(newTag => {
-      // Logger.log("createArticle creating new tag: ", newTag);
       var outcome = createTag(newTag.title);
-      Logger.log("newTag outcome: " + JSON.stringify(outcome));
     })
   }
 
   var allTags = getAllTags(); // don't look up in the DB again, too slow
-  // Logger.log("allTags:", allTags);
 
   var articleTags = getTags(); // refresh list of tags for this article as some may have been created just above
-  // Logger.log("articleTags:", articleTags);
   // compare all tags array to those selected for this article
   var tagIDs = [];
   allTags.forEach(tag => {
@@ -2462,7 +2407,6 @@ function createArticle(articleData) {
     variables: gqlVariables
   };
 
-  Logger.log("vars: ", gqlVariables);
   var options = {
     method: 'post',
     muteHttpExceptions: true,
@@ -2473,28 +2417,23 @@ function createArticle(articleData) {
     payload: JSON.stringify(formData),
   };
 
-  // Logger.log(JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
   );
 
   var responseText = response.getContentText();
-  Logger.log("response text: ", responseText);
   var responseData = JSON.parse(responseText);
-  Logger.log("responseData: ", responseData);
 
   var returnValue = {
     status: "",
     message: ""
   };
   if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.createArticle && responseData.data.articles.createArticle.error !== null) {
-    Logger.log("createArticle returning failure:", responseData);
     returnValue.status = "error";
     returnValue.id = null;
     returnValue.message = responseData.data.articles.createArticle.error;
   } else {
-    Logger.log("createArticle returning success:", responseData);
     returnValue.message = "Created article with ID " +  returnValue.id;
     returnValue.status = "success";
     returnValue.id = responseData.data.articles.createArticle.data.id;
@@ -2508,7 +2447,6 @@ function createArticle(articleData) {
  */
 function deletePage() {
   var versionID = getArticleID();
-  Logger.log("versionID:", versionID);
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
@@ -2541,14 +2479,12 @@ function deletePage() {
     payload: JSON.stringify(formData),
   };
 
-  // Logger.log(JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log(responseData);
 
   storeIsPublished(false);
   deleteSEO();
@@ -2601,14 +2537,12 @@ function deleteArticle() {
     payload: JSON.stringify(formData),
   };
 
-  // Logger.log(JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log(responseData);
 
   storeIsPublished(false);
   deleteArticleSlug();
@@ -2639,15 +2573,12 @@ function clearCache() {
   deleteCategories();
 
   var result = deleteAllValues();
-  Logger.log("deleted all doc properties; current store is: ", result);
 
   return "Cleared cache";
 }
 
 function publishPage() {
-  Logger.log("START publishPage");
   var versionID = getArticleID();
-  // Logger.log("publishing article versionID: ", versionID);
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
@@ -2683,16 +2614,13 @@ function publishPage() {
     payload: JSON.stringify(formData),
   };
 
-  // Logger.log(JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log("publish page responseData:", responseData);
 
-  Logger.log("END publishPage");
   if (responseData && responseData.data && responseData.data.pages && responseData.data.pages.updatePage && responseData.data.pages.updatePage.data) {
     return "Published page at revision " + versionID;
   } else {
@@ -2705,9 +2633,7 @@ function publishPage() {
  * Publishes the article
  */
 function publishArticle() {
-  Logger.log("START publishArticle");
   var versionID = getArticleID();
-  // Logger.log("publishing article versionID: ", versionID);
 
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
@@ -2728,6 +2654,10 @@ function publishArticle() {
             published
             latestVersion
             version
+            slug
+            category {
+              slug
+            }
           }
         }
       }
@@ -2747,14 +2677,12 @@ function publishArticle() {
     payload: JSON.stringify(formData),
   };
 
-  // Logger.log(JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log("publish response:", responseData);
 
   // TODO update latestVersionPublished flag
 
@@ -2762,11 +2690,17 @@ function publishArticle() {
     status: "success",
     message: ""
   }
-  Logger.log("END publishArticle");
   if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.publishArticle && responseData.data.articles.publishArticle.data) {
     storeIsPublished(true);
     returnValue.status = "success";
-    returnValue.message = "Published article at revision " + versionID;
+
+    let slug = responseData.data.articles.publishArticle.data.slug;
+    let categorySlug = responseData.data.articles.publishArticle.data.category.slug;
+
+    var publishUrl = scriptConfig['PUBLISH_URL'];
+    var fullPublishUrl = publishUrl + "/articles/" + categorySlug + "/" + slug;
+    // open preview url in new window
+    returnValue.message += "<br>Published the article. <a href='" + fullPublishUrl + "' target='_blank'>Click to view</a>."
   } else {
     storeIsPublished(false);
     returnValue.status = "error";
@@ -2779,7 +2713,6 @@ function publishArticle() {
  * Unpublishes the article
  */
 function unpublishArticle() {
-  Logger.log("START unpublishArticle");
   var versionID = getArticleID();
 
   var scriptConfig = getScriptConfig();
@@ -2826,13 +2759,11 @@ function unpublishArticle() {
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log("unpublish response:", responseData);
 
   var returnValue = {
     status: "success",
     message: ""
   }
-  Logger.log("END unpublishArticle");
   if (responseData && responseData.data && responseData.data.articles && responseData.data.articles.unpublishArticle && responseData.data.articles.unpublishArticle.data) {
     storeIsPublished(false);
     returnValue.status = "success";
@@ -2849,7 +2780,6 @@ function unpublishArticle() {
  * Rebuilds the site by POSTing to deploy hook
  */
 function rebuildSite() {
-  Logger.log("START rebuildSite");
   var scriptConfig = getScriptConfig();
   var DEPLOY_HOOK = scriptConfig['VERCEL_DEPLOY_HOOK_URL'];
 
@@ -2864,9 +2794,7 @@ function rebuildSite() {
     options
   );
   var responseText = response.getContentText();
-  // Logger.log(responseText);
   var responseData = JSON.parse(responseText);
-  Logger.log("END rebuildSite");
   return responseData;
 }
 
@@ -2905,14 +2833,12 @@ function listCategories() {
     payload: JSON.stringify(formData),
   };
 
-  // Logger.log(JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  // Logger.log(responseData);
 
   if (responseData && responseData.data && responseData.data.categories && responseData.data.categories.listCategories && responseData.data.categories.listCategories.data !== null) {
     return responseData.data.categories.listCategories.data;
@@ -2972,7 +2898,6 @@ function loadAuthorsFromDB() {
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log(responseData);
 
   if (responseData && responseData.data && responseData.data.authors && responseData.data.authors.listAuthors && responseData.data.authors.listAuthors.data !== null) {
     return responseData.data.authors.listAuthors.data;
@@ -3017,14 +2942,12 @@ function loadTagsFromDB() {
     payload: JSON.stringify(formData),
   };
 
-  // Logger.log(JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
   );
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log("tag response:" + responseText);
 
   if (responseData && responseData.data && responseData.data.tags && responseData.data.tags.listTags && responseData.data.tags.listTags.data !== null) {
     return responseData.data.tags.listTags.data;
@@ -3043,7 +2966,6 @@ function addTagToLocalStore(formObject) {
   var articleTags = getTags();
   const result = articleTags.find( ({ title }) => title === tagTitle );
   if (result !== undefined) {
-    // Logger.log("Tag already exists: ", result);
     return "Tag already exists: ", tagTitle;
   } else {
     articleTags.push({
@@ -3056,7 +2978,6 @@ function addTagToLocalStore(formObject) {
 }
 
 function createTag(tagTitle) {
-  // Logger.log("creating tag: ", tagTitle);
   var scriptConfig = getScriptConfig();
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
@@ -3064,7 +2985,6 @@ function createTag(tagTitle) {
   var articleTags = getTags();
   const result = articleTags.find( ({ title }) => title === tagTitle );
   if (result !== undefined && !result.newTag && result.id !== null) {
-    // Logger.log("Tag already exists: ", result);
     return;
   }
 
@@ -3115,7 +3035,6 @@ function createTag(tagTitle) {
         }
       }
   };
-  // Logger.log("tag formData: ", formData);
   var options = {
     method: 'post',
     muteHttpExceptions: true,
@@ -3126,7 +3045,6 @@ function createTag(tagTitle) {
     payload: JSON.stringify(formData),
   };
 
-  // Logger.log(JSON.stringify(formData))
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
@@ -3134,7 +3052,6 @@ function createTag(tagTitle) {
 
   var responseText = response.getContentText();
   var responseData = JSON.parse(responseText);
-  Logger.log("responseData: ", JSON.stringify(responseData));
 
   var newTagData = responseData.data.tags.createTag.data;
   var returnValue = {
@@ -3147,18 +3064,14 @@ function createTag(tagTitle) {
     returnValue.message = "An error occurred trying to create tag " + tagTitle;
     return returnValue;
   }
-  Logger.log("newTagData: ", JSON.stringify(newTagData));
 
   var allTags = getAllTags();
 
   // if we found this tag already in the articleTags, update it with the ID and mark it as no longer new
   const tagIndex = articleTags.findIndex( ({title}) => title === tagTitle);
   if (tagIndex >= 0) {
-    console.log("Found tag at index:", tagIndex, articleTags[tagIndex]);
-    // Logger.log("created new tag, now updating articleTags data: ", articleTags[tagIndex]);
     articleTags[tagIndex].newTag = false;
     articleTags[tagIndex].id = newTagData.id;
-    // Logger.log("created new tag, updated articleTags data is: ", articleTags[tagIndex]);
     var allTagsData = {
       title: {
         value: articleTags[tagIndex].title
@@ -3167,19 +3080,15 @@ function createTag(tagTitle) {
       id: articleTags[tagIndex].id
     }
     allTags.push(allTagsData);
-    // Logger.log("updated allTags is: ", allTags);
 
   // otherwise just append the new tag data
   } else {
-    // Logger.log("tagTitle is:", tagTitle);
-    // Logger.log("created new tag, now appending it to articleTags data: ", articleTags);
     let tagData ={
       id: newTagData.id,
       newTag: false,
       title: newTagData.title
     }
     articleTags.push(tagData);
-    // Logger.log("created new tag, appended it to articleTags data: ", articleTags);
     // append to ALL_TAGS
     var allTagsData = {
       title: {
@@ -3241,7 +3150,6 @@ function getLocales() {
     options
   );
   var responseText = response.getContentText();
-  // Logger.log(responseText);
   var responseData = JSON.parse(responseText);
 
   var localeData = responseData.data.i18n.listI18NLocales.data;
@@ -3339,8 +3247,6 @@ function getPage(id) {
     },
     payload: JSON.stringify(formData),
   };
-
-  // Logger.log(options);
 
   var response = UrlFetchApp.fetch(
     CONTENT_API,
@@ -3465,8 +3371,6 @@ function getArticle(id) {
     payload: JSON.stringify(formData),
   };
 
-  // Logger.log(options);
-
   var response = UrlFetchApp.fetch(
     CONTENT_API,
     options
@@ -3477,7 +3381,6 @@ function getArticle(id) {
 }
 
 function setArticleMeta() {
-  Logger.log("START setArticleMeta")
   var articleID = getArticleID();
 
   var documentType = getDocumentType();
@@ -3511,7 +3414,6 @@ function setArticleMeta() {
 
   var categoryID = getCategoryID();
   var categoryName = getNameForCategoryID(categories, categoryID);
-  // Logger.log("article category name: ", categoryName);
 
   if (typeof(articleID) === "undefined" || articleID === null) {
     return null;
@@ -3528,7 +3430,6 @@ function setArticleMeta() {
   var uniqueTags = tagIDs.filter(onlyUnique);
   storeTags(uniqueTags);
 
-  Logger.log("END setArticleMeta")
   return articleData;
 }
 
@@ -3551,37 +3452,22 @@ function processForm(formObject) {
   // get the current locale code; if it's not stored already, store it
   var selectedLocaleName = getSelectedLocaleName();
   if (selectedLocaleName === null || selectedLocaleName === undefined || selectedLocaleName === "") {
-    Logger.log("processForm selectedLocaleName is null");
     var locales = getLocales();
     var selectedLocaleID = getLocaleID();
     if (formSelectedLocale) {
-      Logger.log("processForm selectedLocaleName is null, got formselectedlocale " + formSelectedLocale);
       var selectedLocale = locales.find((locale) => locale.id === formSelectedLocale);
       if (selectedLocale && selectedLocale !== null && selectedLocale !== undefined) {
-        Logger.log("processForm selectedLocaleName is null, found locale" + selectedLocale);
         selectedLocaleName = selectedLocale.code;
-        Logger.log("processForm selectedLocaleName is null, code:" + selectedLocaleName);
         storeSelectedLocaleName(selectedLocaleName);
-      } else {
-        Logger.log("processForm failed finding selected locale")
       }
 
     } else if (selectedLocaleID) {
-      Logger.log("processForm selectedLocaleName is null, got localeID" + selectedLocaleID);
       var selectedLocale = locales.find((locale) => locale.id === selectedLocaleID);
       if (selectedLocale) {
-        Logger.log("processForm selectedLocaleName is null, found locale" + selectedLocale);
         selectedLocaleName = selectedLocale.code;
-        Logger.log("processForm selectedLocaleName is null, code:" + selectedLocaleName);
         storeSelectedLocaleName(selectedLocaleName);
-      } else {
-        Logger.log("processForm failed finding selected locale")
       }
-    } else {
-      Logger.log("processForm failed finding selected locale ID in props")
     }
-  } else {
-    Logger.log("processForm selected locale name FOUND:" + selectedLocaleName)
   }
 
   var documentType = getDocumentType();
@@ -3628,7 +3514,6 @@ function handleSearch(formObject) {
   var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
   var CONTENT_API = scriptConfig['CONTENT_API'];
 
-  Logger.log("handleSearch:", formObject);
   var SEARCH_ARTICLES = `
     query SearchArticles($where: ArticleListWhere) {
       articles {
@@ -3683,7 +3568,6 @@ function handleSearch(formObject) {
         },
       }
     };
-    Logger.log("formData: ", formData);
     var options = {
       method: 'post',
       muteHttpExceptions: true,
@@ -3700,7 +3584,6 @@ function handleSearch(formObject) {
     );
     var responseText = response.getContentText();
     var responseData = JSON.parse(responseText);
-    Logger.log("handleSearch responseData:", responseData);
     var locales = getLocales();
 
     var searchResults = {
@@ -3714,7 +3597,6 @@ function handleSearch(formObject) {
 .* called from ManualPage.html, this function associates the google doc with the selected article
 .*/
 function associateArticle(formObject) {
-  Logger.log("associateArticle:", formObject);
 
   var articleData = {};
 
@@ -3748,15 +3630,9 @@ function associateArticle(formObject) {
   articleData.authors = getAuthors();
   articleData.tags = getTags();
 
-  Logger.log("articleData:", articleData);
   var responseData = createArticleFrom(articleData);
-  Logger.log("response:", responseData);
 
-  if (responseData && responseData.status === "error") {
-    Logger.log("ERROR:", responseData.message);
-  } else {
-    Logger.log("SUCCESS:", responseData.message);
-
+  if (responseData && responseData.status !== "error") {
     // finally store the articleID so we know whether to freshly associate the doc going forward.
     var articleID = responseData.id;
     storeArticleID(articleID);
@@ -3813,7 +3689,6 @@ function i18nSetValues(text, localeID, previousValues) {
         value: text,
         locale: localeID
       });
-      Logger.log("NO prior in locale, appended", newValues.length, "values");
     }
   // case handling when there was NO previous value set in any language
   } else {
@@ -3821,7 +3696,6 @@ function i18nSetValues(text, localeID, previousValues) {
       value: text,
       locale: localeID
     }]
-    Logger.log("NO prior in any locale, creating", newValues.length);
   }
   return newValues;
 }
@@ -3841,7 +3715,6 @@ function createNewDoc(newLocale) {
   var docID;
   var driveFile = DriveApp.getFileById(parentDocID);
   var newFile = driveFile.makeCopy(newHeadline);
-  Logger.log("created new doc:" + JSON.stringify(newFile));
   if (newFile) {
     docID = newFile.getId();
   } else {
@@ -3861,13 +3734,11 @@ function createNewDoc(newLocale) {
   articleData.tags = getTags();
 
   var locales = getLocales();
-  Logger.log("looking up locale name: " + localeName + " ;; in locales: ", JSON.stringify(locales));
   var selectedLocale = locales.find((locale) => locale.code === localeName);
   if (selectedLocale) {
     articleData.localeID = selectedLocale.id;
     articleData.localeName = selectedLocale.code;
   } else {
-    Logger.log("FAILED finding locale ID")
     articleData.localeName = localeName;
   }
 
@@ -3880,7 +3751,6 @@ function createNewDoc(newLocale) {
 
     if (latestArticle && latestArticle.status === "success") {
       var latestArticleData = latestArticle.data;
-      Logger.log("createNewDoc found latestArticleData")
       if (latestArticleData.googleDocs) {
         try {
           googleDocsInfo = JSON.parse(latestArticleData.googleDocs);
@@ -3888,23 +3758,17 @@ function createNewDoc(newLocale) {
           Logger.log("error parsing googleDocs json: " + e);
         }
       }
-    } else {
-      Logger.log("createNewDoc failed finding latest article data for " + parentArticleID);
     }
   }
   // store the new document ID for this locale
   googleDocsInfo[localeName] = docID;
-  Logger.log("createNewDoc googleDocsInfo: " + JSON.stringify(googleDocsInfo));
 
   articleData.googleDocs = JSON.stringify(googleDocsInfo);
 
   // update the article for this document
-  Logger.log("createNewDoc:" + JSON.stringify(articleData.googleDocs) + articleData.localeID + articleData.localeName + JSON.stringify(articleData.headline));
   responseData = createArticleFrom(articleData);
 
-  if (responseData && responseData.status === "success") {
-    Logger.log("createNewDoc update success");
-  } else {
+  if (responseData && responseData.status !== "success") {
     Logger.log("createNewDoc update FAIL:" + JSON.stringify(responseData));
   }
 
