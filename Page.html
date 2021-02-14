@@ -402,29 +402,9 @@
         // isPublishedSpan.innerHTML = isPublishedYesNo;
       }
 
-      // function onSuccessConfig(data) {
-      //   // hideLoading();
-      //   var loadingDiv = document.getElementById('loading');
-      //   if (data !== null && data !== {} && Object.keys(data).length > 0) {
-      //     loadingDiv.innerHTML = "<div class='success'>Loading publishing tools...</div><hr/>"
-      //     hideConfigForm();
-      //   } else {
-      //     showConfigForm();
-      //     loadingDiv.innerHTML = "<div class='error'>No script config found. Fill in the form to use publishing tools.</div><hr/>"
-      //   }
-      // }
-
-      // function onFailureConfig(error) {
-      //   var configDiv = document.getElementById('loading');
-      //   configDiv.innerHTML = "<p class='error'>An error occurred. This may be due to being logged into multiple google accounts at once. Try opening this doc in an incognito window.</p>";
-      // }
-
       function createNewDoc(locale) {
          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessNewDoc).createNewDoc(locale);
       }
-      // function handleScriptConfig() {
-      //    google.script.run.withFailureHandler(onFailureConfig).withSuccessHandler(onSuccessConfig).getScriptConfig();
-      // }
 
       function handleMetaPreserveLoading() {
          google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessMetaPreserveLoading).getArticleMeta();
@@ -459,30 +439,16 @@
       window.onload = (function(){
         var form = document.getElementById('article-meta-form');
         form.style.display = "none";
-        // hideConfigForm();
 
         var buttonsDivBottom = document.getElementById('action-buttons-bottom')
         buttonsDivBottom.style.display = "none";
         var buttonsDivTop = document.getElementById('action-buttons-top')
         buttonsDivTop.style.display = "none";
 
-        // handleScriptConfig();
-
         handleMeta();
 
 
       });
-
-      // function displayConfigFormMessage(text) {
-      //   var configDiv = document.getElementById('loading');
-      //   configDiv.innerHTML = text;
-
-      //   hideConfigForm();
-      // }
-
-      // function handleScriptConfigSubmit(formObject) {
-      //   google.script.run.withSuccessHandler(displayConfigFormMessage).setScriptConfig(formObject);
-      // }
 
       // Prevent forms from submitting.
       function preventFormSubmit() {
