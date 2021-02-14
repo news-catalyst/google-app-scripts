@@ -225,9 +225,19 @@
         configDiv.innerHTML = "<p class='error'>An error occurred. This may be due to being logged into multiple google accounts at once. Try opening this doc in an incognito window.</p>";
       }
 
+      // this assembles document properties and figures out the orgName based on folder hierarchy
+      // NO API CALLS
       function handleScriptConfig() {
          google.script.run.withFailureHandler(onFailureConfig).withSuccessHandler(onSuccessConfig).getScriptConfig();
       }
+
+      // called on submit of the config form in 'Admin Tools'
+      // this function `setScriptConfig` sets document properties only (they're returned by `getScriptConfig`)
+      // NO API CALLS
+      function handleScriptConfigSubmit(formObject) {
+        google.script.run.withSuccessHandler(displayConfigFormMessage).setScriptConfig(formObject);
+      }
+
 
       function handleSearch(formObject) {
         // hideSearchForm();
@@ -245,10 +255,7 @@
         if (window.confirm("Are you sure you want to do this? Any content in the linked article in this locale will be replaced by your document!")) { 
           hideLoading();
           console.log("associating article...", formObject);
-          // var articleId = $(this).data('article-id');
-          // console.log("articleId:", articleId);
 
-          // hideSearchForm();
           hideConfigForm();
 
           showLoading();
@@ -264,10 +271,6 @@
           isPublishedYesNo = "yes";
         }
         isPublishedSpan.innerHTML = isPublishedYesNo;
-      }
-
-      function handleScriptConfigSubmit(formObject) {
-        google.script.run.withSuccessHandler(displayConfigFormMessage).setScriptConfig(formObject);
       }
 
       function onSuccessMeta(data) {

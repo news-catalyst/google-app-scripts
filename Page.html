@@ -40,16 +40,6 @@
         "ru-RU": "🇷🇺"
       }
 
-      function showConfigForm() {
-        var scriptForm = document.getElementById('script-config-form')
-        scriptForm.style.display = "block";
-      }
-
-      function hideConfigForm() {
-        var scriptForm = document.getElementById('script-config-form')
-        scriptForm.style.display = "none";
-      }
-
       function onSuccessNewDoc(contents) {
         var configDiv = document.getElementById('config');
         configDiv.style.display = 'none';
@@ -412,29 +402,29 @@
         // isPublishedSpan.innerHTML = isPublishedYesNo;
       }
 
-      function onSuccessConfig(data) {
-        // hideLoading();
-        var loadingDiv = document.getElementById('loading');
-        if (data !== null && data !== {} && Object.keys(data).length > 0) {
-          loadingDiv.innerHTML = "<div class='success'>Loading publishing tools...</div><hr/>"
-          hideConfigForm();
-        } else {
-          showConfigForm();
-          loadingDiv.innerHTML = "<div class='error'>No script config found. Fill in the form to use publishing tools.</div><hr/>"
-        }
-      }
+      // function onSuccessConfig(data) {
+      //   // hideLoading();
+      //   var loadingDiv = document.getElementById('loading');
+      //   if (data !== null && data !== {} && Object.keys(data).length > 0) {
+      //     loadingDiv.innerHTML = "<div class='success'>Loading publishing tools...</div><hr/>"
+      //     hideConfigForm();
+      //   } else {
+      //     showConfigForm();
+      //     loadingDiv.innerHTML = "<div class='error'>No script config found. Fill in the form to use publishing tools.</div><hr/>"
+      //   }
+      // }
 
-      function onFailureConfig(error) {
-        var configDiv = document.getElementById('loading');
-        configDiv.innerHTML = "<p class='error'>An error occurred. This may be due to being logged into multiple google accounts at once. Try opening this doc in an incognito window.</p>";
-      }
+      // function onFailureConfig(error) {
+      //   var configDiv = document.getElementById('loading');
+      //   configDiv.innerHTML = "<p class='error'>An error occurred. This may be due to being logged into multiple google accounts at once. Try opening this doc in an incognito window.</p>";
+      // }
 
       function createNewDoc(locale) {
          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessNewDoc).createNewDoc(locale);
       }
-      function handleScriptConfig() {
-         google.script.run.withFailureHandler(onFailureConfig).withSuccessHandler(onSuccessConfig).getScriptConfig();
-      }
+      // function handleScriptConfig() {
+      //    google.script.run.withFailureHandler(onFailureConfig).withSuccessHandler(onSuccessConfig).getScriptConfig();
+      // }
 
       function handleMetaPreserveLoading() {
          google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessMetaPreserveLoading).getArticleMeta();
@@ -469,30 +459,30 @@
       window.onload = (function(){
         var form = document.getElementById('article-meta-form');
         form.style.display = "none";
-        hideConfigForm();
+        // hideConfigForm();
 
         var buttonsDivBottom = document.getElementById('action-buttons-bottom')
         buttonsDivBottom.style.display = "none";
         var buttonsDivTop = document.getElementById('action-buttons-top')
         buttonsDivTop.style.display = "none";
 
-        handleScriptConfig();
+        // handleScriptConfig();
 
         handleMeta();
 
 
       });
 
-      function displayConfigFormMessage(text) {
-        var configDiv = document.getElementById('loading');
-        configDiv.innerHTML = text;
+      // function displayConfigFormMessage(text) {
+      //   var configDiv = document.getElementById('loading');
+      //   configDiv.innerHTML = text;
 
-        hideConfigForm();
-      }
+      //   hideConfigForm();
+      // }
 
-      function handleScriptConfigSubmit(formObject) {
-        google.script.run.withSuccessHandler(displayConfigFormMessage).setScriptConfig(formObject);
-      }
+      // function handleScriptConfigSubmit(formObject) {
+      //   google.script.run.withSuccessHandler(displayConfigFormMessage).setScriptConfig(formObject);
+      // }
 
       // Prevent forms from submitting.
       function preventFormSubmit() {
@@ -532,60 +522,6 @@
       <div class="block gray" id="loading">Loading...</div>
 
       <div id="config"></div>
-      <div id="script-config-form-output" class="block secondary"></div>
-      <form id="script-config-form" onsubmit="handleScriptConfigSubmit(this)">
-        <div class="block form-group">
-          <label for="access-token">
-            <b>Content API Access Token</b>
-          </label>
-          <input id="access-token" name="ACCESS_TOKEN" type="text" />
-        </div>
-        <div class="block form-group">
-          <label for="content-api">
-            <b>Content API URL</b>
-          </label>
-          <input id="content-api" name="CONTENT_API" type="text" />
-        </div>
-        <div class="block form-group">
-          <label for="preview-url">
-            <b>Preview Host URL</b>
-          </label>
-          <input id="preview-url" name="PREVIEW_URL" type="text" placeholder="http://localhost:3000/api/preview" />
-        </div>
-        <div class="block form-group">
-          <label for="preview-secret">
-            <b>Preview Secret Param</b>
-          </label>
-          <input id="preview-secret" name="PREVIEW_SECRET" type="text" />
-        </div>
-        <div class="block form-group">
-          <label for="aws-access-key">
-            <b>AWS Access Key ID</b>
-          </label>
-          <input id="aws-access-key" name="AWS_ACCESS_KEY_ID" type="text" />
-        </div>
-        <div class="block form-group">
-          <label for="aws-secret-key">
-            <b>AWS Secret Key</b>
-          </label>
-          <input id="aws-secret-key" name="AWS_SECRET_KEY" type="text" />
-        </div>
-        <div class="block form-group">
-          <label for="aws-bucket">
-            <b>AWS Bucket</b>
-          </label>
-          <input id="aws-bucket" name="AWS_BUCKET" type="text" />
-        </div>
-        <div class="block form-group">
-          <label for="deploy-hook">
-            <b>Vercel Deploy Hook</b>
-          </label>
-          <input id="deploy-hook" name="VERCEL_DEPLOY_HOOK_URL" type="text" />
-        </div>
-        <div class="block">
-          <button class="blue">Save Config</button>
-        </div>
-      </form>
 
       <div id="article-meta-form">
         <form onsubmit="handleClick(this)">
