@@ -161,6 +161,9 @@
         var articleHeadline = document.getElementById('article-headline');
         articleHeadline.value = translationData.headline;
 
+        var slugDiv = document.getElementById('slug');
+        slugDiv.innerHTML = articleData.slug;
+
         setValueOrDefault('article-custom-byline', translationData.custom_byline, "");
         setValueOrDefault('article-search-title', translationData.search_title, translationData.headline);
         setValueOrDefault('article-search-description', translationData.search_description, translationData.headline);
