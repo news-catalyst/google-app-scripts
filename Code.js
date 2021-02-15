@@ -922,6 +922,84 @@ async function fetchGraphQL(operationsDoc, operationName, variables) {
   return responseData;
 }
 
+const insertArticleMutation = `mutation MyMutation($headline: String!, $locale_code: String!, $published: Boolean, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $facebook_title: String, $facebook_description: String, $custom_byline: String, $content: jsonb, $category_id: Int!, $slug: String!) {
+  insert_articles(
+    objects: {
+      article_translations: {data: {headline: $headline, locale_code: $locale_code, published: $published, search_description: $search_description, search_title: $search_title, twitter_description: $twitter_description, twitter_title: $twitter_title, facebook_title: $facebook_title, facebook_description: $facebook_description, custom_byline: $custom_byline, content: $content}}, 
+      category_id: $category_id, slug: $slug
+    }) {
+    returning {
+      id
+      slug
+      updated_at
+      created_at
+    }
+  }
+}`;
+
+function insertArticle(data) {
+  // let tagsData = [];
+  // if (data['article-tags']) {
+  //   Logger.log("type of article-tags: " + typeof(data['article-tags']))
+  //   data['article-tags'].forEach( (tag) => {
+  //     let tagTranslationsData = [];
+  //     tagTranslationsData.push({ locale_code: data.locale_code, title: tag.title })
+  //     tagsData.push({ tag: { data: { slug: tag.slug, tag_translations: { data: tagTranslationsData } }}})
+  //   })
+  //   Logger.log("tagsData: " + JSON.stringify(tagsData))
+  // }
+  let articleData = {
+    "slug": data['article-slug'],
+    "category_id": data['article-category'],
+    "locale_code": data['article-locale'],
+    "headline": data['article-headline'],
+    "published": false,
+    "search_description": data['article-search-description'],
+    "search_title": data['article-search-title'],
+    "twitter_title": data['article-twitter-title'],
+    "twitter_description": data['article-twitter-description'],
+    "facebook_title": data['article-facebook-title'],
+    "facebook_description": data['article-facebook-description'],
+    "custom_byline": data['article-custom-byline'],
+    // "tag_data": tagsData,
+  };
+  Logger.log("article data:" + JSON.stringify(articleData));
+  return fetchGraphQL(
+    insertArticleMutation,
+    "MyMutation",
+    articleData
+  );
+}
+
+function hasuraHandlePreview(formObject) {
+  // save the article - pass publishFlag as false
+  // var response = getCurrentDocContents(formObject, false);
+
+  Logger.log("formObject: " + JSON.stringify(formObject));
+
+  var result = insertArticle(formObject);
+  Logger.log("result: " + JSON.stringify(result))
+
+  return {
+    message: "handle preview",
+    data: result,
+    status: "success"
+  }
+  // if (response && response.status === "success") {
+  //   // construct preview url
+  //   var slug = getArticleSlug();
+  //   var locale = getSelectedLocaleName();
+  //   var scriptConfig = getScriptConfig();
+  //   var previewHost = scriptConfig['PREVIEW_URL'];
+  //   var previewSecret = scriptConfig['PREVIEW_SECRET'];
+  //   var fullPreviewUrl = previewHost + "?secret=" + previewSecret + "&slug=" + slug + "&locale=" + locale;
+
+  //   // open preview url in new window
+  //   response.message += "<br><a href='" + fullPreviewUrl + "' target='_blank'>Preview article in new window</a>"
+  // }
+
+  // return response;
+}
 const searchArticlesByHeadlineQuery = `query MyQuery($locale_code: String!, $term: String!) {
   articles(where: {article_translations: {headline: {_ilike: $term}, locale_code: {_eq: $locale_code}}}) {
     id

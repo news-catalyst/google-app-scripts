@@ -66,6 +66,11 @@
         var form = document.getElementById('article-form');
         form.style.display = "block";
 
+        var buttonsDivBottom = document.getElementById('action-buttons-bottom')
+        buttonsDivBottom.style.display = "block";
+        var buttonsDivTop = document.getElementById('action-buttons-top')
+        buttonsDivTop.style.display = "block";
+
         var articleData = contents.data.articles[0];
         var translationData = articleData.article_translations[0];
 
@@ -171,6 +176,7 @@
         setValueOrDefault('article-facebook-description', translationData.facebook_description, translationData.headline);
         setValueOrDefault('article-twitter-title', translationData.twitter_title, translationData.headline);
         setValueOrDefault('article-twitter-description', translationData.twitter_description, translationData.headline);
+        setValueOrDefault('article-slug', articleData.slug, "");
 
         $('#article-authors').select2({
           width: 'resolve',
@@ -195,7 +201,7 @@
         });
       }
       
-      function onFailureGetArticle(error) {
+      function onFailure(error) {
         console.log("onFailure error:", error);
         var loadingDiv = document.getElementById('loading');
         loadingDiv.style.display = "block";
@@ -203,9 +209,43 @@
       }
 
       function handleGetArticle() {
-         google.script.run.withFailureHandler(onFailureGetArticle).withSuccessHandler(onSuccessGetArticle).hasuraGetArticle();
+         google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetArticle();
       }
 
+      function onSuccessPreviewPublish(response) {
+        console.log("success preview:", response);
+        var configDiv = document.getElementById('config');
+        configDiv.style.display = 'none';
+        var div = document.getElementById('loading');
+        div.style.display = 'block';
+        if (response && response.status && response.status === "error") {
+          div.innerHTML = "<p class='error'>An error occurred: " + response.message + '</p>';
+        } else {
+          div.innerHTML = '<p style="color: #48C774;">' + response.message + "</p>";
+        }
+      }
+
+      function handleClick(formObject) {
+        var form = document.getElementById('article-form');
+        form.style.display = "none";
+
+        var configDiv = document.getElementById('config');
+        configDiv.style.display = "none";
+
+        var loadingDiv = document.getElementById('loading');
+        loadingDiv.style.display = "block";
+
+        if (formObject.submitted === "Preview") {
+          loadingDiv.innerHTML = "<p class='gray'>Loading preview...</p>"
+          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePreview(formObject);
+        } else if ( (formObject.submitted === "Publish") || (formObject.submitted === "Re-publish") ) {
+          loadingDiv.innerHTML = "<p class='gray'>Publishing article... TODO</p>"
+          // google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handlePublish(formObject);
+        } else {
+          loadingDiv.innerHTML = "<p class='gray'>Unpublishing article... TODO</p>"
+          // google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handleUnpublish(formObject);
+        }
+      }
       window.onload = (function(){
         var form = document.getElementById('article-form');
         form.style.display = "none";
@@ -258,7 +298,7 @@
       <div id="config"></div>
 
       <div id="article-form">
-        <form>
+        <form onsubmit="handleClick(this)">
           <div class="block" id="action-buttons-top">
             <input type="submit" name="preview" id="preview-button-top" class="blue" value="Preview" onclick="this.form.submitted=this.value;"/>
             <input type="submit" class="blue" id="publish-button-top" value="Publish" onclick="this.form.submitted=this.value;"/>
@@ -278,6 +318,7 @@
               <b>Article slug</b>
             </label>
             <div id="slug"></div>
+            <input type="hidden" id="article-slug" name="article-slug" />
           </div>
 
           <div class="block form-group">
