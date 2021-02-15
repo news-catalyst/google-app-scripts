@@ -163,7 +163,6 @@
       function getConfigAndDisplayForm() {
         hideSearchForm();
         showConfigForm();
-        // google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessConfigFormValues).getArticleMeta();
       }
 
       function showArticleForm() {
@@ -207,7 +206,7 @@
       }
 
       function onSuccessConfig(data) {
-        // hideLoading();
+        hideLoading();
         // var loadingDiv = document.getElementById('loading');
         if (data !== null && data !== {} && Object.keys(data).length > 0) {
           // loadingDiv.innerHTML = "<div class='success'>Configuration loaded.</div><hr/>"
@@ -352,7 +351,7 @@
         loadingDiv.innerHTML = '<p style="color: #48C774;">' + contents + "</p>";
         loadingDiv.style.display = "block";
 
-        handleMeta();
+        // handleMeta();
       }
       function onFailureDelete(error) {
         var loadingDiv = document.getElementById('loading');
@@ -378,7 +377,7 @@
         
         handleScriptConfig();
 
-        handleMeta();
+        // handleMeta();
       });
 
     </script>
