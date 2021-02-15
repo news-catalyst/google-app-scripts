@@ -72,7 +72,10 @@
         buttonsDivTop.style.display = "block";
 
         var articleData = contents.data.articles[0];
-        var translationData = articleData.article_translations[0];
+        var translationData; 
+        if (articleData) {
+         translationData = articleData.article_translations[0];
+        }
 
         var articleLocaleSelect = document.getElementById('article-locale');
         contents.data.organization_locales.forEach(localeData => {
@@ -125,7 +128,7 @@
             }
             option.value = category.id;
 
-            if (articleData.category && articleData.category.id !== null && articleData.category.id == category.id) {
+            if (articleData && articleData.category && articleData.category.id !== null && articleData.category.id == category.id) {
               option.selected = true;
             }
             articleCategorySelect.add(option);
@@ -153,30 +156,37 @@
             }
             option.value = tag.id;
 
-            const result = articleData.tag_articles.find( ({ tag_id }) => tag_id === tag.id );
-            if (result !== undefined) {
-              option.selected = true;
+            if (articleData) {
+              const result = articleData.tag_articles.find( ({ tag_id }) => tag_id === tag.id );
+              if (result !== undefined) {
+                option.selected = true;
+              }
             }
             articleTagsSelect.add(option);
           }
         })
 
-        setPublishedFlag(translationData.published);
+        if (articleData) {
+          var slugDiv = document.getElementById('slug');
+          slugDiv.innerHTML = articleData.slug;
+        }
 
-        var articleHeadline = document.getElementById('article-headline');
-        articleHeadline.value = translationData.headline;
+        if (translationData) {
+          setPublishedFlag(translationData.published);
 
-        var slugDiv = document.getElementById('slug');
-        slugDiv.innerHTML = articleData.slug;
+          var articleHeadline = document.getElementById('article-headline');
+          articleHeadline.value = translationData.headline;
 
-        setValueOrDefault('article-custom-byline', translationData.custom_byline, "");
-        setValueOrDefault('article-search-title', translationData.search_title, translationData.headline);
-        setValueOrDefault('article-search-description', translationData.search_description, translationData.headline);
-        setValueOrDefault('article-facebook-title', translationData.facebook_title, translationData.headline);
-        setValueOrDefault('article-facebook-description', translationData.facebook_description, translationData.headline);
-        setValueOrDefault('article-twitter-title', translationData.twitter_title, translationData.headline);
-        setValueOrDefault('article-twitter-description', translationData.twitter_description, translationData.headline);
-        setValueOrDefault('article-slug', articleData.slug, "");
+          setValueOrDefault('article-custom-byline', translationData.custom_byline, "");
+          setValueOrDefault('article-search-title', translationData.search_title, translationData.headline);
+          setValueOrDefault('article-search-description', translationData.search_description, translationData.headline);
+          setValueOrDefault('article-facebook-title', translationData.facebook_title, translationData.headline);
+          setValueOrDefault('article-facebook-description', translationData.facebook_description, translationData.headline);
+          setValueOrDefault('article-twitter-title', translationData.twitter_title, translationData.headline);
+          setValueOrDefault('article-twitter-description', translationData.twitter_description, translationData.headline);
+          setValueOrDefault('article-slug', articleData.slug, "");
+
+        }
 
         $('#article-authors').select2({
           width: 'resolve',
