@@ -922,8 +922,26 @@ async function fetchGraphQL(operationsDoc, operationName, variables) {
   return responseData;
 }
 
-const getArticleForGoogleDocQuery = `
-query MyQuery($doc_id: String!, $locale_code: String!) {
+const searchArticlesByHeadlineQuery = `query MyQuery($locale_code: String!, $term: String!) {
+  articles(where: {article_translations: {headline: {_ilike: $term}, locale_code: {_eq: $locale_code}}}) {
+    id
+    slug
+    category {
+      slug
+    }
+    article_translations(where: {locale_code: {_eq: $locale_code}}) {
+      headline
+    }
+  }
+  organization_locales {
+    locale {
+      code
+      name
+    }
+  }
+}`;
+
+const getArticleForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_code: String!) {
   articles(where: {article_google_documents: {google_document: {document_id: {_eq: $doc_id}, locale_code: {_eq: $locale_code}}}, article_translations: {locale_code: {_eq: $locale_code}}}) {
     category {
       id
@@ -990,6 +1008,23 @@ function fetchArticleForGoogleDoc(doc_id, locale_code) {
     getArticleForGoogleDocQuery,
     "MyQuery",
     {"doc_id": doc_id, "locale_code": locale_code}
+  );
+}
+
+/*
+.* called from ManualPage.html, this function searches for a matching article by headline
+.*/
+function hasuraSearchArticles(formObject) {
+  var localeCode = formObject["locale-code"];
+  if (localeCode === undefined || localeCode === null) {
+    localeCode = "en-US" // TODO should we default this way?
+  }
+  var term = "%" + formObject["article-search"] + "%";
+  console.log("term: " + term);
+  return fetchGraphQL(
+    searchArticlesByHeadlineQuery,
+    "MyQuery",
+    {"term": term, "locale_code": localeCode}
   );
 }
 
@@ -3632,93 +3667,6 @@ function processForm(formObject) {
   storeSEO(seoData);
 
   return "Updated document metadata. You still need to publish for these changes to go live!"
-}
-
-/*
-.* called from ManualPage.html, this function searches for a matching article by headline
-.*/
-function handleSearch(formObject) {
-  var scriptConfig = getScriptConfig();
-  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
-  var CONTENT_API = scriptConfig['CONTENT_API'];
-
-  var SEARCH_ARTICLES = `
-    query SearchArticles($where: ArticleListWhere) {
-      articles {
-        listArticles(where: $where) {
-          data {
-            id
-            headlineSearch
-            firstPublishedOn
-            slug
-            headline {
-              values {
-                value
-              }
-            }
-            content {
-              values {
-                value
-              }
-            }
-            category {
-              id
-              title {
-                values {
-                  value
-                }
-              }
-              slug
-            }
-            tags {
-              id
-              title{
-                values {
-                  value
-                }
-              }
-              slug
-            }
-            authors {
-              id
-              name
-            }
-            authorSlugs
-          }
-        }
-      }
-    }`;
-    var formData = {
-      query: SEARCH_ARTICLES,
-      variables: {
-        where: {
-          headline_contains: formObject['article-search'],
-        },
-      }
-    };
-    var options = {
-      method: 'post',
-      muteHttpExceptions: true,
-      contentType: 'application/json',
-      headers: {
-        authorization: ACCESS_TOKEN,
-      },
-      payload: JSON.stringify(formData),
-    };
-
-    var response = UrlFetchApp.fetch(
-      CONTENT_API,
-      options
-    );
-    var responseText = response.getContentText();
-    var responseData = JSON.parse(responseText);
-    var locales = getLocales();
-
-    var searchResults = {
-      locales: locales,
-      articles: responseData.data.articles.listArticles.data
-    }
-    return searchResults;
 }
 
 /*

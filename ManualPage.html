@@ -37,7 +37,7 @@
 
       function onSuccessSearch(contents) {
 
-        console.log("contents:", contents);
+        console.log("contents.data:", contents.data);
 
         hideConfigForm();
         hideLoading();
@@ -45,18 +45,18 @@
         var div = document.getElementById('loading');
         div.style.display = 'block';
 
-        if (contents.articles.length <= 0) {
+        if (contents.data.articles.length <= 0) {
           div.innerHTML = "<p>No matching articles found. Try again, or perhaps you want to <a href='TODO'>publish this as a new article</a>?</p>";
         } else {
           var articleSelect = document.getElementById('article-id');
 
-          contents.articles.forEach(article => {
+          contents.data.articles.forEach(article => {
             // first check if this option already exists; don't add dupes!
             var selectorString = "#article-id option[value='" + article.id + "']";
             if ( $(selectorString).length <= 0 ) {
               var option = document.createElement("option");
-              if (article.headlineSearch) {
-                option.text = article.headlineSearch;
+              if (article.article_translations && article.article_translations[0].headline) {
+                option.text = article.article_translations[0].headline;
               } else {
                 option.text = "(BUG) unknown article headline";
               }
@@ -65,19 +65,20 @@
               articleSelect.add(option);
             }
           })
+
           var articleLocaleSelect = document.getElementById('article-locale');
 
-          contents.locales.forEach(locale => {
+          contents.data.organization_locales.forEach(localeData => {
             // first check if this option already exists; don't add dupes!
-            var selectorString = "#article-locale option[value='" + locale.id + "']";
+            var selectorString = "#article-locale option[value='" + localeData.locale.code + "']";
             if ( $(selectorString).length <= 0 ) {
               var option = document.createElement("option");
-              if (locale.code) {
-                option.text = locale.code;
+              if (localeData.locale.code) {
+                option.text = localeData.locale.code;
               } else {
                 option.text = "(BUG) unknown locale";
               }
-              option.value = locale.id;
+              option.value = localeData.locale.id;
 
               articleLocaleSelect.add(option);
             }
@@ -243,7 +244,7 @@
         hideConfigForm();
         showLoading();
 
-        google.script.run.withSuccessHandler(onSuccessSearch).withFailureHandler(onFailure).handleSearch(formObject);
+        google.script.run.withSuccessHandler(onSuccessSearch).withFailureHandler(onFailure).hasuraSearchArticles(formObject);
       }
       
       function clearCache() {
@@ -321,10 +322,6 @@
         }
       }
 
-      function handleMeta() {
-         google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessMeta).getArticleMeta();
-      }
-
       function deletePage() {
         if (window.confirm("Are you sure you want to delete this page?")) { 
           var loadingDiv = document.getElementById('loading');
@@ -350,8 +347,6 @@
         var loadingDiv = document.getElementById('loading');
         loadingDiv.innerHTML = '<p style="color: #48C774;">' + contents + "</p>";
         loadingDiv.style.display = "block";
-
-        // handleMeta();
       }
       function onFailureDelete(error) {
         var loadingDiv = document.getElementById('loading');
@@ -377,7 +372,6 @@
         
         handleScriptConfig();
 
-        // handleMeta();
       });
 
     </script>
