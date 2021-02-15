@@ -9,364 +9,13 @@
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/js/select2.min.js"></script>
 
     <script>
-      // flags for a subset of all locales
-      // I started with the ones I figured were the most likely; then grabbed more from this
-      // full locale list from https://github.com/ladjs/i18n-locales
-      // emoji flags from https://emojipedia.org/flags/
-      // I took all the major seeming english variants too: Australia, Canada, Ireland, GB, NZ, US, and South Africa
-      const emojiFor = {
-        "es": "🇪🇸",
-        "es-ES": "🇪🇸",
-        "fr": "🇫🇷",
-        "fr-FR": "🇫🇷",
-        "de": "🇩🇪",
-        "de-DE": "🇩🇪",
-        "pt-BR": "🇧🇷",
-        "pt": "🇵🇹",
-        "pt-PT": "🇵🇹",
-        "en": "🇬🇧",
-        "en-AU": "🇦🇺",
-        "en-CA": "🇨🇦",
-        "en-IE": "🇮🇪",
-        "en-GB": "🇬🇧",
-        "en-US": "🇺🇸",
-        "en-NZ": "🇳🇿",
-        "en-ZA": "🇿🇦",
-        "jp": "🇯🇵",
-        "zh": "🇨🇳",
-        "zh-CN": "🇨🇳",
-        "it": "🇮🇹",
-        "ru": "🇷🇺",
-        "ru-RU": "🇷🇺"
-      }
-
-      function onSuccessNewDoc(contents) {
-        var configDiv = document.getElementById('config');
-        configDiv.style.display = 'none';
-        var div = document.getElementById('output');
-        div.style.display = 'block';
-        div.innerHTML = "<a href='https://docs.google.com/document/d/" + contents.docID + "/edit?parentID=" + contents.parentID + "' target='_blank'>Open new doc</a>";
-      }
-
-      function onSuccess(contents) {
-        // first, switch the "published" text to say "No"
-        // because the headline and/or byline has likely changed.
-        setPublishedFlag(false);
-        var configDiv = document.getElementById('config');
-        configDiv.style.display = 'none';
-        var div = document.getElementById('loading');
-        div.style.display = 'block';
-        if (contents && contents.status && contents.status === "error") {
-          div.innerHTML = "<p class='error'>An error occurred: " + contents.message + '</p>';
+      function setValueOrDefault(elementId, value, defaultValue) {
+        var element = document.getElementById(elementId);
+        if (value !== undefined && value !== null && value !== "") {
+          element.value = value;
         } else {
-          div.innerHTML = '<p style="color: #48C774;">' + contents.message + "</p>";
+          element.value = defaultValue;
         }
-        handleMetaPreserveLoading();
-      }
-      
-      function onFailureMeta(error) {
-        var loadingDiv = document.getElementById('loading');
-        console.log("onFailureMeta error:", error);
-        loadingDiv.innerHTML = "<p class='error'>An error occurred: " + error + '</p>';
-      }
-
-      function onFailure(error) {
-        console.log("onFailure error:", error);
-        var loadingDiv = document.getElementById('loading');
-        loadingDiv.style.display = "block";
-        loadingDiv.innerHTML = "<p class='error'>An error occurred: " + error + "</p>";
-      }
-
-      function onSuccessPreviewPublish(response) {
-        var configDiv = document.getElementById('config');
-        configDiv.style.display = 'none';
-        var div = document.getElementById('loading');
-        div.style.display = 'block';
-        if (response && response.status && response.status === "error") {
-          div.innerHTML = "<p class='error'>An error occurred: " + response.message + '</p>';
-        } else {
-          div.innerHTML = '<p style="color: #48C774;">' + response.message + "</p>";
-        }
-        if (response.data) {
-          onSuccessMetaPreserveLoading(response.data);
-        }
-      }
-
-      function actualTitleOrDefault(title, defaultTitle) {
-        if (title === undefined || title === "" || title === null) {
-          return defaultTitle;
-        } else {
-          return title;
-        }
-      }
-
-      function onSuccessMetaPreserveLoading(data) {
-        console.log("onSuccessMeta data:", data);
-        var form = document.getElementById('article-meta-form');
-        form.style.display = "block";
-
-        if (data.documentType !== "article") {
-          var elements = document.getElementsByClassName('articles-only');
-          for (var i = 0; i < elements.length; i++) {
-            elements[i].style.display = "none";
-          };
-        }
-
-        var articleLocaleSelect = document.getElementById('article-locale');
-        if (data.localeName !== null && data.localeName !== undefined) {
-          articleLocaleSelect.style.display = 'none';
-          articleLocaleSelect.style.visibility = 'hidden';
-
-          var selectedLocaleDiv = document.getElementById('selected-locale');
-          selectedLocaleDiv.innerHTML = "<b>" + data.localeName + "</b>";
-
-        } else {
-
-          data.locales.forEach(locale => {
-            // first check if this option already exists; don't add dupes!
-            var selectorString = "#article-locale option[value='" + locale.id + "']";
-            if ( $(selectorString).length <= 0 ) {
-              var option = document.createElement("option");
-              if (locale.code) {
-                option.text = locale.code;
-              } else {
-                option.text = "(BUG) unknown locale";
-              }
-              // mark this locale as selected if it's the article's locale ID -or- is the default locale
-              if (data.localeID !== null && data.localeID === locale.id) {
-                option.selected = true;
-              } else if (locale.default) {
-                option.selected = true;
-              }
-              option.value = locale.id;
-
-              articleLocaleSelect.add(option);
-            }
-          })
-        }
-
-        if (data.documentType === 'article') {
-          var articleCategorySelect = document.getElementById('article-category');
-          var categoriesSorted = data.categories.sort(function (a, b) {
-            let comparison = 0;
-            let aTitle, bTitle;
-            if (a.title && a.title.values && a.title.values[0].value) {
-              aTitle = a.title.values[0].value;
-            }
-            if (b.title && b.title.values && b.title.values[0].value) {
-              bTitle = b.title.values[0].value;
-            }
-            if (aTitle > bTitle) {
-              comparison = 1;
-            } else if (aTitle < bTitle) {
-              comparison = -1;
-            }
-            return comparison;
-          });
-          categoriesSorted.forEach(category => {
-            // first check if this option already exists; don't add dupes!
-            var selectorString = "#article-category option[value='" + category.id + "']";
-            if ( $(selectorString).length <= 0 ) {
-              var option = document.createElement("option");
-              if (category.title && category.title.values && category.title.values[0].value) {
-                option.text = category.title.values[0].value;
-              } else {
-                option.text = "(BUG) unknown title";
-              }
-              option.value = category.id;
-
-              if (data.categoryID !== null && data.categoryID == category.id) {
-                option.selected = true;
-              }
-              articleCategorySelect.add(option);
-            }
-          })
-
-          var articleAuthorsSelect = document.getElementById('article-authors');
-          data.allAuthors.forEach(author => {
-            // first check if this option already exists; don't add dupes!
-            var selectorString = "#article-authors option[value='" + author.id + "']";
-            if ( $(selectorString).length <= 0 ) {
-              var option = document.createElement("option");
-              option.text = author.name;
-              option.value = author.id;
-
-              const result = data.articleAuthors.find( ({ id }) => id === author.id );
-              if (result !== undefined) {
-                option.selected = true;
-              }
-              articleAuthorsSelect.add(option);
-            }
-          })
-        }
-
-        var articleTagsSelect = document.getElementById('article-tags');
-
-        // first clear out previous tags - without doing this, we end up with dupes of all the tags
-        // after previewing or publishing
-        var length = articleTagsSelect.options.length;
-        for (i = length-1; i >= 0; i--) {
-          articleTagsSelect.options[i] = null;
-        }
-
-        data.allTags.forEach(tag => {
-          // first check if this option already exists; don't add dupes!
-          var selectorString = "#article-tags option[value='" + tag.id + "']";
-          if ( $(selectorString).length <= 0 ) {
-            var option = document.createElement("option");
-            if (tag.title && tag.title.values && tag.title.values[0].value) {
-              option.text = tag.title.values[0].value;
-            } else {
-              option.text = "(BUG) unknown title";
-            }
-            option.value = tag.id;
-
-            const result = data.articleTags.find( ({ id }) => id === tag.id );
-            if (result !== undefined) {
-              option.selected = true;
-            }
-            articleTagsSelect.add(option);
-          }
-        })
-
-        setPublishedFlag(data.published);
-
-        var articleHeadline = document.getElementById('article-headline');
-        articleHeadline.value = data.headline;
-
-        if (data.documentType === 'article') {
-          if (data.customByline !== null && data.customByline !== undefined) {
-            var articleCustomByline = document.getElementById('article-custom-byline');
-            articleCustomByline.value = data.customByline;
-          }
-        }
-
-        
-        var articleSearchTitle = document.getElementById('article-search-title');
-        if (data.seo.searchTitle !== undefined) {
-          articleSearchTitle.value = actualTitleOrDefault(data.seo.searchTitle, data.headline);
-        } else {
-          articleSearchTitle.value = data.headline;
-        }
-
-        if (data.seo.searchDescription !== undefined) {
-          var articleSearchDescription = document.getElementById('article-search-description');
-          articleSearchDescription.value = data.seo.searchDescription;
-        }
-
-        var articleFacebookTitle = document.getElementById('article-facebook-title');
-        if (data.seo.facebookTitle !== undefined) {
-          articleFacebookTitle.value = actualTitleOrDefault(data.seo.facebookTitle, data.headline);
-        } else {
-          articleFacebookTitle.value = data.headline;
-        }
-
-        if (data.seo.facebookDescription !== undefined) {
-          var articleFacebookDescription = document.getElementById('article-facebook-description');
-          articleFacebookDescription.value = data.seo.facebookDescription;
-        }
-
-        var articleTwitterTitle = document.getElementById('article-twitter-title');
-        if (data.seo.twitterTitle !== undefined) {
-          articleTwitterTitle.value = actualTitleOrDefault(data.seo.twitterTitle, data.headline);
-        } else {
-          articleTwitterTitle.value = data.headline;
-        }
-
-        if (data.seo.twitterDescription !== undefined) {
-          var articleTwitterDescription = document.getElementById('article-twitter-description');
-          articleTwitterDescription.value = data.seo.twitterDescription;
-        }
-
-        var previewUrl = document.getElementById('preview-url');
-        previewUrl.value = data.previewUrl;
-
-        var previewSecret = document.getElementById('preview-secret');
-        previewSecret.value = data.previewSecret;
-
-        var slugDiv = document.getElementById('slug');
-        slugDiv.innerHTML = data.slug;
-
-        if (data.documentType === 'article') {
-          $('#article-authors').select2({
-            width: 'resolve',
-          });
-
-          $('#article-tags').select2({
-            width: 'resolve',
-            tags: true,
-            createTag: function (params) {
-              var term = $.trim(params.term);
-
-              if (term === '') {
-                return null;
-              }
-
-              return {
-                id: term,
-                text: term,
-                newTag: true // add additional parameters
-              }
-            }
-          });
-        }
-
-        var buttonsDivBottom = document.getElementById('action-buttons-bottom')
-        buttonsDivBottom.style.display = "inline";
-        var buttonsDivTop = document.getElementById('action-buttons-top')
-        buttonsDivTop.style.display = "inline";
-
-        // if (data.firstPublishedOn !== null && typeof(data.firstPublishedOn) !== 'undefined') {
-        //   var firstPubDiv = document.getElementById('first-published');
-        //   var localisedDate = new Date(data.firstPublishedOn).toLocaleString();
-        //   firstPubDiv.innerHTML = localisedDate;
-        // }
-
-        // if (data.lastPublishedOn !== null && typeof(data.lastPublishedOn) !== 'undefined') {
-        //   var lastPubDiv = document.getElementById('last-published');
-        //   var localisedDate = new Date(data.lastPublishedOn).toLocaleString();
-        //   lastPubDiv.innerHTML = localisedDate;
-        // }
-
-        if (data.googleDocs !== null && data.googleDocs !== undefined) {
-          var editDiv = document.getElementById('edit-links');
-          editDiv.innerHTML = ""; // blank this out to prevent subsequent publish calls to duplicate links
-
-          var createLinks = [];
-          var editLinks = [];
-          var createLocales = data.locales.map(locale=>locale.code);
-          var existingLocales = Object.keys(data.googleDocs);
-
-          createLocales = createLocales.filter(function(item) {
-            return !existingLocales.includes(item); 
-          })
-
-          $.each( data.googleDocs, function( locale, docID ) {
-            var emojiFlag = emojiFor[locale];
-            if (locale !== data.localeName) {
-              editLinks.push("<li><a target='_blank' href='https://docs.google.com/document/d/" + docID + "/edit'>" + emojiFlag + locale + "</a></li>")
-            }
-          });
-
-          $.each(createLocales, function( index, locale ) {
-            var emojiFlag = emojiFor[locale];
-            createLinks.push("<li><a onclick='createNewDoc(\"" + locale + "\");'>" + emojiFlag + locale + "</li>");
-          });
-
-          if (createLinks.length > 0) {
-            editDiv.innerHTML = "<p><b>Create new translation:</b></p><ul>" + createLinks.join("")+ "</ul>";
-          }
-          if (editLinks.length > 0) {
-            editDiv.innerHTML += "<p><b>Existing translations:</b></p><ul>" + editLinks.join("")+ "</ul>";
-          }
-        }
-      }
-
-      function onSuccessMeta(data) {
-        var loadingDiv = document.getElementById('loading');
-        loadingDiv.style.display = "none";
-
-        onSuccessMetaPreserveLoading(data);
       }
 
       function setPublishedFlag(value) {
@@ -401,43 +50,164 @@
         }
         // isPublishedSpan.innerHTML = isPublishedYesNo;
       }
-
-      function createNewDoc(locale) {
-         google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessNewDoc).createNewDoc(locale);
-      }
-
-      function handleMetaPreserveLoading() {
-         google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessMetaPreserveLoading).getArticleMeta();
-      }
-
-      function handleMeta() {
-         google.script.run.withFailureHandler(onFailureMeta).withSuccessHandler(onSuccessMeta).getArticleMeta();
-      }
-
-      function handleClick(formObject) {
-        var form = document.getElementById('article-meta-form');
-        form.style.display = "none";
+      function onSuccessGetArticle(contents) {
+        console.log(contents);
 
         var configDiv = document.getElementById('config');
-        configDiv.style.display = "none";
-
-        var loadingDiv = document.getElementById('loading');
-        loadingDiv.style.display = "block";
-
-        if (formObject.submitted === "Preview") {
-          loadingDiv.innerHTML = "<p class='gray'>Loading preview...</p>"
-          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handlePreview(formObject);
-        } else if ( (formObject.submitted === "Publish") || (formObject.submitted === "Re-publish") ) {
-          loadingDiv.innerHTML = "<p class='gray'>Publishing article...</p>"
-          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handlePublish(formObject);
+        configDiv.style.display = 'none';
+        var div = document.getElementById('loading');
+        div.style.display = 'block';
+        if (contents && contents.status && contents.status === "error") {
+          div.innerHTML = "<p class='error'>An error occurred: " + contents.message + '</p>';
         } else {
-          loadingDiv.innerHTML = "<p class='gray'>Unpublishing article...</p>"
-          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handleUnpublish(formObject);
+          div.innerHTML = '<p style="color: #48C774;">' + contents.message + "</p>";
         }
+
+        var form = document.getElementById('article-form');
+        form.style.display = "block";
+
+        var articleData = contents.data.articles[0];
+        var translationData = articleData.article_translations[0];
+
+        var articleLocaleSelect = document.getElementById('article-locale');
+        contents.data.organization_locales.forEach(localeData => {
+          // first check if this option already exists; don't add dupes!
+          var selectorString = "#article-locale option[value='" + localeData.locale.code + "']";
+          if ( $(selectorString).length <= 0 ) {
+            var option = document.createElement("option");
+            if (localeData.locale.code) {
+              option.text = localeData.locale.code;
+            } else {
+              option.text = "(BUG) unknown locale";
+            }
+            // mark this locale as selected if it's the article's locale ID -or- is the default locale
+            // if (data.localeID !== null && data.localeID === locale.id) {
+            //   option.selected = true;
+            // } else if (locale.default) {
+            //   option.selected = true;
+            // }
+            option.value = localeData.locale.code;
+
+            articleLocaleSelect.add(option);
+          }
+        })
+        var articleCategorySelect = document.getElementById('article-category');
+        var categoriesSorted = contents.data.categories.sort(function (a, b) {
+          let comparison = 0;
+          let aTitle, bTitle;
+          if (a.category_translations && a.category_translations[0] && a.category_translations[0].title) {
+            aTitle = a.category_translations[0].title
+          }
+          if (b.category_translations && b.category_translations[0] && b.category_translations[0].title) {
+            bTitle = b.category_translations[0].title
+          }
+          if (aTitle > bTitle) {
+            comparison = 1;
+          } else if (aTitle < bTitle) {
+            comparison = -1;
+          }
+          return comparison;
+        });
+        categoriesSorted.forEach(category => {
+          // first check if this option already exists; don't add dupes!
+          var selectorString = "#article-category option[value='" + category.id + "']";
+          if ( $(selectorString).length <= 0 ) {
+            var option = document.createElement("option");
+            if (category.category_translations && category.category_translations[0] && category.category_translations[0].title) {
+              option.text = category.category_translations[0].title
+            } else {
+              option.text = "(BUG) unknown title";
+            }
+            option.value = category.id;
+
+            if (articleData.category && articleData.category.id !== null && articleData.category.id == category.id) {
+              option.selected = true;
+            }
+            articleCategorySelect.add(option);
+          }
+        })
+
+        var articleTagsSelect = document.getElementById('article-tags');
+
+        // first clear out previous tags - without doing this, we end up with dupes of all the tags
+        // after previewing or publishing
+        var length = articleTagsSelect.options.length;
+        for (i = length-1; i >= 0; i--) {
+          articleTagsSelect.options[i] = null;
+        }
+
+        contents.data.tags.forEach(tag => {
+          // first check if this option already exists; don't add dupes!
+          var selectorString = "#article-tags option[value='" + tag.id + "']";
+          if ( $(selectorString).length <= 0 ) {
+            var option = document.createElement("option");
+            if (tag.tag_translations && tag.tag_translations[0] && tag.tag_translations[0].title) {
+              option.text = tag.tag_translations[0].title;
+            } else {
+              option.text = "(BUG) unknown title";
+            }
+            option.value = tag.id;
+
+            const result = articleData.tag_articles.find( ({ tag_id }) => tag_id === tag.id );
+            if (result !== undefined) {
+              option.selected = true;
+            }
+            articleTagsSelect.add(option);
+          }
+        })
+
+        setPublishedFlag(translationData.published);
+
+        var articleHeadline = document.getElementById('article-headline');
+        articleHeadline.value = translationData.headline;
+
+        var slugDiv = document.getElementById('slug');
+        slugDiv.innerHTML = articleData.slug;
+
+        setValueOrDefault('article-custom-byline', translationData.custom_byline, "");
+        setValueOrDefault('article-search-title', translationData.search_title, translationData.headline);
+        setValueOrDefault('article-search-description', translationData.search_description, translationData.headline);
+        setValueOrDefault('article-facebook-title', translationData.facebook_title, translationData.headline);
+        setValueOrDefault('article-facebook-description', translationData.facebook_description, translationData.headline);
+        setValueOrDefault('article-twitter-title', translationData.twitter_title, translationData.headline);
+        setValueOrDefault('article-twitter-description', translationData.twitter_description, translationData.headline);
+
+        $('#article-authors').select2({
+          width: 'resolve',
+        });
+
+        $('#article-tags').select2({
+          width: 'resolve',
+          tags: true,
+          createTag: function (params) {
+            var term = $.trim(params.term);
+
+            if (term === '') {
+              return null;
+            }
+
+            return {
+              id: term,
+              text: term,
+              newTag: true // add additional parameters
+            }
+          }
+        });
       }
       
+      function onFailureGetArticle(error) {
+        console.log("onFailure error:", error);
+        var loadingDiv = document.getElementById('loading');
+        loadingDiv.style.display = "block";
+        loadingDiv.innerHTML = "<p class='error'>An error occurred: " + error + "</p>";
+      }
+
+      function handleGetArticle() {
+         google.script.run.withFailureHandler(onFailureGetArticle).withSuccessHandler(onSuccessGetArticle).hasuraGetArticle();
+      }
+
       window.onload = (function(){
-        var form = document.getElementById('article-meta-form');
+        var form = document.getElementById('article-form');
         form.style.display = "none";
 
         var buttonsDivBottom = document.getElementById('action-buttons-bottom')
@@ -445,9 +215,7 @@
         var buttonsDivTop = document.getElementById('action-buttons-top')
         buttonsDivTop.style.display = "none";
 
-        handleMeta();
-
-
+        handleGetArticle();
       });
 
       // Prevent forms from submitting.
@@ -459,10 +227,10 @@
           });
         }
       }
+
       window.addEventListener('load', preventFormSubmit);
-
-
     </script>
+
     <style>
       textarea {
         width: 100%;
@@ -477,9 +245,9 @@
       .button, button, input[type="button"] {
         min-width: 0 !important;
       }
-      </style>
-
+    </style>
   </head>
+
   <body>
     <a id='top' href="#"></a>
     <div id="sidebar-wrapper" class="sidebar branding-below">
@@ -489,8 +257,8 @@
 
       <div id="config"></div>
 
-      <div id="article-meta-form">
-        <form onsubmit="handleClick(this)">
+      <div id="article-form">
+        <form>
           <div class="block" id="action-buttons-top">
             <input type="submit" name="preview" id="preview-button-top" class="blue" value="Preview" onclick="this.form.submitted=this.value;"/>
             <input type="submit" class="blue" id="publish-button-top" value="Publish" onclick="this.form.submitted=this.value;"/>
