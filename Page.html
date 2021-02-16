@@ -135,6 +135,30 @@
           }
         })
 
+        var articleAuthorSelect = document.getElementById('article-authors');
+        contents.data.authors.forEach(author => {
+          // first check if this option already exists; don't add dupes!
+          var selectorString = "#article-authors option[value='" + author.id + "']";
+          if ( $(selectorString).length <= 0 ) {
+            var option = document.createElement("option");
+            if (author && author.name) {
+              option.text = author.name
+            } else {
+              option.text = "(BUG) unknown name";
+            }
+            option.value = author.id;
+
+            if (articleData && articleData.author_articles) {
+              console.log("looking for author with id " + author.id + " in ", articleData.author_articles)
+              var foundAuthor = articleData.author_articles.find( (aa) => aa.author.id === author.id);
+              if (foundAuthor) {
+                console.log("foundAuthor:", foundAuthor);
+                option.selected = true;
+              }
+            }
+            articleAuthorSelect.add(option);
+          }
+        })
         var articleTagsSelect = document.getElementById('article-tags');
 
         // first clear out previous tags - without doing this, we end up with dupes of all the tags
@@ -146,7 +170,7 @@
 
         contents.data.tags.forEach(tag => {
           // first check if this option already exists; don't add dupes!
-          var selectorString = "#article-tags option[value='" + tag.id + "']";
+          var selectorString = "#article-tags option[value='" + tag.slug + "']";
           if ( $(selectorString).length <= 0 ) {
             var option = document.createElement("option");
             if (tag.tag_translations && tag.tag_translations[0] && tag.tag_translations[0].title) {
@@ -154,7 +178,7 @@
             } else {
               option.text = "(BUG) unknown title";
             }
-            option.value = tag.id;
+            option.value = tag.slug;
 
             if (articleData) {
               const result = articleData.tag_articles.find( ({ tag_id }) => tag_id === tag.id );
@@ -228,11 +252,14 @@
         configDiv.style.display = 'none';
         var div = document.getElementById('loading');
         div.style.display = 'block';
-        if (response && response.status && response.status === "error") {
-          div.innerHTML = "<p class='error'>An error occurred: " + response.message + '</p>';
+        if (response.data.errors) {
+          div.innerHTML = "<p class='error'>An error occurred: " + JSON.stringify(response.data.errors) + '</p>';
         } else {
           div.innerHTML = '<p style="color: #48C774;">' + response.message + "</p>";
+          console.log("article ID:", response.data.data.insert_articles.returning[0].id)
         }
+        var form = document.getElementById('article-form');
+        form.style.display = "block";
       }
 
       function handleClick(formObject) {

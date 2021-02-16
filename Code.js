@@ -699,9 +699,13 @@ const insertArticleGoogleDocMutation = `mutation MyMutation($locale_code: String
   }
 }`;
 
+
+
 function insertArticleGoogleDocs(data) {
   var documentID = DocumentApp.getActiveDocument().getId();
   var documentURL = DocumentApp.getActiveDocument().getUrl();
+  var content = getCurrentDocContents();
+
   let articleData = {
     "slug": data['article-slug'],
     "document_id": documentID,
@@ -710,6 +714,7 @@ function insertArticleGoogleDocs(data) {
     "locale_code": data['article-locale'],
     "headline": data['article-headline'],
     "published": false,
+    "content": content,
     "search_description": data['article-search-description'],
     "search_title": data['article-search-title'],
     "twitter_title": data['article-twitter-title'],
@@ -726,45 +731,115 @@ function insertArticleGoogleDocs(data) {
   );
 }
 
-function hasuraHandlePreview(formObject) {
+const insertAuthorArticleMutation = `mutation MyMutation($article_id: Int!, $author_id: Int!) {
+  insert_author_articles(objects: {article_id: $article_id, author_id: $author_id}, on_conflict: {constraint: author_articles_article_id_author_id_key, update_columns: article_id}) {
+    affected_rows
+  }
+}`;
+
+async function hasuraCreateAuthorArticle(authorId, articleId) {
+  return fetchGraphQL(
+    insertAuthorArticleMutation,
+    "MyMutation",
+    {
+      article_id: articleId,
+      author_id: authorId
+    }
+  );
+}
+
+const insertTagMutation = `mutation MyMutation($slug: String, $locale_code: String, $title: String, $article_id: Int!) {
+  insert_tag_articles(objects: {article_id: $article_id, tag: {data: {slug: $slug, tag_translations: {data: {locale_code: $locale_code, title: $title}, on_conflict: {constraint: tag_translations_tag_id_locale_code_key, update_columns: locale_code}}, published: true}, on_conflict: {constraint: tags_organization_id_slug_key, update_columns: organization_id}}}, on_conflict: {constraint: tag_articles_article_id_tag_id_key, update_columns: article_id}) {
+    returning {
+      id
+      article_id
+      tag_id
+    }
+  }
+}`;
+
+async function hasuraCreateTag(tagData) {
+  return fetchGraphQL(
+    insertTagMutation,
+    "MyMutation",
+    tagData
+  );
+}
+async function hasuraHandlePreview(formObject) {
+  var scriptConfig = getScriptConfig();
   Logger.log("formObject: " + JSON.stringify(formObject));
 
-  var result;
-  // 1. Look up article by google doc ID
-  var response = hasuraGetArticle();
-  // found a match - do an update
-  if (response.status === "success" && response.data && response.data.articles && response.data.articles[0]) {
-    var article = response.data.articles[0];
-    Logger.log("found article: " + JSON.stringify(article));
-    // result = updateArticle(formObject);
+  var slug = formObject['article-slug'];
+  var headline = formObject['article-headline'];
 
-  // failed finding a match - insert new article
-  } else {
-    Logger.log("failed to find article: " + JSON.stringify(response));
-    result = insertArticleGoogleDocs(formObject);
-    Logger.log("result: " + JSON.stringify(result))
+  if (headline === "" || headline === null || headline === undefined) {
+    return {
+      message: "Headline is required",
+      status: "error",
+      data: formObject
+    }
   }
+
+  if (slug === "" || slug === null || slug === undefined) {
+    slug = slugify(headline)
+    formObject['article-slug'] = slug;
+  }
+
+  // insert or update article
+  var articleResult = await insertArticleGoogleDocs(formObject);
+  var articleID = articleResult.data.insert_articles.returning[0].id;
+
+  Logger.log("articleResult: " + JSON.stringify(articleResult))
+  if (articleID && formObject['article-tags']) {
+    var tags;
+    // ensure this is an array; selecting one in the UI results in a string being sent
+    if (typeof(formObject['article-tags']) === 'string') {
+      tags = [formObject['article-tags']]
+    } else {
+      tags = formObject['article-tags'];
+    }
+    Logger.log("Found tags: " + JSON.stringify(tags));
+    for (var index = 0; index < tags.length; index++) {
+      var tag = tags[index];
+      var slug = slugify(tag);
+      var result = await hasuraCreateTag({
+        slug: slug, 
+        title: tag,
+        article_id: articleID,
+        locale_code: formObject['article-locale']
+      });
+      Logger.log("create tag result:" + JSON.stringify(result))
+    }
+  }
+
+  if (articleID && formObject['article-authors']) {
+    var authors;
+    // ensure this is an array; selecting one in the UI results in a string being sent
+    if (typeof(formObject['article-authors']) === 'string') {
+      authors = [formObject['article-authors']]
+    } else {
+      authors = formObject['article-authors'];
+    }
+    Logger.log("Found authors: " + JSON.stringify(authors));
+    for (var index = 0; index < authors.length; index++) {
+      var author = authors[index];
+      Logger.log("creating author article link: " + author + " -- " + articleID)
+      var result = await hasuraCreateAuthorArticle(author, articleID);
+      Logger.log("create article author result:" + JSON.stringify(result))
+    }
+  }
+
+  //construct preview url
+  var fullPreviewUrl = scriptConfig['PREVIEW_URL'] + "?secret=" + scriptConfig['PREVIEW_SECRET'] + "&slug=" + formObject['article-slug'] + "&locale=" + formObject['article-locale'];
+  var message = "<a href='" + fullPreviewUrl + "' target='_blank'>Preview article in new window</a>";
 
   return {
-    message: "handle preview",
-    data: result,
+    message: message,
+    data: articleResult,
     status: "success"
   }
-  // if (response && response.status === "success") {
-  //   // construct preview url
-  //   var slug = getArticleSlug();
-  //   var locale = getSelectedLocaleName();
-  //   var scriptConfig = getScriptConfig();
-  //   var previewHost = scriptConfig['PREVIEW_URL'];
-  //   var previewSecret = scriptConfig['PREVIEW_SECRET'];
-  //   var fullPreviewUrl = previewHost + "?secret=" + previewSecret + "&slug=" + slug + "&locale=" + locale;
-
-  //   // open preview url in new window
-  //   response.message += "<br><a href='" + fullPreviewUrl + "' target='_blank'>Preview article in new window</a>"
-  // }
-
-  // return response;
 }
+
 const searchArticlesByHeadlineQuery = `query MyQuery($locale_code: String!, $term: String!) {
   articles(where: {article_translations: {headline: {_ilike: $term}, locale_code: {_eq: $locale_code}}}) {
     id
@@ -786,12 +861,13 @@ const searchArticlesByHeadlineQuery = `query MyQuery($locale_code: String!, $ter
 
 const getArticleForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_code: String!) {
   articles(where: {article_google_documents: {google_document: {document_id: {_eq: $doc_id}, locale_code: {_eq: $locale_code}}}, article_translations: {locale_code: {_eq: $locale_code}}}) {
+    id
+    slug
     category {
       id
       slug
       title
     }
-    slug
     tag_articles {
       tag {
         id
@@ -823,6 +899,11 @@ const getArticleForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_cod
         slug
       }
     }
+  }
+  authors {
+    id
+    slug
+    name
   }
   categories {
     id
@@ -879,12 +960,10 @@ async function getArticleForGoogleDoc(doc_id, locale_code) {
 
   if (errors) {
     // handle those errors like a pro
-    console.error(errors);
+    console.error("errors:" + JSON.stringify(errors));
     throw errors;
   }
 
-  // do something great with this precious data
-  console.log(data);
   return data;
 }
 
@@ -892,7 +971,7 @@ async function getArticleForGoogleDoc(doc_id, locale_code) {
 . * Returns metadata about the article, including its id, whether it was published
 . * headline and byline
 . */
-function hasuraGetArticle() {
+async function hasuraGetArticle() {
   var returnValue = {
     status: "",
     message: "",
@@ -905,17 +984,26 @@ function hasuraGetArticle() {
     locale = "en-US"
   }
 
-  var data = getArticleForGoogleDoc(documentID, locale);
-  Logger.log("data: " + JSON.stringify(data));
-
-  if (data && data.articles && data.articles[0]) {
-    returnValue.status = "success";
-    returnValue.message = "Retrieved article";
-  } else {
-    returnValue.status = "notFound";
-    returnValue.message = "Article not found";
+  var data;
+  try {
+    data = await getArticleForGoogleDoc(documentID, locale);
+    Logger.log("getArticle data: " + JSON.stringify(data));
+    if (data && data.articles && data.articles[0]) {
+      returnValue.status = "success";
+      returnValue.message = "Retrieved article with ID: " + data.articles[0].id;
+    } else {
+      Logger.log("getArticle notFound data: " + JSON.stringify(data));
+      returnValue.status = "notFound";
+      returnValue.message = "Article not found";
+    }
+    returnValue.data = data;
+  } catch (err) {
+    Logger.log("error getting article: " + JSON.stringify(err));
+    returnValue.status = "error";
+    returnValue.message = "An error occurred getting the article";
+    returnValue.data = err;
   }
-  returnValue.data = data;
+
   return returnValue;
 }
 
@@ -985,143 +1073,12 @@ function handlePreview(formObject) {
 }
 
 /**
-. * Gets the current document's contents and
-.  * posts them to webiny
+. * Gets the current document's contents
 . */
-function getCurrentDocContents(formObject, publishFlag) {
-
-  var activeDoc = DocumentApp.getActiveDocument();
-  var documentID = activeDoc.getId();
-
-  var returnValue = {
-    status: "",
-    message: ""
-  };
-
-  processForm(formObject);
-
-  var articleID = getArticleID();
-  var documentType = getDocumentType();
-
-  var title = getHeadline();
-
-  var t2 = new Date().getTime();
+function getCurrentDocContents() {
   var formattedElements = formatElements();
-  var t3 = new Date().getTime();
-  var diff2 = t3 - t2;
-  Logger.log("formatElements: " + diff2 + " ms")
+  return formatElements;
 
-  var articleData = {};
-  articleData.id = articleID;
-  articleData.documentID = documentID;
-  articleData.headline = title;
-  articleData.formattedElements = formattedElements;
-
-  var selectedLocale = getLocaleID();
-  var selectedLocaleName = getSelectedLocaleName();
-  // if no locale was selected, refuse to try publishing the article
-  if (selectedLocale === null || selectedLocale === undefined) {
-    Logger.log("FAILED FINDING A LOCALE FOR THIS ARTICLE, ERROR");
-    returnValue.status = "error";
-    returnValue.message = "Please select a locale for this content."
-    return returnValue;
-  }
-
-  articleData.localeName = selectedLocaleName;
-  articleData.localeID = selectedLocale;
-
-  articleData.published = publishFlag;
-  articleData.categoryID = getCategoryID();
-  articleData.authors = getAuthors();
-  articleData.tags = getTags();
-
-  if (documentType === "article" && articleData.categoryID !== null) {
-    storeCategoryID(articleData.categoryID);
-  }
-
-  // first save the latest article content - either create a new article, or create a new revision on an existing article
-  var responseData;
-  // if we already have an articleID and latest version info, we need to create a new version of the article
-  if (articleID !== null) {
-    if (documentType === "article") {
-      var t4 = new Date().getTime();
-      responseData = createArticleFrom(articleData);
-      var t5 = new Date().getTime();
-      var diff3 = t5 - t4;
-      Logger.log("createArticleFrom: " + diff3 + " ms")
-    } else {
-      var t6 = new Date().getTime();
-      responseData = createPageFrom(articleData);
-      var t7 = new Date().getTime();
-      Logger.log("createPageFrom: " + t7-t6 + " ms")
-    }
-  // otherwise, we create a new article
-  } else {
-    if (documentType === "article") {
-      var t8 = new Date().getTime();
-      responseData = createArticle(articleData);
-      var t9 = new Date().getTime();
-      Logger.log("createArticle: " + t9-t8 + " ms")
-    } else {
-      var t10 = new Date().getTime();
-      responseData = createPage(articleData);
-      var t11 = new Date().getTime();
-      Logger.log("createPage: " + t11-t10 + " ms")
-      // title, formattedElements);
-    }
-
-    if (responseData && responseData.status === "success" && responseData.id) {
-      var articleID = responseData.id;
-      storeArticleID(articleID);
-    }
-  }
-
-  if (responseData === null) {
-    returnValue.status = "error";
-    returnValue.message = "An unknown error occurred, contact your administrator.";
-    return returnValue;
-  }
-
-  if (responseData.status !== "success") {
-    returnValue.status = "error";
-    if (responseData.message !== null) {
-      returnValue.message = responseData.message;
-    } else {
-      returnValue.message = "An unknown error occurred (line 1402)"
-    }
-    return returnValue;
-  }
-
-  responseText = `Successfully stored ${documentType} in webiny.`;
-
-  if (publishFlag) {
-    if (documentType === "article") {
-      // publish article
-      var publishResponse = publishArticle();
-
-      responseText += "<br>" + JSON.stringify(publishResponse);
-    } else {
-      // publish page
-      var publishResponse = publishPage();
-
-      responseText += "<br>" + JSON.stringify(publishResponse);
-    }
-    // // hit vercel deploy hook to republish the site
-    // var rebuildResponse = rebuildSite();
-    // // Logger.log(`Posted to deploy hook to rebuild: `, rebuildResponse);
-    // responseText += "<br>Rebuilding site on vercel";
-    // responseText += "<br>" + JSON.stringify(rebuildResponse);
-
-  } else {
-    storeIsPublished(false);
-  }
-
-  // // update published flag and latest version ID
-  // setArticleMeta();
-
-  returnValue.status = "success";
-  returnValue.message = responseText;
-  return returnValue;
 }
 
 
