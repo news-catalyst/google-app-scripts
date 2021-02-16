@@ -66,8 +66,16 @@
         var form = document.getElementById('article-form');
         form.style.display = "block";
 
+        var buttonsDivBottom = document.getElementById('action-buttons-bottom')
+        buttonsDivBottom.style.display = "block";
+        var buttonsDivTop = document.getElementById('action-buttons-top')
+        buttonsDivTop.style.display = "block";
+
         var articleData = contents.data.articles[0];
-        var translationData = articleData.article_translations[0];
+        var translationData; 
+        if (articleData) {
+         translationData = articleData.article_translations[0];
+        }
 
         var articleLocaleSelect = document.getElementById('article-locale');
         contents.data.organization_locales.forEach(localeData => {
@@ -120,13 +128,37 @@
             }
             option.value = category.id;
 
-            if (articleData.category && articleData.category.id !== null && articleData.category.id == category.id) {
+            if (articleData && articleData.category && articleData.category.id !== null && articleData.category.id == category.id) {
               option.selected = true;
             }
             articleCategorySelect.add(option);
           }
         })
 
+        var articleAuthorSelect = document.getElementById('article-authors');
+        contents.data.authors.forEach(author => {
+          // first check if this option already exists; don't add dupes!
+          var selectorString = "#article-authors option[value='" + author.id + "']";
+          if ( $(selectorString).length <= 0 ) {
+            var option = document.createElement("option");
+            if (author && author.name) {
+              option.text = author.name
+            } else {
+              option.text = "(BUG) unknown name";
+            }
+            option.value = author.id;
+
+            if (articleData && articleData.author_articles) {
+              console.log("looking for author with id " + author.id + " in ", articleData.author_articles)
+              var foundAuthor = articleData.author_articles.find( (aa) => aa.author.id === author.id);
+              if (foundAuthor) {
+                console.log("foundAuthor:", foundAuthor);
+                option.selected = true;
+              }
+            }
+            articleAuthorSelect.add(option);
+          }
+        })
         var articleTagsSelect = document.getElementById('article-tags');
 
         // first clear out previous tags - without doing this, we end up with dupes of all the tags
@@ -138,7 +170,7 @@
 
         contents.data.tags.forEach(tag => {
           // first check if this option already exists; don't add dupes!
-          var selectorString = "#article-tags option[value='" + tag.id + "']";
+          var selectorString = "#article-tags option[value='" + tag.slug + "']";
           if ( $(selectorString).length <= 0 ) {
             var option = document.createElement("option");
             if (tag.tag_translations && tag.tag_translations[0] && tag.tag_translations[0].title) {
@@ -146,31 +178,39 @@
             } else {
               option.text = "(BUG) unknown title";
             }
-            option.value = tag.id;
+            option.value = tag.slug;
 
-            const result = articleData.tag_articles.find( ({ tag_id }) => tag_id === tag.id );
-            if (result !== undefined) {
-              option.selected = true;
+            if (articleData) {
+              const result = articleData.tag_articles.find( ({ tag_id }) => tag_id === tag.id );
+              if (result !== undefined) {
+                option.selected = true;
+              }
             }
             articleTagsSelect.add(option);
           }
         })
 
-        setPublishedFlag(translationData.published);
+        if (articleData) {
+          var slugDiv = document.getElementById('slug');
+          slugDiv.innerHTML = articleData.slug;
+        }
 
-        var articleHeadline = document.getElementById('article-headline');
-        articleHeadline.value = translationData.headline;
+        if (translationData) {
+          setPublishedFlag(translationData.published);
 
-        var slugDiv = document.getElementById('slug');
-        slugDiv.innerHTML = articleData.slug;
+          var articleHeadline = document.getElementById('article-headline');
+          articleHeadline.value = translationData.headline;
 
-        setValueOrDefault('article-custom-byline', translationData.custom_byline, "");
-        setValueOrDefault('article-search-title', translationData.search_title, translationData.headline);
-        setValueOrDefault('article-search-description', translationData.search_description, translationData.headline);
-        setValueOrDefault('article-facebook-title', translationData.facebook_title, translationData.headline);
-        setValueOrDefault('article-facebook-description', translationData.facebook_description, translationData.headline);
-        setValueOrDefault('article-twitter-title', translationData.twitter_title, translationData.headline);
-        setValueOrDefault('article-twitter-description', translationData.twitter_description, translationData.headline);
+          setValueOrDefault('article-custom-byline', translationData.custom_byline, "");
+          setValueOrDefault('article-search-title', translationData.search_title, translationData.headline);
+          setValueOrDefault('article-search-description', translationData.search_description, translationData.headline);
+          setValueOrDefault('article-facebook-title', translationData.facebook_title, translationData.headline);
+          setValueOrDefault('article-facebook-description', translationData.facebook_description, translationData.headline);
+          setValueOrDefault('article-twitter-title', translationData.twitter_title, translationData.headline);
+          setValueOrDefault('article-twitter-description', translationData.twitter_description, translationData.headline);
+          setValueOrDefault('article-slug', articleData.slug, "");
+
+        }
 
         $('#article-authors').select2({
           width: 'resolve',
@@ -195,7 +235,7 @@
         });
       }
       
-      function onFailureGetArticle(error) {
+      function onFailure(error) {
         console.log("onFailure error:", error);
         var loadingDiv = document.getElementById('loading');
         loadingDiv.style.display = "block";
@@ -203,9 +243,46 @@
       }
 
       function handleGetArticle() {
-         google.script.run.withFailureHandler(onFailureGetArticle).withSuccessHandler(onSuccessGetArticle).hasuraGetArticle();
+         google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetArticle();
       }
 
+      function onSuccessPreviewPublish(response) {
+        console.log("success preview:", response);
+        var configDiv = document.getElementById('config');
+        configDiv.style.display = 'none';
+        var div = document.getElementById('loading');
+        div.style.display = 'block';
+        if (response.data.errors) {
+          div.innerHTML = "<p class='error'>An error occurred: " + JSON.stringify(response.data.errors) + '</p>';
+        } else {
+          div.innerHTML = '<p style="color: #48C774;">' + response.message + "</p>";
+          console.log("article ID:", response.data.data.insert_articles.returning[0].id)
+        }
+        var form = document.getElementById('article-form');
+        form.style.display = "block";
+      }
+
+      function handleClick(formObject) {
+        var form = document.getElementById('article-form');
+        form.style.display = "none";
+
+        var configDiv = document.getElementById('config');
+        configDiv.style.display = "none";
+
+        var loadingDiv = document.getElementById('loading');
+        loadingDiv.style.display = "block";
+
+        if (formObject.submitted === "Preview") {
+          loadingDiv.innerHTML = "<p class='gray'>Loading preview...</p>"
+          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePreview(formObject);
+        } else if ( (formObject.submitted === "Publish") || (formObject.submitted === "Re-publish") ) {
+          loadingDiv.innerHTML = "<p class='gray'>Publishing article... TODO</p>"
+          // google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handlePublish(formObject);
+        } else {
+          loadingDiv.innerHTML = "<p class='gray'>Unpublishing article... TODO</p>"
+          // google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handleUnpublish(formObject);
+        }
+      }
       window.onload = (function(){
         var form = document.getElementById('article-form');
         form.style.display = "none";
@@ -258,7 +335,7 @@
       <div id="config"></div>
 
       <div id="article-form">
-        <form>
+        <form onsubmit="handleClick(this)">
           <div class="block" id="action-buttons-top">
             <input type="submit" name="preview" id="preview-button-top" class="blue" value="Preview" onclick="this.form.submitted=this.value;"/>
             <input type="submit" class="blue" id="publish-button-top" value="Publish" onclick="this.form.submitted=this.value;"/>
@@ -278,6 +355,7 @@
               <b>Article slug</b>
             </label>
             <div id="slug"></div>
+            <input type="hidden" id="article-slug" name="article-slug" />
           </div>
 
           <div class="block form-group">
