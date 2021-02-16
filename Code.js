@@ -184,7 +184,7 @@ function getScriptConfig() {
     var fileParents = driveFile.getParents();
     while ( fileParents.hasNext() ) {
       var folder = fileParents.next();
-      if (folder.getName() === 'articles') {
+      if (folder.getName() === 'articles' || folder.getName() === 'pages') {
         var folderParents = folder.getParents();
         while ( folderParents.hasNext() ) {
           var grandFolder = folderParents.next();
@@ -628,6 +628,9 @@ async function fetchGraphQL(operationsDoc, operationName, variables) {
   var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
   var API_URL = scriptConfig['CONTENT_API'];
 
+  Logger.log("api url: " + API_URL)
+  Logger.log("variables: " + JSON.stringify(variables))
+  Logger.log("query: " + operationsDoc);
   var options = {
     method: 'POST',
     muteHttpExceptions: true,
@@ -859,6 +862,45 @@ const searchArticlesByHeadlineQuery = `query MyQuery($locale_code: String!, $ter
   }
 }`;
 
+const getPageForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_code: String!) {
+  pages(where: {page_google_documents: {google_document: {document_id: {_eq: $doc_id}, locale_code: {_eq: $locale_code}}}, page_translations: {locale_code: {_eq: $locale_code}}}) {
+    id
+    slug
+    page_translations(where: {locale_code: {_eq: $locale_code}}) {
+      content
+      facebook_description
+      facebook_title
+      first_published_at
+      headline
+      last_published_at
+      locale_code
+      published
+      search_description
+      search_title
+      twitter_title
+      twitter_description
+    }
+    author_pages {
+      author {
+        name
+        id
+        slug
+      }
+    }
+  }
+  authors {
+    id
+    slug
+    name
+  }
+  organization_locales {
+    locale {
+      code
+      name
+    }
+  }
+}`;
+
 const getArticleForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_code: String!) {
   articles(where: {article_google_documents: {google_document: {document_id: {_eq: $doc_id}, locale_code: {_eq: $locale_code}}}, article_translations: {locale_code: {_eq: $locale_code}}}) {
     id
@@ -935,6 +977,14 @@ function fetchArticleForGoogleDoc(doc_id, locale_code) {
   );
 }
 
+function fetchPageForGoogleDoc(doc_id, locale_code) {
+  return fetchGraphQL(
+    getPageForGoogleDocQuery,
+    "MyQuery",
+    {"doc_id": doc_id, "locale_code": locale_code}
+  );
+}
+
 /*
 .* called from ManualPage.html, this function searches for a matching article by headline
 .*/
@@ -944,12 +994,26 @@ function hasuraSearchArticles(formObject) {
     localeCode = "en-US" // TODO should we default this way?
   }
   var term = "%" + formObject["article-search"] + "%";
-  console.log("term: " + term);
   return fetchGraphQL(
     searchArticlesByHeadlineQuery,
     "MyQuery",
     {"term": term, "locale_code": localeCode}
   );
+}
+
+/*
+ * looks up a page by google doc ID and locale
+ */
+async function getPageForGoogleDoc(doc_id, locale_code) {
+  const { errors, data } = await fetchPageForGoogleDoc(doc_id, locale_code);
+
+  if (errors) {
+    console.error("errors:" + JSON.stringify(errors));
+    throw errors;
+  }
+
+  Logger.log("getpage data: " + JSON.stringify(data));
+  return data;
 }
 
 /*
@@ -959,7 +1023,6 @@ async function getArticleForGoogleDoc(doc_id, locale_code) {
   const { errors, data } = await fetchArticleForGoogleDoc(doc_id, locale_code);
 
   if (errors) {
-    // handle those errors like a pro
     console.error("errors:" + JSON.stringify(errors));
     throw errors;
   }
@@ -979,28 +1042,55 @@ async function hasuraGetArticle() {
   };
 
   var documentID = DocumentApp.getActiveDocument().getId();
+  Logger.log("documentID: " + documentID);
   var locale = getSelectedLocaleName();
   if (!locale) {
     locale = "en-US"
   }
 
+  // determine if this is a static page or an article - it will usually be an article
+  var driveFile = DriveApp.getFileById(documentID)
+  var fileParents = driveFile.getParents();
+  var isStaticPage = false;
+  while ( fileParents.hasNext() ) {
+    var folder = fileParents.next();
+    if (folder.getName() === "pages") {
+      isStaticPage = true;
+    }
+  }
+
   var data;
   try {
-    data = await getArticleForGoogleDoc(documentID, locale);
-    Logger.log("getArticle data: " + JSON.stringify(data));
-    if (data && data.articles && data.articles[0]) {
-      returnValue.status = "success";
-      returnValue.message = "Retrieved article with ID: " + data.articles[0].id;
+    if (isStaticPage) {
+      data = await getPageForGoogleDoc(documentID, locale);
+      Logger.log("getPage data: " + JSON.stringify(data));
+      if (data && data.pages && data.pages[0]) {
+        returnValue.status = "success";
+        returnValue.message = "Retrieved page with ID: " + data.pages[0].id;
+      } else {
+        Logger.log("getPage notFound data: " + JSON.stringify(data));
+        returnValue.status = "notFound";
+        returnValue.message = "Page not found";
+      }
+      returnValue.data = data;
+
     } else {
-      Logger.log("getArticle notFound data: " + JSON.stringify(data));
-      returnValue.status = "notFound";
-      returnValue.message = "Article not found";
+      data = await getArticleForGoogleDoc(documentID, locale);
+      if (data && data.articles && data.articles[0]) {
+        returnValue.status = "success";
+        returnValue.message = "Retrieved article with ID: " + data.articles[0].id;
+      } else {
+        Logger.log("getArticle notFound data: " + JSON.stringify(data));
+        returnValue.status = "notFound";
+        returnValue.message = "Article not found";
+      }
+      returnValue.data = data;
     }
-    returnValue.data = data;
+
   } catch (err) {
-    Logger.log("error getting article: " + JSON.stringify(err));
+    Logger.log(JSON.stringify(err));
     returnValue.status = "error";
-    returnValue.message = "An error occurred getting the article";
+    returnValue.message = "An error occurred getting the article or page";
     returnValue.data = err;
   }
 
