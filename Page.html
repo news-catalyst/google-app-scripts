@@ -211,6 +211,8 @@
 
         if (data) {
           var slugDiv = document.getElementById('slug');
+          var slugHiddenField = document.getElementById('article-slug');
+          slugHiddenField.value = data.slug;
           slugDiv.innerHTML = data.slug;
         }
 

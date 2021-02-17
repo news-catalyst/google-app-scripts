@@ -628,9 +628,6 @@ async function fetchGraphQL(operationsDoc, operationName, variables) {
   var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
   var API_URL = scriptConfig['CONTENT_API'];
 
-  Logger.log("api url: " + API_URL)
-  Logger.log("variables: " + JSON.stringify(variables))
-  Logger.log("query: " + operationsDoc);
   var options = {
     method: 'POST',
     muteHttpExceptions: true,
@@ -845,6 +842,7 @@ async function hasuraHandlePreview(formObject) {
 
   if (slug === "" || slug === null || slug === undefined) {
     slug = slugify(headline)
+    Logger.log("no slug found, generated from headline: " + headline + " -> " + slug)
     formObject['article-slug'] = slug;
   }
 
@@ -916,9 +914,7 @@ async function hasuraHandlePreview(formObject) {
       Logger.log("Found authors: " + JSON.stringify(authors));
       for (var index = 0; index < authors.length; index++) {
         var author = authors[index];
-        Logger.log("creating author article link: " + author + " -- " + articleID)
         var result = await hasuraCreateAuthorArticle(author, articleID);
-        Logger.log("create article author result:" + JSON.stringify(result))
       }
     }
   }
@@ -1264,8 +1260,7 @@ function handlePreview(formObject) {
 . */
 function getCurrentDocContents() {
   var formattedElements = formatElements();
-  return formatElements;
-
+  return formattedElements;
 }
 
 
