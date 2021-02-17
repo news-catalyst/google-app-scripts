@@ -184,7 +184,7 @@ function getScriptConfig() {
     var fileParents = driveFile.getParents();
     while ( fileParents.hasNext() ) {
       var folder = fileParents.next();
-      if (folder.getName() === 'articles') {
+      if (folder.getName() === 'articles' || folder.getName() === 'pages') {
         var folderParents = folder.getParents();
         while ( folderParents.hasNext() ) {
           var grandFolder = folderParents.next();
@@ -670,6 +670,23 @@ const lookupArticleByGoogleDocQuery = `query MyQuery($document_id: String) {
   }
 }`;
 
+const insertPageGoogleDocsMutation = `mutation MyMutation($slug: String!, $locale_code: String!, $document_id: String, $url: String, $facebook_title: String, $facebook_description: String, $search_title: String, $search_description: String, $headline: String, $twitter_title: String, $twitter_description: String, $content: jsonb, $published: Boolean) {
+  insert_pages(objects: {page_google_documents: {data: {google_document: {data: {document_id: $document_id, locale_code: $locale_code, url: $url}, on_conflict: {constraint: google_documents_organization_id_document_id_key, update_columns: document_id}}}, on_conflict: {constraint: page_google_documents_page_id_google_document_id_key, update_columns: google_document_id}}, slug: $slug, page_translations: {data: {published: $published, search_description: $search_description, search_title: $search_title, twitter_description: $twitter_description, twitter_title: $twitter_title, locale_code: $locale_code, headline: $headline, facebook_title: $facebook_title, facebook_description: $facebook_description, content: $content}}}) {
+    returning {
+      id
+      slug
+      page_google_documents {
+        id
+        google_document {
+          document_id
+          locale_code
+          url
+        }
+      }
+    }
+  }
+}`;
+
 const insertArticleGoogleDocMutation = `mutation MyMutation($locale_code: String!, $headline: String!, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String) {
   insert_articles(objects: {article_translations: {data: {headline: $headline, locale_code: $locale_code, published: $published, content: $content, custom_byline: $custom_byline, facebook_description: $facebook_description, facebook_title: $facebook_title, search_description: $search_description, search_title: $search_title, twitter_description: $twitter_description, twitter_title: $twitter_title}}, category_id: $category_id, slug: $slug, article_google_documents: {data: {google_document: {data: {document_id: $document_id, locale_code: $locale_code, url: $url}, on_conflict: {constraint: google_documents_organization_id_document_id_key, update_columns: locale_code}}}, on_conflict: {constraint: article_google_documents_article_id_google_document_id_key, update_columns: google_document_id}}}, on_conflict: {constraint: articles_slug_category_id_organization_id_key, update_columns: updated_at}) {
     returning {
@@ -699,7 +716,33 @@ const insertArticleGoogleDocMutation = `mutation MyMutation($locale_code: String
   }
 }`;
 
+function insertPageGoogleDocs(data) {
+  var documentID = DocumentApp.getActiveDocument().getId();
+  var documentURL = DocumentApp.getActiveDocument().getUrl();
+  var content = getCurrentDocContents();
 
+  let pageData = {
+    "slug": data['article-slug'],
+    "document_id": documentID,
+    "url": documentURL,
+    "locale_code": data['article-locale'],
+    "headline": data['article-headline'],
+    "published": false,
+    "content": content,
+    "search_description": data['article-search-description'],
+    "search_title": data['article-search-title'],
+    "twitter_title": data['article-twitter-title'],
+    "twitter_description": data['article-twitter-description'],
+    "facebook_title": data['article-facebook-title'],
+    "facebook_description": data['article-facebook-description'],
+  };
+  Logger.log("page data:" + JSON.stringify(pageData));
+  return fetchGraphQL(
+    insertPageGoogleDocsMutation,
+    "MyMutation",
+    pageData
+  );
+}
 
 function insertArticleGoogleDocs(data) {
   var documentID = DocumentApp.getActiveDocument().getId();
@@ -728,6 +771,23 @@ function insertArticleGoogleDocs(data) {
     insertArticleGoogleDocMutation,
     "MyMutation",
     articleData
+  );
+}
+
+const insertAuthorPageMutation = `mutation MyMutation($page_id: Int!, $author_id: Int!) {
+  insert_author_pages(objects: {page_id: $page_id, author_id: $author_id}, on_conflict: {constraint: author_pages_page_id_author_id_key, update_columns: page_id}) {
+    affected_rows
+  }
+}`;
+
+async function hasuraCreateAuthorPage(authorId, pageId) {
+  return fetchGraphQL(
+    insertAuthorPageMutation,
+    "MyMutation",
+    {
+      page_id: pageId,
+      author_id: authorId
+    }
   );
 }
 
@@ -782,50 +842,80 @@ async function hasuraHandlePreview(formObject) {
 
   if (slug === "" || slug === null || slug === undefined) {
     slug = slugify(headline)
+    Logger.log("no slug found, generated from headline: " + headline + " -> " + slug)
     formObject['article-slug'] = slug;
   }
 
-  // insert or update article
-  var articleResult = await insertArticleGoogleDocs(formObject);
-  var articleID = articleResult.data.insert_articles.returning[0].id;
+  var data;
 
-  Logger.log("articleResult: " + JSON.stringify(articleResult))
-  if (articleID && formObject['article-tags']) {
-    var tags;
-    // ensure this is an array; selecting one in the UI results in a string being sent
-    if (typeof(formObject['article-tags']) === 'string') {
-      tags = [formObject['article-tags']]
-    } else {
-      tags = formObject['article-tags'];
-    }
-    Logger.log("Found tags: " + JSON.stringify(tags));
-    for (var index = 0; index < tags.length; index++) {
-      var tag = tags[index];
-      var slug = slugify(tag);
-      var result = await hasuraCreateTag({
-        slug: slug, 
-        title: tag,
-        article_id: articleID,
-        locale_code: formObject['article-locale']
-      });
-      Logger.log("create tag result:" + JSON.stringify(result))
-    }
-  }
+  var documentID = DocumentApp.getActiveDocument().getId();
+  var isStaticPage = isPage(documentID);
 
-  if (articleID && formObject['article-authors']) {
-    var authors;
-    // ensure this is an array; selecting one in the UI results in a string being sent
-    if (typeof(formObject['article-authors']) === 'string') {
-      authors = [formObject['article-authors']]
-    } else {
-      authors = formObject['article-authors'];
+  if (isStaticPage) {
+    // insert or update page
+    var data = await insertPageGoogleDocs(formObject);
+    Logger.log("pageResult: " + JSON.stringify(data))
+
+    var pageID = data.data.insert_pages.returning[0].id;
+
+    if (pageID && formObject['article-authors']) {
+      var authors;
+      // ensure this is an array; selecting one in the UI results in a string being sent
+      if (typeof(formObject['article-authors']) === 'string') {
+        authors = [formObject['article-authors']]
+      } else {
+        authors = formObject['article-authors'];
+      }
+      Logger.log("Found authors: " + JSON.stringify(authors));
+      for (var index = 0; index < authors.length; index++) {
+        var author = authors[index];
+        Logger.log("creating author page link: " + author + " -- " + pageID)
+        var result = await hasuraCreateAuthorPage(author, pageID);
+        Logger.log("create author page result:" + JSON.stringify(result))
+      }
     }
-    Logger.log("Found authors: " + JSON.stringify(authors));
-    for (var index = 0; index < authors.length; index++) {
-      var author = authors[index];
-      Logger.log("creating author article link: " + author + " -- " + articleID)
-      var result = await hasuraCreateAuthorArticle(author, articleID);
-      Logger.log("create article author result:" + JSON.stringify(result))
+
+  } else {
+    // insert or update article
+    var data = await insertArticleGoogleDocs(formObject);
+    var articleID = data.data.insert_articles.returning[0].id;
+
+    Logger.log("articleResult: " + JSON.stringify(data))
+    if (articleID && formObject['article-tags']) {
+      var tags;
+      // ensure this is an array; selecting one in the UI results in a string being sent
+      if (typeof(formObject['article-tags']) === 'string') {
+        tags = [formObject['article-tags']]
+      } else {
+        tags = formObject['article-tags'];
+      }
+      Logger.log("Found tags: " + JSON.stringify(tags));
+      for (var index = 0; index < tags.length; index++) {
+        var tag = tags[index];
+        var slug = slugify(tag);
+        var result = await hasuraCreateTag({
+          slug: slug, 
+          title: tag,
+          article_id: articleID,
+          locale_code: formObject['article-locale']
+        });
+        Logger.log("create tag result:" + JSON.stringify(result))
+      }
+    }
+
+    if (articleID && formObject['article-authors']) {
+      var authors;
+      // ensure this is an array; selecting one in the UI results in a string being sent
+      if (typeof(formObject['article-authors']) === 'string') {
+        authors = [formObject['article-authors']]
+      } else {
+        authors = formObject['article-authors'];
+      }
+      Logger.log("Found authors: " + JSON.stringify(authors));
+      for (var index = 0; index < authors.length; index++) {
+        var author = authors[index];
+        var result = await hasuraCreateAuthorArticle(author, articleID);
+      }
     }
   }
 
@@ -835,7 +925,7 @@ async function hasuraHandlePreview(formObject) {
 
   return {
     message: message,
-    data: articleResult,
+    data: data,
     status: "success"
   }
 }
@@ -850,6 +940,45 @@ const searchArticlesByHeadlineQuery = `query MyQuery($locale_code: String!, $ter
     article_translations(where: {locale_code: {_eq: $locale_code}}) {
       headline
     }
+  }
+  organization_locales {
+    locale {
+      code
+      name
+    }
+  }
+}`;
+
+const getPageForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_code: String!) {
+  pages(where: {page_google_documents: {google_document: {document_id: {_eq: $doc_id}, locale_code: {_eq: $locale_code}}}, page_translations: {locale_code: {_eq: $locale_code}}}) {
+    id
+    slug
+    page_translations(where: {locale_code: {_eq: $locale_code}}) {
+      content
+      facebook_description
+      facebook_title
+      first_published_at
+      headline
+      last_published_at
+      locale_code
+      published
+      search_description
+      search_title
+      twitter_title
+      twitter_description
+    }
+    author_pages {
+      author {
+        name
+        id
+        slug
+      }
+    }
+  }
+  authors {
+    id
+    slug
+    name
   }
   organization_locales {
     locale {
@@ -935,6 +1064,14 @@ function fetchArticleForGoogleDoc(doc_id, locale_code) {
   );
 }
 
+function fetchPageForGoogleDoc(doc_id, locale_code) {
+  return fetchGraphQL(
+    getPageForGoogleDocQuery,
+    "MyQuery",
+    {"doc_id": doc_id, "locale_code": locale_code}
+  );
+}
+
 /*
 .* called from ManualPage.html, this function searches for a matching article by headline
 .*/
@@ -944,12 +1081,26 @@ function hasuraSearchArticles(formObject) {
     localeCode = "en-US" // TODO should we default this way?
   }
   var term = "%" + formObject["article-search"] + "%";
-  console.log("term: " + term);
   return fetchGraphQL(
     searchArticlesByHeadlineQuery,
     "MyQuery",
     {"term": term, "locale_code": localeCode}
   );
+}
+
+/*
+ * looks up a page by google doc ID and locale
+ */
+async function getPageForGoogleDoc(doc_id, locale_code) {
+  const { errors, data } = await fetchPageForGoogleDoc(doc_id, locale_code);
+
+  if (errors) {
+    console.error("errors:" + JSON.stringify(errors));
+    throw errors;
+  }
+
+  Logger.log("getpage data: " + JSON.stringify(data));
+  return data;
 }
 
 /*
@@ -959,12 +1110,25 @@ async function getArticleForGoogleDoc(doc_id, locale_code) {
   const { errors, data } = await fetchArticleForGoogleDoc(doc_id, locale_code);
 
   if (errors) {
-    // handle those errors like a pro
     console.error("errors:" + JSON.stringify(errors));
     throw errors;
   }
 
   return data;
+}
+
+function isPage(documentID) {
+  // determine if this is a static page or an article - it will usually be an article
+  var driveFile = DriveApp.getFileById(documentID)
+  var fileParents = driveFile.getParents();
+  var isStaticPage = false;
+  while ( fileParents.hasNext() ) {
+    var folder = fileParents.next();
+    if (folder.getName() === "pages") {
+      isStaticPage = true;
+    }
+  }
+  return isStaticPage;
 }
 
 /*
@@ -978,29 +1142,48 @@ async function hasuraGetArticle() {
     data: {}
   };
 
-  var documentID = DocumentApp.getActiveDocument().getId();
   var locale = getSelectedLocaleName();
   if (!locale) {
     locale = "en-US"
   }
 
+  var documentID = DocumentApp.getActiveDocument().getId();
+  Logger.log("documentID: " + documentID);
+
+  var isStaticPage = isPage(documentID);
+
   var data;
   try {
-    data = await getArticleForGoogleDoc(documentID, locale);
-    Logger.log("getArticle data: " + JSON.stringify(data));
-    if (data && data.articles && data.articles[0]) {
-      returnValue.status = "success";
-      returnValue.message = "Retrieved article with ID: " + data.articles[0].id;
+    if (isStaticPage) {
+      data = await getPageForGoogleDoc(documentID, locale);
+      Logger.log("getPage data: " + JSON.stringify(data));
+      if (data && data.pages && data.pages[0]) {
+        returnValue.status = "success";
+        returnValue.message = "Retrieved page with ID: " + data.pages[0].id;
+      } else {
+        Logger.log("getPage notFound data: " + JSON.stringify(data));
+        returnValue.status = "notFound";
+        returnValue.message = "Page not found";
+      }
+      returnValue.data = data;
+
     } else {
-      Logger.log("getArticle notFound data: " + JSON.stringify(data));
-      returnValue.status = "notFound";
-      returnValue.message = "Article not found";
+      data = await getArticleForGoogleDoc(documentID, locale);
+      if (data && data.articles && data.articles[0]) {
+        returnValue.status = "success";
+        returnValue.message = "Retrieved article with ID: " + data.articles[0].id;
+      } else {
+        Logger.log("getArticle notFound data: " + JSON.stringify(data));
+        returnValue.status = "notFound";
+        returnValue.message = "Article not found";
+      }
+      returnValue.data = data;
     }
-    returnValue.data = data;
+
   } catch (err) {
-    Logger.log("error getting article: " + JSON.stringify(err));
+    Logger.log(JSON.stringify(err));
     returnValue.status = "error";
-    returnValue.message = "An error occurred getting the article";
+    returnValue.message = "An error occurred getting the article or page";
     returnValue.data = err;
   }
 
@@ -1077,8 +1260,7 @@ function handlePreview(formObject) {
 . */
 function getCurrentDocContents() {
   var formattedElements = formatElements();
-  return formatElements;
-
+  return formattedElements;
 }
 
 
