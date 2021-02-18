@@ -198,10 +198,8 @@
               authorJoinData = data.author_pages;
             }
             if (authorJoinData !== undefined) {
-              console.log("looking for author with id " + author.id + " in ", authorJoinData)
               var foundAuthor = authorJoinData.find( (aa) => aa.author.id === author.id);
               if (foundAuthor) {
-                console.log("foundAuthor:", foundAuthor);
                 option.selected = true;
               }
             }
@@ -271,6 +269,7 @@
         configDiv.style.display = 'none';
         var div = document.getElementById('loading');
         div.style.display = 'block';
+
         if (response.data.errors) {
           div.innerHTML = "<p class='error'>An error occurred: " + JSON.stringify(response.data.errors) + '</p>';
         } else {
@@ -300,8 +299,8 @@
           loadingDiv.innerHTML = "<p class='gray'>Loading preview...</p>"
           google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePreview(formObject);
         } else if ( (formObject.submitted === "Publish") || (formObject.submitted === "Re-publish") ) {
-          loadingDiv.innerHTML = "<p class='gray'>Publishing article... TODO</p>"
-          // google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handlePublish(formObject);
+          loadingDiv.innerHTML = "<p class='gray'>Publishing article... </p>"
+          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(formObject);
         } else {
           loadingDiv.innerHTML = "<p class='gray'>Unpublishing article... TODO</p>"
           // google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handleUnpublish(formObject);

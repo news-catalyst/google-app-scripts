@@ -671,7 +671,7 @@ const lookupArticleByGoogleDocQuery = `query MyQuery($document_id: String) {
 }`;
 
 const insertPageGoogleDocsMutation = `mutation MyMutation($slug: String!, $locale_code: String!, $document_id: String, $url: String, $facebook_title: String, $facebook_description: String, $search_title: String, $search_description: String, $headline: String, $twitter_title: String, $twitter_description: String, $content: jsonb, $published: Boolean) {
-  insert_pages(objects: {page_google_documents: {data: {google_document: {data: {document_id: $document_id, locale_code: $locale_code, url: $url}, on_conflict: {constraint: google_documents_organization_id_document_id_key, update_columns: document_id}}}, on_conflict: {constraint: page_google_documents_page_id_google_document_id_key, update_columns: google_document_id}}, slug: $slug, page_translations: {data: {published: $published, search_description: $search_description, search_title: $search_title, twitter_description: $twitter_description, twitter_title: $twitter_title, locale_code: $locale_code, headline: $headline, facebook_title: $facebook_title, facebook_description: $facebook_description, content: $content}}}) {
+  insert_pages(objects: {page_google_documents: {data: {google_document: {data: {document_id: $document_id, locale_code: $locale_code, url: $url}, on_conflict: {constraint: google_documents_organization_id_document_id_key, update_columns: document_id}}}, on_conflict: {constraint: page_google_documents_page_id_google_document_id_key, update_columns: google_document_id}}, slug: $slug, page_translations: {data: {published: $published, search_description: $search_description, search_title: $search_title, twitter_description: $twitter_description, twitter_title: $twitter_title, locale_code: $locale_code, headline: $headline, facebook_title: $facebook_title, facebook_description: $facebook_description, content: $content}}}, on_conflict: {constraint: pages_slug_organization_id_key, update_columns: updated_at}) {
     returning {
       id
       slug
@@ -727,7 +727,7 @@ function insertPageGoogleDocs(data) {
     "url": documentURL,
     "locale_code": data['article-locale'],
     "headline": data['article-headline'],
-    "published": false,
+    "published": data['published'],
     "content": content,
     "search_description": data['article-search-description'],
     "search_title": data['article-search-title'],
@@ -756,7 +756,7 @@ function insertArticleGoogleDocs(data) {
     "category_id": data['article-category'],
     "locale_code": data['article-locale'],
     "headline": data['article-headline'],
-    "published": false,
+    "published": data['published'],
     "content": content,
     "search_description": data['article-search-description'],
     "search_title": data['article-search-title'],
@@ -766,7 +766,6 @@ function insertArticleGoogleDocs(data) {
     "facebook_description": data['article-facebook-description'],
     "custom_byline": data['article-custom-byline'],
   };
-  Logger.log("article data:" + JSON.stringify(articleData));
   return fetchGraphQL(
     insertArticleGoogleDocMutation,
     "MyMutation",
@@ -825,6 +824,126 @@ async function hasuraCreateTag(tagData) {
     tagData
   );
 }
+
+async function hasuraHandlePublish(formObject) {
+  var scriptConfig = getScriptConfig();
+  Logger.log("formObject: " + JSON.stringify(formObject));
+
+  var slug = formObject['article-slug'];
+  var headline = formObject['article-headline'];
+
+  if (headline === "" || headline === null || headline === undefined) {
+    return {
+      message: "Headline is required",
+      status: "error",
+      data: formObject
+    }
+  }
+
+  if (slug === "" || slug === null || slug === undefined) {
+    slug = slugify(headline)
+    Logger.log("no slug found, generated from headline: " + headline + " -> " + slug)
+    formObject['article-slug'] = slug;
+  }
+
+  // NOTE: this flag tells the insert mutation to mark this new translation record as PUBLISHED
+  //   - this is set to false when the 'preview article' button is clicked instead.
+  formObject['published'] = true;
+
+  var data;
+
+  var documentID = DocumentApp.getActiveDocument().getId();
+  var isStaticPage = isPage(documentID);
+
+  // construct published article url
+  var publishUrl = scriptConfig['PUBLISH_URL'];
+  var fullPublishUrl;
+  var documentType;
+
+  if (isStaticPage) {
+    documentType = "page";
+    // insert or update page
+    var data = await insertPageGoogleDocs(formObject);
+    Logger.log("pageResult: " + JSON.stringify(data))
+
+    var pageID = data.data.insert_pages.returning[0].id;
+
+    if (pageID && formObject['article-authors']) {
+      var authors;
+      // ensure this is an array; selecting one in the UI results in a string being sent
+      if (typeof(formObject['article-authors']) === 'string') {
+        authors = [formObject['article-authors']]
+      } else {
+        authors = formObject['article-authors'];
+      }
+      for (var index = 0; index < authors.length; index++) {
+        var author = authors[index];
+        var result = await hasuraCreateAuthorPage(author, pageID);
+      }
+    }
+    fullPublishUrl = publishUrl + "/" + slug;
+    Logger.log("fullPublishUrl: " + fullPublishUrl);
+
+  } else {
+    documentType = "article";
+    // insert or update article
+    var data = await insertArticleGoogleDocs(formObject);
+    Logger.log("data: " + JSON.stringify(data))
+    var articleID = data.data.insert_articles.returning[0].id;
+    var categorySlug = data.data.insert_articles.returning[0].category.slug;
+    var articleSlug = data.data.insert_articles.returning[0].slug;
+
+    Logger.log("articleSlug: " + articleSlug + " || articleResult: " + JSON.stringify(data));
+    if (articleID && formObject['article-tags']) {
+      var tags;
+      // ensure this is an array; selecting one in the UI results in a string being sent
+      if (typeof(formObject['article-tags']) === 'string') {
+        tags = [formObject['article-tags']]
+      } else {
+        tags = formObject['article-tags'];
+      }
+      for (var index = 0; index < tags.length; index++) {
+        var tag = tags[index];
+        var tagSlug = slugify(tag);
+        var result = await hasuraCreateTag({
+          slug: tagSlug, 
+          title: tag,
+          article_id: articleID,
+          locale_code: formObject['article-locale']
+        });
+        Logger.log("create tag result:" + JSON.stringify(result))
+      }
+    }
+
+    if (articleID && formObject['article-authors']) {
+      var authors;
+      // ensure this is an array; selecting one in the UI results in a string being sent
+      if (typeof(formObject['article-authors']) === 'string') {
+        authors = [formObject['article-authors']]
+      } else {
+        authors = formObject['article-authors'];
+      }
+      Logger.log("Found authors: " + JSON.stringify(authors));
+      for (var index = 0; index < authors.length; index++) {
+        var author = authors[index];
+        var result = await hasuraCreateAuthorArticle(author, articleID);
+      }
+    }
+    fullPublishUrl = publishUrl + "/articles/" + categorySlug + "/" + articleSlug;
+    Logger.log("fullPublishUrl: " + fullPublishUrl);
+  }
+
+  // open preview url in new window
+  var message = "Published the " + documentType + ". <a href='" + fullPublishUrl + "' target='_blank'>Click to view</a>."
+
+  return {
+    message: message,
+    data: data,
+    status: "success"
+  }
+}
+
+
 async function hasuraHandlePreview(formObject) {
   var scriptConfig = getScriptConfig();
   Logger.log("formObject: " + JSON.stringify(formObject));
@@ -845,6 +964,10 @@ async function hasuraHandlePreview(formObject) {
     Logger.log("no slug found, generated from headline: " + headline + " -> " + slug)
     formObject['article-slug'] = slug;
   }
+
+  // NOTE: this flag tells the insert mutation to mark this new translation record as UNPUBLISHED
+  //   - this is set to true when the 'publish article' button is clicked instead.
+  formObject['published'] = false;
 
   var data;
 
