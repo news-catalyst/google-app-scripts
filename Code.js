@@ -671,7 +671,7 @@ const lookupArticleByGoogleDocQuery = `query MyQuery($document_id: String) {
 }`;
 
 const insertPageGoogleDocsMutation = `mutation MyMutation($slug: String!, $locale_code: String!, $document_id: String, $url: String, $facebook_title: String, $facebook_description: String, $search_title: String, $search_description: String, $headline: String, $twitter_title: String, $twitter_description: String, $content: jsonb, $published: Boolean) {
-  insert_pages(objects: {page_google_documents: {data: {google_document: {data: {document_id: $document_id, locale_code: $locale_code, url: $url}, on_conflict: {constraint: google_documents_organization_id_document_id_key, update_columns: document_id}}}, on_conflict: {constraint: page_google_documents_page_id_google_document_id_key, update_columns: google_document_id}}, slug: $slug, page_translations: {data: {published: $published, search_description: $search_description, search_title: $search_title, twitter_description: $twitter_description, twitter_title: $twitter_title, locale_code: $locale_code, headline: $headline, facebook_title: $facebook_title, facebook_description: $facebook_description, content: $content}}}) {
+  insert_pages(objects: {page_google_documents: {data: {google_document: {data: {document_id: $document_id, locale_code: $locale_code, url: $url}, on_conflict: {constraint: google_documents_organization_id_document_id_key, update_columns: document_id}}}, on_conflict: {constraint: page_google_documents_page_id_google_document_id_key, update_columns: google_document_id}}, slug: $slug, page_translations: {data: {published: $published, search_description: $search_description, search_title: $search_title, twitter_description: $twitter_description, twitter_title: $twitter_title, locale_code: $locale_code, headline: $headline, facebook_title: $facebook_title, facebook_description: $facebook_description, content: $content}}}, on_conflict: {constraint: pages_slug_organization_id_key, update_columns: updated_at}) {
     returning {
       id
       slug
@@ -766,7 +766,6 @@ function insertArticleGoogleDocs(data) {
     "facebook_description": data['article-facebook-description'],
     "custom_byline": data['article-custom-byline'],
   };
-  Logger.log("article data:" + JSON.stringify(articleData));
   return fetchGraphQL(
     insertArticleGoogleDocMutation,
     "MyMutation",
@@ -889,6 +888,7 @@ async function hasuraHandlePublish(formObject) {
     documentType = "article";
     // insert or update article
     var data = await insertArticleGoogleDocs(formObject);
+    Logger.log("data: " + JSON.stringify(data))
     var articleID = data.data.insert_articles.returning[0].id;
     var categorySlug = data.data.insert_articles.returning[0].category.slug;
     var articleSlug = data.data.insert_articles.returning[0].slug;
