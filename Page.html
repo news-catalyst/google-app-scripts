@@ -345,6 +345,15 @@
       .button, button, input[type="button"] {
         min-width: 0 !important;
       }
+
+      input:invalid {
+        border: 1px dashed red;
+      }
+
+      input:invalid:required, textarea:invalid:required {
+        border: 1px solid red;
+      }
+
     </style>
   </head>
 
@@ -383,7 +392,7 @@
 
           <div class="block form-group">
             <label for="article-headline">
-              <b>Headline</b>
+              <b>Headline</b> <i>(required)</i>
             </label>
             <input required="required" id="article-headline" name="article-headline" type="text" />
           </div>
@@ -404,7 +413,7 @@
 
           <div class="block form-group articles-only">
             <label for="article-category">
-              <b>Category/Section</b>
+              <b>Category/Section</b> <i>(required)</i>
               <select style="width: 100%" id="article-category" name="article-category"></select>
             </label>
           </div>
@@ -418,13 +427,13 @@
 
           <div class="block form-group">
             <label for="article-search-title">
-              <b>Search title</b>
+              <b>Search title</b> <i>(required)</i>
             </label>
             <input required="required" id="article-search-title" name="article-search-title" type="text" />
           </div>
           <div class="block form-group">
             <label for="article-search-description">
-              <b>Search description</b>
+              <b>Search description</b> <i>(required)</i>
             </label>
             <textarea required="required" id="article-search-description" name="article-search-description"></textarea>
           </div>
