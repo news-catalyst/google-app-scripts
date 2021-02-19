@@ -37,6 +37,7 @@
           unpublishButtonBottom.style.display = "inline";
 
         } else {
+          console.log("Unpublished article, resetting buttons")
           var publishButtonTop = document.getElementById('publish-button-top');
           publishButtonTop.value = "Publish";
           var publishButtonBottom = document.getElementById('publish-button-bottom');
@@ -212,6 +213,12 @@
           var slugHiddenField = document.getElementById('article-slug');
           slugHiddenField.value = data.slug;
           slugDiv.innerHTML = data.slug;
+
+          var idHiddenField = document.getElementById('article-id');
+          idHiddenField.value = data.id;
+
+          var selectedLocale = document.getElementById('selected-locale');
+          selectedLocale.innerHTML = data.article_translations[0].locale_code;
         }
 
         if (translationData) {
@@ -274,7 +281,7 @@
           div.innerHTML = "<p class='error'>An error occurred: " + JSON.stringify(response.data.errors) + '</p>';
         } else {
           div.innerHTML = '<p style="color: #48C774;">' + response.message + "</p>";
-          if (response.data.data.insert_articles) {
+          if (response.data && response.data.data && response.data.data.insert_articles) {
             console.log("article ID:", response.data.data.insert_articles.returning[0].id)
 
             var translations = response.data.data.insert_articles.returning[0].article_translations;
@@ -283,8 +290,15 @@
               console.log("Published: ", translations[0].published);
               setPublishedFlag(translations[0].published);
             }
-          } else if (response.data.data.insert_pages) {
+
+          } else if (response.data && response.data.data && response.data.data.insert_pages) {
             console.log("page ID:", response.data.data.insert_pages.returning[0].id)
+
+          } else if (response.data && response.data.data && response.data.data.update_article_translations) {
+            console.log("unpublished article:", response.data);
+            setPublishedFlag(false);
+          } else {
+            console.log("unknown: ", response);
           }
         }
 
@@ -337,7 +351,10 @@
           google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(formObject);
         } else if ( formIsValid) {
           loadingDiv.innerHTML = "<p class='gray'>Unpublishing article... </p>"
-          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublish(formObject);
+          var articleId = document.getElementById('article-id').value;
+          var selectedLocale = document.getElementById('selected-locale').innerText;
+
+          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublish(articleId, selectedLocale);
         } else {
           if (errorMessage !== "") {
             loadingDiv.innerHTML = "<p class='error'>" + errorMessage + "</p>"
@@ -428,6 +445,7 @@
               <b>Article slug</b>
             </label>
             <div id="slug"></div>
+            <input type="hidden" id="article-id" name="article-id" />
             <input type="hidden" id="article-slug" name="article-slug" />
           </div>
 

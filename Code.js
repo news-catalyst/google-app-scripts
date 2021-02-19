@@ -706,7 +706,7 @@ const insertArticleGoogleDocMutation = `mutation MyMutation($locale_code: String
       category {
         slug
       }
-      article_translations(where: { locale_code: {_eq: $locale_code}, published: {_eq: true}}, order_by: {id: desc}, limit: 1 }) {
+      article_translations(where: { locale_code: {_eq: $locale_code}, published: {_eq: true}}, order_by: {id: desc}, limit: 1) {
         id
         article_id
         locale_code
@@ -766,6 +766,7 @@ function insertArticleGoogleDocs(data) {
     "facebook_description": data['article-facebook-description'],
     "custom_byline": data['article-custom-byline'],
   };
+
   return fetchGraphQL(
     insertArticleGoogleDocMutation,
     "MyMutation",
@@ -842,20 +843,20 @@ async function hasuraCreateTag(tagData) {
   );
 }
 
-async function hasuraHandleUnpublish() {
-  var articleData = await hasuraGetArticle();
-  Logger.log(articleData);
-
-  var response;
-  if (articleData && articleData.article_translations) {
-    var articleID = articleData.id;
-    var localeCode = articleData.article_translations[0].locale_code;
-    Logger.log("articleID:" + articleID + " locale:" + localeCode);
-
-    response = hasuraUnpublishArticle(articleID, localeCode);
+async function hasuraHandleUnpublish(articleID, localeCode) {
+  var response = await hasuraUnpublishArticle(articleID, localeCode);
+  Logger.log("hasura unpublish response: " + JSON.stringify(response));
+  var returnValue = {
+    status: "success",
+    message: "Unpublished the article with id " + articleID + " in locale " + localeCode,
+    data: response
+  };
+  if (response.errors) {
+    returnValue.status = "error";
+    returnValue.message = "An unexpected error occurred trying to unpublish the article";
+    returnValue.data = response.errors;
   }
-
-  return response;
+  return returnValue;
 }
 
 async function hasuraHandlePublish(formObject) {
@@ -1164,6 +1165,8 @@ const getArticleForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_cod
       tag_id
     }
     article_translations(order_by: {id: desc}, limit: 1, where: {locale_code: {_eq: $locale_code}}) {
+      id
+      locale_code
       content
       custom_byline
       facebook_description
