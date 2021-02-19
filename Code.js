@@ -842,13 +842,19 @@ async function hasuraCreateTag(tagData) {
   );
 }
 
-function hasuraHandleUnpublish() {
-  var articleData = hasuraGetArticle();
+async function hasuraHandleUnpublish() {
+  var articleData = await hasuraGetArticle();
   Logger.log(articleData);
-  var articleID = articleData.id;
-  var localeCode = articleData.article_translations[0].locale_code;
-  Logger.log("articleID:" + articleID + " locale:" + localeCode);
-  var response = hasuraUnpublishArticle(articleID, localeCode);
+
+  var response;
+  if (articleData && articleData.article_translations) {
+    var articleID = articleData.id;
+    var localeCode = articleData.article_translations[0].locale_code;
+    Logger.log("articleID:" + articleID + " locale:" + localeCode);
+
+    response = hasuraUnpublishArticle(articleID, localeCode);
+  }
+
   return response;
 }
 
