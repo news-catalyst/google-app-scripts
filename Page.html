@@ -264,7 +264,7 @@
       }
 
       function onSuccessPreviewPublish(response) {
-        console.log("success preview:", response);
+        console.log("success preview/publish:", response);
         var configDiv = document.getElementById('config');
         configDiv.style.display = 'none';
         var div = document.getElementById('loading');
@@ -276,6 +276,13 @@
           div.innerHTML = '<p style="color: #48C774;">' + response.message + "</p>";
           if (response.data.data.insert_articles) {
             console.log("article ID:", response.data.data.insert_articles.returning[0].id)
+
+            var translations = response.data.data.insert_articles.returning[0].article_translations;
+            console.log("translations:", translations);
+            if (translations[0]) {
+              console.log("Published: ", translations[0].published);
+              setPublishedFlag(translations[0].published);
+            }
           } else if (response.data.data.insert_pages) {
             console.log("page ID:", response.data.data.insert_pages.returning[0].id)
           }
@@ -329,8 +336,8 @@
           loadingDiv.innerHTML = "<p class='gray'>Publishing article... </p>"
           google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(formObject);
         } else if ( formIsValid) {
-          loadingDiv.innerHTML = "<p class='gray'>Unpublishing article... TODO</p>"
-          // google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handleUnpublish(formObject);
+          loadingDiv.innerHTML = "<p class='gray'>Unpublishing article... </p>"
+          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublish(formObject);
         } else {
           if (errorMessage !== "") {
             loadingDiv.innerHTML = "<p class='error'>" + errorMessage + "</p>"
