@@ -37,6 +37,7 @@
           unpublishButtonBottom.style.display = "inline";
 
         } else {
+          console.log("Unpublished article, resetting buttons")
           var publishButtonTop = document.getElementById('publish-button-top');
           publishButtonTop.value = "Publish";
           var publishButtonBottom = document.getElementById('publish-button-bottom');
@@ -212,6 +213,12 @@
           var slugHiddenField = document.getElementById('article-slug');
           slugHiddenField.value = data.slug;
           slugDiv.innerHTML = data.slug;
+
+          var idHiddenField = document.getElementById('article-id');
+          idHiddenField.value = data.id;
+
+          var selectedLocale = document.getElementById('selected-locale');
+          selectedLocale.innerHTML = data.article_translations[0].locale_code;
         }
 
         if (translationData) {
@@ -264,7 +271,7 @@
       }
 
       function onSuccessPreviewPublish(response) {
-        console.log("success preview:", response);
+        console.log("success preview/publish:", response);
         var configDiv = document.getElementById('config');
         configDiv.style.display = 'none';
         var div = document.getElementById('loading');
@@ -274,10 +281,24 @@
           div.innerHTML = "<p class='error'>An error occurred: " + JSON.stringify(response.data.errors) + '</p>';
         } else {
           div.innerHTML = '<p style="color: #48C774;">' + response.message + "</p>";
-          if (response.data.data.insert_articles) {
+          if (response.data && response.data.data && response.data.data.insert_articles) {
             console.log("article ID:", response.data.data.insert_articles.returning[0].id)
-          } else if (response.data.data.insert_pages) {
+
+            var translations = response.data.data.insert_articles.returning[0].article_translations;
+            console.log("translations:", translations);
+            if (translations[0]) {
+              console.log("Published: ", translations[0].published);
+              setPublishedFlag(translations[0].published);
+            }
+
+          } else if (response.data && response.data.data && response.data.data.insert_pages) {
             console.log("page ID:", response.data.data.insert_pages.returning[0].id)
+
+          } else if (response.data && response.data.data && response.data.data.update_article_translations) {
+            console.log("unpublished article:", response.data);
+            setPublishedFlag(false);
+          } else {
+            console.log("unknown: ", response);
           }
         }
 
@@ -289,21 +310,58 @@
         var form = document.getElementById('article-form');
         form.style.display = "none";
 
+        var formIsValid = true;
+
         var configDiv = document.getElementById('config');
         configDiv.style.display = "none";
 
         var loadingDiv = document.getElementById('loading');
         loadingDiv.style.display = "block";
 
-        if (formObject.submitted === "Preview") {
+        var errorMessage = "";
+        var selectedAuthors = $('#article-authors').select2('data')
+        var customByline = document.getElementById("article-custom-byline").value;
+
+        var headline = document.getElementById('article-headline');
+        var searchTitle = document.getElementById('article-search-title');
+        var searchDescription = document.getElementById('article-search-description');
+
+        if ( (selectedAuthors === undefined || selectedAuthors.length <= 0) && ( customByline === null || customByline === undefined || customByline === "") ) {
+          errorMessage += "<br>Author or custom byline is required.";
+          formIsValid = false;
+        }
+        if (headline.value === "" || headline.value === undefined || headline.value === "") {
+          errorMessage += "<br>Headline is required.";
+          formIsValid = false;
+        }
+        if (searchTitle.value === "" || searchTitle.value === undefined || searchTitle.value === "") {
+          errorMessage += "<br>Search title is required.";
+          formIsValid = false;
+        }
+        if (searchDescription.value === "" || searchDescription.value === undefined || searchDescription.value === "") {
+          errorMessage += "<br>Search description is required.";
+          formIsValid = false;
+        }
+
+        if (formIsValid && formObject.submitted === "Preview") {
           loadingDiv.innerHTML = "<p class='gray'>Loading preview...</p>"
           google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePreview(formObject);
-        } else if ( (formObject.submitted === "Publish") || (formObject.submitted === "Re-publish") ) {
+        } else if ( formIsValid && (formObject.submitted === "Publish") || (formObject.submitted === "Re-publish") ) {
           loadingDiv.innerHTML = "<p class='gray'>Publishing article... </p>"
           google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(formObject);
+        } else if ( formIsValid) {
+          loadingDiv.innerHTML = "<p class='gray'>Unpublishing article... </p>"
+          var articleId = document.getElementById('article-id').value;
+          var selectedLocale = document.getElementById('selected-locale').innerText;
+
+          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublish(articleId, selectedLocale);
         } else {
-          loadingDiv.innerHTML = "<p class='gray'>Unpublishing article... TODO</p>"
-          // google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).handleUnpublish(formObject);
+          if (errorMessage !== "") {
+            loadingDiv.innerHTML = "<p class='error'>" + errorMessage + "</p>"
+          } else {
+            loadingDiv.innerHTML = "<p class='error'>Please make sure all required fields are filled in.</p>"
+          }
+          form.style.display = "block";
         }
       }
       window.onload = (function(){
@@ -345,6 +403,15 @@
       .button, button, input[type="button"] {
         min-width: 0 !important;
       }
+
+      input:invalid {
+        border: 1px dashed red;
+      }
+
+      input:invalid:required, textarea:invalid:required {
+        border: 1px solid red;
+      }
+
     </style>
   </head>
 
@@ -378,12 +445,13 @@
               <b>Article slug</b>
             </label>
             <div id="slug"></div>
+            <input type="hidden" id="article-id" name="article-id" />
             <input type="hidden" id="article-slug" name="article-slug" />
           </div>
 
           <div class="block form-group">
             <label for="article-headline">
-              <b>Headline</b>
+              <b>Headline</b> <i>(required)</i>
             </label>
             <input id="article-headline" name="article-headline" type="text" />
           </div>
@@ -404,7 +472,7 @@
 
           <div class="block form-group articles-only">
             <label for="article-category">
-              <b>Category/Section</b>
+              <b>Category/Section</b> <i>(required)</i>
               <select style="width: 100%" id="article-category" name="article-category"></select>
             </label>
           </div>
@@ -418,13 +486,13 @@
 
           <div class="block form-group">
             <label for="article-search-title">
-              <b>Search title</b>
+              <b>Search title</b> <i>(required)</i>
             </label>
             <input id="article-search-title" name="article-search-title" type="text" />
           </div>
           <div class="block form-group">
             <label for="article-search-description">
-              <b>Search description</b>
+              <b>Search description</b> <i>(required)</i>
             </label>
             <textarea id="article-search-description" name="article-search-description"></textarea>
           </div>

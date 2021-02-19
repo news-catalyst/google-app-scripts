@@ -706,7 +706,7 @@ const insertArticleGoogleDocMutation = `mutation MyMutation($locale_code: String
       category {
         slug
       }
-      article_translations {
+      article_translations(where: { locale_code: {_eq: $locale_code}, published: {_eq: true}}, order_by: {id: desc}, limit: 1) {
         id
         article_id
         locale_code
@@ -766,6 +766,7 @@ function insertArticleGoogleDocs(data) {
     "facebook_description": data['article-facebook-description'],
     "custom_byline": data['article-custom-byline'],
   };
+
   return fetchGraphQL(
     insertArticleGoogleDocMutation,
     "MyMutation",
@@ -807,6 +808,23 @@ async function hasuraCreateAuthorArticle(authorId, articleId) {
   );
 }
 
+const unpublishArticleMutation = `mutation MyMutation($article_id: Int!, $locale_code: String!) {
+  update_article_translations(where: {article_id: {_eq: $article_id}, locale_code: {_eq: $locale_code}}, _set: {published: false}) {
+    affected_rows
+  }
+}`;
+
+async function hasuraUnpublishArticle(articleId, localeCode) {
+  return fetchGraphQL(
+    unpublishArticleMutation,
+    "MyMutation",
+    {
+      article_id: articleId,
+      locale_code: localeCode
+    }
+  );
+}
+
 const insertTagMutation = `mutation MyMutation($slug: String, $locale_code: String, $title: String, $article_id: Int!) {
   insert_tag_articles(objects: {article_id: $article_id, tag: {data: {slug: $slug, tag_translations: {data: {locale_code: $locale_code, title: $title}, on_conflict: {constraint: tag_translations_tag_id_locale_code_key, update_columns: locale_code}}, published: true}, on_conflict: {constraint: tags_organization_id_slug_key, update_columns: organization_id}}}, on_conflict: {constraint: tag_articles_article_id_tag_id_key, update_columns: article_id}) {
     returning {
@@ -823,6 +841,22 @@ async function hasuraCreateTag(tagData) {
     "MyMutation",
     tagData
   );
+}
+
+async function hasuraHandleUnpublish(articleID, localeCode) {
+  var response = await hasuraUnpublishArticle(articleID, localeCode);
+  Logger.log("hasura unpublish response: " + JSON.stringify(response));
+  var returnValue = {
+    status: "success",
+    message: "Unpublished the article with id " + articleID + " in locale " + localeCode,
+    data: response
+  };
+  if (response.errors) {
+    returnValue.status = "error";
+    returnValue.message = "An unexpected error occurred trying to unpublish the article";
+    returnValue.data = response.errors;
+  }
+  return returnValue;
 }
 
 async function hasuraHandlePublish(formObject) {
@@ -1130,7 +1164,9 @@ const getArticleForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_cod
       }
       tag_id
     }
-    article_translations(where: {locale_code: {_eq: $locale_code}}) {
+    article_translations(order_by: {id: desc}, limit: 1, where: {locale_code: {_eq: $locale_code}}) {
+      id
+      locale_code
       content
       custom_byline
       facebook_description
@@ -1333,20 +1369,6 @@ function handlePublish(formObject) {
   var metadata = hasuraGetArticle();
   var t5 = new Date().getTime();
   Logger.log("hasuraGetArticle took: " + (t5 - t4) + " milliseconds.")
-  response.data = metadata;
-  return response;
-}
-
-/**
- * 
- * Sets article as 'published: false'
- * @param {} formObject 
- */
-function handleUnpublish(formObject) {
-
-  var response = unpublishArticle()
-
-  var metadata = hasuraGetArticle();
   response.data = metadata;
   return response;
 }
