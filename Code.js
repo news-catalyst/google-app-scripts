@@ -1187,6 +1187,13 @@ const getArticleForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_cod
         slug
       }
     }
+    article_google_documents {
+      google_document {
+        document_id
+        locale_code
+        url
+      }
+    }
   }
   authors {
     id
@@ -1336,6 +1343,7 @@ async function hasuraGetArticle() {
         returnValue.status = "notFound";
         returnValue.message = "Article not found";
       }
+      returnValue.documentId = documentID;
       returnValue.data = data;
     }
 
