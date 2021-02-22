@@ -78,13 +78,17 @@
         if (contents.data.articles) {
           if (contents.data.articles[0]) {
             data = contents.data.articles[0]
-            translationData = data.article_translations[0];
+            if (data.article_translations) {
+              translationData = data.article_translations[0];
+            }
           }
         } else if (contents.data.pages) {
           documentType = "page"
           if (contents.data.pages[0]) {
             data = contents.data.pages[0]
-            translationData = data.page_translations[0];
+            if (data.page_translations) {
+              translationData = data.page_translations[0];
+            }
           }
         }
 

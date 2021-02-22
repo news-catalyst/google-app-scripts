@@ -22,8 +22,39 @@
           getConfigAndDisplayForm();
         }
       }
+      function handleGetTranslationsForArticle(data) {
+        console.log("data:", data);
+        var articleId;
+        var localeCode;
+        
+        try {
+          articleId = data.data.articles[0].id;
+          localeCode = data.data.articles[0].article_google_documents[0].google_document.locale_code;
+          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(articleId, localeCode);
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
       function handleGetArticle() {
-         google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetArticle();
+         google.script.run.withFailureHandler(onFailure).withSuccessHandler(handleGetTranslationsForArticle).hasuraGetArticle();
+      }
+
+      function onSuccessCreateDoc(contents) {
+        console.log("onSuccessCreateDoc: ", contents);
+
+        var div = document.getElementById('loading');
+        div.style.display = 'block';
+
+        div.innerHTML = "Click to edit " + contents.locale + " version of article with <a href='" + contents.url + "'>document #" + contetns.docId + "</a>";
+      }
+
+      function handleCreateDoc(el) {
+        console.log("creating doc:", $(el).data('locale'), $(el).data('article-id'));
+        var localeCode = $(el).data('locale'); 
+        var articleId = $(el).data('article-id');
+        var headline = $(el).data('headline');
+        google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessCreateDoc).hasuraCreateDoc(articleId, localeCode, headline);
       }
 
       function onSuccessGetArticle(contents) {
@@ -41,20 +72,23 @@
         var translationData;
         var googleDocs;
         var documentType = "article";
+        var headline;
         if (contents.data.pages) {
           data = contents.data.pages[0];
-          translationData = data.page_translations[0];
+          if (data.page_translations) {
+            translationData = data.page_translations[0];
+          }
           documentType = "page"
         } else {
           data = contents.data.articles[0];
-          translationData = data.article_translations[0];
+          if (data.article_translations) {
+            translationData = data.article_translations[0];
+            headline = translationData.headline;
+          }
           googleDocs = data.article_google_documents;
         }
         var docType = document.getElementById('document-type');
         docType.innerHTML = documentType;
-
-        var versionId = document.getElementById('version-id');
-        versionId.innerHTML = translationData.id;
 
         var availableLocalesElement = document.getElementById('available-locales');
         var existingDocsOtherLocales = [];
@@ -95,7 +129,7 @@
         if (existingDocsOtherLocales.length > 0) {
           var existingDocItems = [];
           existingDocsOtherLocales.forEach(doc => {
-            var item = "<a href='" + doc.url + "'>" + doc.locale_code + "</a>";
+            var item = "<a target='_new' href='" + doc.url + "'>" + doc.locale_code + "</a>";
             console.log(item);
             existingDocItems.push(item)
           });
@@ -103,7 +137,13 @@
         }
 
         if (availableLocales.length > 0) {
-          availableLocalesElement.innerHTML = availableLocales.map( (al) => al.name ).join(', ');
+          var availableLocaleLinks = [];
+          availableLocales.forEach(availableLocale => {
+            var item = "<a data-headline='" + headline + "' data-article-id='" + data.id + "' data-locale='" + availableLocale.code + "' onClick='handleCreateDoc(this)'>" + availableLocale.name + "</a>";
+            availableLocaleLinks.push(item);
+          });
+          console.log("availableLocale links: ", availableLocaleLinks);
+          availableLocalesElement.innerHTML = availableLocaleLinks.join(', ');
         }
 
         if (data) {
@@ -115,6 +155,9 @@
         }
 
         if (translationData) {
+          var versionId = document.getElementById('version-id');
+          versionId.innerHTML = translationData.id;
+
           var articleLocale = document.getElementById('current-article-locale');
           articleLocale.innerHTML = translationData.locale_code;
 

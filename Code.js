@@ -808,6 +808,55 @@ async function hasuraCreateAuthorArticle(authorId, articleId) {
   );
 }
 
+const insertGoogleDocMutation = `mutation MyMutation($article_id: Int!, $document_id: String!, $locale_code: String!, $url: String) {
+  insert_article_google_documents(objects: {article_id: $article_id, google_document: {data: {document_id: $document_id, locale_code: $locale_code, url: $url}, on_conflict: {constraint: google_documents_organization_id_document_id_key, update_columns: url}}}, on_conflict: {constraint: article_google_documents_article_id_google_document_id_key, update_columns: google_document_id}) {
+    affected_rows
+  }
+}`;
+
+async function hasuraInsertGoogleDoc(articleId, docId, localeCode, url) {
+  return fetchGraphQL(
+    insertGoogleDocMutation,
+    "MyMutation",
+    {
+      article_id: articleId,
+      document_id: docId,
+      locale_code: localeCode,
+      url: url
+    }
+  );
+}
+async function hasuraCreateDoc(articleId, newLocale, headline) {
+  Logger.log("create new doc for article " + articleId + " and locale " + newLocale);
+  // create new document in google docs
+  var currentDocId = DocumentApp.getActiveDocument().getId();
+  var newDocId;
+  var newDocUrl;
+  var driveFile = DriveApp.getFileById(currentDocId);
+  var newFile = driveFile.makeCopy(headline);
+  if (newFile) {
+    newDocId = newFile.getId();
+    newDocUrl = newFile.getUrl();
+  } else {
+    Logger.log("failed creating new file via DriveApp")
+    return null;
+  }
+
+  // insert new document ID in google_documents table with newLocale & articleID
+  var response = await hasuraInsertGoogleDoc(articleId, newDocId, newLocale, newDocUrl);
+  Logger.log("hasura insert googleDoc response: " + JSON.stringify(response));
+
+  // return new doc ID / url for link?
+
+  return {
+    articleId: articleId,
+    locale: newLocale,
+    docId: newDocId,
+    url: newDocUrl,
+    data: response
+  }
+}
+
 const unpublishArticleMutation = `mutation MyMutation($article_id: Int!, $locale_code: String!) {
   update_article_translations(where: {article_id: {_eq: $article_id}, locale_code: {_eq: $locale_code}}, _set: {published: false}) {
     affected_rows
@@ -1145,40 +1194,14 @@ const getPageForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_code: 
   }
 }`;
 
-const getArticleForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_code: String!) {
-  articles(where: {article_google_documents: {google_document: {document_id: {_eq: $doc_id}, locale_code: {_eq: $locale_code}}}, article_translations: {locale_code: {_eq: $locale_code}}}) {
+const getArticleByGoogleDocQuery = `query MyQuery($doc_id: String!) {
+  articles(where: {article_google_documents: {google_document: {document_id: {_eq: $doc_id}}}}) {
     id
     slug
     category {
       id
       slug
       title
-    }
-    tag_articles {
-      tag {
-        id
-        slug
-        tag_translations(where: {locale_code: {_eq: $locale_code}}) {
-          title
-        }
-      }
-      tag_id
-    }
-    article_translations(order_by: {id: desc}, limit: 1, where: {locale_code: {_eq: $locale_code}}) {
-      id
-      locale_code
-      content
-      custom_byline
-      facebook_description
-      facebook_title
-      headline
-      last_published_at
-      first_published_at
-      search_description
-      published
-      search_title
-      twitter_description
-      twitter_title
     }
     author_articles {
       author {
@@ -1187,7 +1210,7 @@ const getArticleForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_cod
         slug
       }
     }
-    article_google_documents {
+    article_google_documents(where: {google_document: {document_id: {_eq: $doc_id}}}) {
       google_document {
         document_id
         locale_code
@@ -1200,20 +1223,6 @@ const getArticleForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_cod
     slug
     name
   }
-  categories {
-    id
-    slug
-    category_translations(where: {locale_code: {_eq: $locale_code}}) {
-      title
-    }
-  }
-  tags {
-    id
-    slug
-    tag_translations(where: {locale_code: {_eq: $locale_code}}) {
-      title
-    }
-  }
   organization_locales {
     locale {
       code
@@ -1222,11 +1231,11 @@ const getArticleForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_cod
   }
 }`;
 
-function fetchArticleForGoogleDoc(doc_id, locale_code) {
+function fetchArticleForGoogleDoc(doc_id) {
   return fetchGraphQL(
-    getArticleForGoogleDocQuery,
+    getArticleByGoogleDocQuery,
     "MyQuery",
-    {"doc_id": doc_id, "locale_code": locale_code}
+    {"doc_id": doc_id}
   );
 }
 
@@ -1265,15 +1274,96 @@ async function getPageForGoogleDoc(doc_id, locale_code) {
     throw errors;
   }
 
-  Logger.log("getpage data: " + JSON.stringify(data));
+  return data;
+}
+
+const getArticleTranslationForIdAndLocale = `query MyQuery($doc_id: String!, $article_id: Int, $locale_code: String!) {
+  article_translations(where: {article_id: {_eq: $article_id}, locale_code: {_eq: $locale_code}}) {
+    content
+    custom_byline
+    facebook_description
+    facebook_title
+    first_published_at
+    headline
+    id
+    last_published_at
+    locale_code
+    published
+    search_description
+    search_title
+    twitter_description
+    twitter_title
+  }
+
+  articles(where: {article_google_documents: {google_document: {document_id: {_eq: $doc_id}}}}) {
+    id
+    slug
+    category {
+      id
+      slug
+      title
+    }
+    author_articles {
+      author {
+        id
+        name
+        slug
+      }
+    }
+    article_google_documents(where: {google_document: {document_id: {_eq: $doc_id}}}) {
+      google_document {
+        document_id
+        locale_code
+        url
+      }
+    }
+  }
+  categories {
+    id
+    slug
+    category_translations(where: {locale_code: {_eq: $locale_code}}) {
+      title
+    }
+  }
+  tags {
+    id
+    slug
+    tag_translations(where: {locale_code: {_eq: $locale_code}}) {
+      title
+    }
+  }
+  organization_locales {
+    locale {
+      code
+      name
+    }
+  }
+}`
+
+function fetchTranslationDataForArticle(docId, articleId, localeCode) {
+  return fetchGraphQL(
+    getArticleTranslationForIdAndLocale,
+    "MyQuery",
+    {"doc_id": docId, "article_id": articleId, "locale_code": localeCode}
+  );
+}
+
+async function getTranslationDataForArticle(docId, articleId, localeCode) {
+  const { errors, data } = await fetchTranslationDataForArticle(docId, articleId, localeCode);
+
+  if (errors) {
+    console.error("errors:" + JSON.stringify(errors));
+    throw errors;
+  }
+
   return data;
 }
 
 /*
  * looks up an article by google doc ID and locale
  */
-async function getArticleForGoogleDoc(doc_id, locale_code) {
-  const { errors, data } = await fetchArticleForGoogleDoc(doc_id, locale_code);
+async function getArticleForGoogleDoc(doc_id) {
+  const { errors, data } = await fetchArticleForGoogleDoc(doc_id);
 
   if (errors) {
     console.error("errors:" + JSON.stringify(errors));
@@ -1297,6 +1387,59 @@ function isPage(documentID) {
   return isStaticPage;
 }
 
+async function hasuraGetTranslations(articleId, localeCode) {
+  var returnValue = {
+    status: "",
+    message: "",
+    data: {}
+  };
+
+  var documentID = DocumentApp.getActiveDocument().getId();
+  Logger.log("documentID: " + documentID);
+
+  var isStaticPage = isPage(documentID);
+
+  var data;
+  try {
+    if (isStaticPage) {
+      // 
+      // TODO
+      //
+      // data = await getPageForGoogleDoc(documentID, locale);
+      // Logger.log("getPage data: " + JSON.stringify(data));
+      // if (data && data.pages && data.pages[0]) {
+      //   returnValue.status = "success";
+      //   returnValue.message = "Retrieved page with ID: " + data.pages[0].id;
+      // } else {
+      //   Logger.log("getPage notFound data: " + JSON.stringify(data));
+      //   returnValue.status = "notFound";
+      //   returnValue.message = "Page not found";
+      // }
+      // returnValue.data = data;
+
+    } else {
+      data = await getTranslationDataForArticle(documentID, articleId, localeCode);
+      if (data && data.article_translations && data.article_translations[0]) {
+        returnValue.status = "success";
+        returnValue.message = "Retrieved article translation with ID: " + data.article_translations[0].id;
+      } else {
+        Logger.log("failed finding a translation: " + JSON.stringify(data));
+        returnValue.status = "notFound";
+        returnValue.message = "Article translation not found";
+      }
+      returnValue.documentId = documentID;
+      returnValue.data = data;
+    }
+
+  } catch (err) {
+    Logger.log(JSON.stringify(err));
+    returnValue.status = "error";
+    returnValue.message = "An error occurred getting the article or page";
+    returnValue.data = err;
+  }
+
+  return returnValue;
+}
 /*
 . * Returns metadata about the article, including its id, whether it was published
 . * headline and byline
@@ -1307,11 +1450,6 @@ async function hasuraGetArticle() {
     message: "",
     data: {}
   };
-
-  var locale = getSelectedLocaleName();
-  if (!locale) {
-    locale = "en-US"
-  }
 
   var documentID = DocumentApp.getActiveDocument().getId();
   Logger.log("documentID: " + documentID);
@@ -1334,7 +1472,7 @@ async function hasuraGetArticle() {
       returnValue.data = data;
 
     } else {
-      data = await getArticleForGoogleDoc(documentID, locale);
+      data = await getArticleForGoogleDoc(documentID);
       if (data && data.articles && data.articles[0]) {
         returnValue.status = "success";
         returnValue.message = "Retrieved article with ID: " + data.articles[0].id;
