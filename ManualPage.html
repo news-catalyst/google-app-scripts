@@ -46,7 +46,7 @@
         var div = document.getElementById('loading');
         div.style.display = 'block';
 
-        div.innerHTML = "Click to edit " + contents.locale + " version of article with <a href='" + contents.url + "'>document #" + contetns.docId + "</a>";
+        div.innerHTML = "<a target='_new' href='" + contents.url + "'>Click to edit " + contents.locale + " version of article</a>";
       }
 
       function handleCreateDoc(el) {
@@ -75,14 +75,14 @@
         var localeCode = contents.localeCode;
         if (contents.data.pages) {
           data = contents.data.pages[0];
-          if (data.page_translations) {
-            translationData = data.page_translations[0];
+          if (contents.data.page_translations) {
+            translationData = contents.data.page_translations[0];
           }
           documentType = "page"
         } else {
           data = contents.data.articles[0];
-          if (data.article_translations) {
-            translationData = data.article_translations[0];
+          if (contents.data.article_translations) {
+            translationData = contents.data.article_translations[0];
             headline = translationData.headline;
           }
           googleDocs = contents.data.article_google_documents;
@@ -124,9 +124,7 @@
           })
         }
 
-        console.log("existing docs:", existingDocsOtherLocales);
         var existingTranslationsDiv = document.getElementById('existing-translations');
-        console.log("available locales:", availableLocales);
         if (existingDocsOtherLocales.length > 0) {
           var existingDocItems = [];
           existingDocsOtherLocales.forEach(doc => {
@@ -137,6 +135,7 @@
           existingTranslationsDiv.innerHTML = existingDocItems.join(', ');
         }
 
+        console.log("headline: ", headline);
         if (availableLocales.length > 0) {
           var availableLocaleLinks = [];
           availableLocales.forEach(availableLocale => {

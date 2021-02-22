@@ -832,8 +832,9 @@ async function hasuraCreateDoc(articleId, newLocale, headline) {
   var currentDocId = DocumentApp.getActiveDocument().getId();
   var newDocId;
   var newDocUrl;
+  var localisedHeadline = newLocale + " - " + headline;
   var driveFile = DriveApp.getFileById(currentDocId);
-  var newFile = driveFile.makeCopy(headline);
+  var newFile = driveFile.makeCopy(localisedHeadline);
   if (newFile) {
     newDocId = newFile.getId();
     newDocUrl = newFile.getUrl();
