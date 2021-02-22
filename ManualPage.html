@@ -22,6 +22,157 @@
           getConfigAndDisplayForm();
         }
       }
+      function handleGetTranslationsForArticle(data) {
+        console.log("data:", data);
+        var articleId;
+        var localeCode;
+        
+        try {
+          articleId = data.data.articles[0].id;
+          localeCode = data.data.articles[0].article_google_documents[0].google_document.locale_code;
+          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(articleId, localeCode);
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      function handleGetArticle() {
+         google.script.run.withFailureHandler(onFailure).withSuccessHandler(handleGetTranslationsForArticle).hasuraGetArticle();
+      }
+
+      function onSuccessCreateDoc(contents) {
+        console.log("onSuccessCreateDoc: ", contents);
+
+        var div = document.getElementById('loading');
+        div.style.display = 'block';
+
+        div.innerHTML = "<a target='_new' href='" + contents.url + "'>Click to edit " + contents.locale + " version of article</a>";
+      }
+
+      function handleCreateDoc(el) {
+        var localeCode = $(el).data('locale'); 
+        var articleId = $(el).data('article-id');
+        var headline = $(el).data('headline');
+        google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessCreateDoc).hasuraCreateDoc(articleId, localeCode, headline);
+      }
+
+      function onSuccessGetArticle(contents) {
+        console.log(contents);
+
+        var div = document.getElementById('loading');
+        div.style.display = 'block';
+        if (contents && contents.status && contents.status === "error") {
+          div.innerHTML = "<p class='error'>An error occurred: " + contents.message + '</p>';
+        } else {
+          div.innerHTML = '<p style="color: #48C774;">' + contents.message + "</p>";
+        }
+
+        var data;
+        var translationData;
+        var googleDocs;
+        var documentType = "article";
+        var headline;
+        var localeCode = contents.localeCode;
+        if (contents.data.pages) {
+          data = contents.data.pages[0];
+          if (contents.data.page_translations) {
+            translationData = contents.data.page_translations[0];
+          }
+          documentType = "page"
+        } else {
+          data = contents.data.articles[0];
+          if (contents.data.article_translations) {
+            translationData = contents.data.article_translations[0];
+            if (translationData) {
+              headline = translationData.headline;
+            }
+          }
+          googleDocs = contents.data.article_google_documents;
+        }
+        var docType = document.getElementById('document-type');
+        docType.innerHTML = documentType;
+
+        var availableLocalesElement = document.getElementById('available-locales');
+        var existingDocsOtherLocales = [];
+        var availableLocales = [];
+
+        // figure out which locales are available
+        if (googleDocs) {
+          // loop over each locale available for this org
+          contents.data.organization_locales.forEach( (orgLocale) => {
+            console.log("looking for doc in locale", orgLocale.locale.code);
+            var foundLocaleDoc = false;
+            // loop over each google doc associated with this article
+            googleDocs.forEach( (doc) => {
+              // if google doc is not the current one we have open...
+              if (doc.google_document.document_id !== contents.documentId) {
+                // ... and this org locale is equal to the google doc's locale
+                if (orgLocale.locale.code === doc.google_document.locale_code) {
+                  // add it to the list of documents available that are translations of this article
+                  existingDocsOtherLocales.push(doc.google_document);
+                  foundLocaleDoc = true;
+                }
+              // current document
+              } else {
+                if (orgLocale.locale.code === doc.google_document.locale_code) {
+                  foundLocaleDoc = true;
+                }
+              }
+            });
+            // if we didn't find a google document for this org locale, mark it as available
+            if (!foundLocaleDoc) {
+              availableLocales.push(orgLocale.locale);
+            }
+          })
+        }
+
+        var existingTranslationsDiv = document.getElementById('existing-translations');
+        if (existingDocsOtherLocales.length > 0) {
+          var existingDocItems = [];
+          existingDocsOtherLocales.forEach(doc => {
+            var item = "<a target='_new' href='" + doc.url + "'>" + doc.locale_code + "</a>";
+            console.log(item);
+            existingDocItems.push(item)
+          });
+          existingTranslationsDiv.innerHTML = existingDocItems.join(', ');
+        }
+
+        console.log("headline: ", headline);
+        if (availableLocales.length > 0) {
+          var availableLocaleLinks = [];
+          availableLocales.forEach(availableLocale => {
+            var item = "<a data-headline='" + headline + "' data-article-id='" + data.id + "' data-locale='" + availableLocale.code + "' onClick='handleCreateDoc(this)'>" + availableLocale.name + "</a>";
+            availableLocaleLinks.push(item);
+          });
+          console.log("availableLocale links: ", availableLocaleLinks);
+          availableLocalesElement.innerHTML = availableLocaleLinks.join(', ');
+        }
+
+        if (data) {
+          var slugDiv = document.getElementById('slug');
+          slugDiv.innerHTML = data.slug;
+
+          var currentId = document.getElementById('current-data-id');
+          currentId.innerHTML = data.id;
+        }
+
+        var articleLocale = document.getElementById('current-article-locale');
+        articleLocale.innerHTML = localeCode;
+
+        if (translationData) {
+          var versionId = document.getElementById('version-id');
+          versionId.innerHTML = translationData.id;
+
+          setPublishedFlag(translationData.published);
+
+          var firstPub = document.getElementById('first-published');
+          firstPub.innerHTML = translationData.first_published_at;
+
+          var lastPub = document.getElementById('last-published');
+          lastPub.innerHTML = translationData.last_published_at;
+        }
+      }
+
       function onSuccessClear(contents) {
         // hideLoading();
         var div = document.getElementById('loading');
@@ -99,13 +250,6 @@
         div.style.display = 'block';
         console.log(contents);
         div.innerHTML = '<p style="color: #48C774;">Success! This document is now associated with article ID#' + contents.id + '. You should now <input type="button" value="close" onclick="google.script.host.close()" /> this sidebar and open the Publishing Tools menu item to work with the article.</p>';
-      }
-
-      function onFailureMeta(error) {
-        var loadingDiv = document.getElementById('loading');
-        console.log(error);
-        loadingDiv.style.display = "block";
-        loadingDiv.innerHTML = "<p class='error'>An error occurred while trying to look up this document's metadata: " + error + "</p>";
       }
 
       function onFailure(error) {
@@ -273,87 +417,6 @@
         isPublishedSpan.innerHTML = isPublishedYesNo;
       }
 
-      function onSuccessMeta(data) {
-        var loadingDiv = document.getElementById('loading');
-
-        console.log(data);
-
-        setPublishedFlag(data.published);
-
-        if ( data.articleID !== null && data.articleID !== undefined) {
-          loadingDiv.innerHTML = "<p>This document is already associated with an article in Webiny (ID #" + data.articleID +").</p>\n<p>Open the Publishing Tools to work with it. Or, stay here to change which article this document is linked to.</p><hr/>"
-        } else {
-          loadingDiv.innerHTML = "<p>You can link this document to an existing article in Webiny to publish it to the web and mobile.</p>"
-
-        }
-
-        var revisionIdSpan = document.getElementById('revision-id');
-        revisionIdSpan.innerHTML = data.articleID;
-
-        var slugDiv = document.getElementById('slug');
-        slugDiv.innerHTML = data.slug;
-
-        var availableLocalesDiv = document.getElementById('available-locales');
-        availableLocalesDiv.innerHTML = data.availableLocales;
-
-        var sitewideLocalesDiv = document.getElementById('sitewide-locales');
-        sitewideLocalesDiv.innerHTML = data.locales.map(locale=>locale.code).join(" | ");
-
-        if (data.firstPublishedOn !== null && typeof(data.firstPublishedOn) !== 'undefined') {
-          var firstPubDiv = document.getElementById('first-published');
-          var localisedDate = new Date(data.firstPublishedOn).toLocaleString();
-          firstPubDiv.innerHTML = localisedDate;
-        }
-
-        if (data.lastPublishedOn !== null && typeof(data.lastPublishedOn) !== 'undefined') {
-          var lastPubDiv = document.getElementById('last-published');
-          var localisedDate = new Date(data.lastPublishedOn).toLocaleString();
-          lastPubDiv.innerHTML = localisedDate;
-        }
-
-        var deleteArticleButton = document.getElementById("deleteArticleButton");
-        var deletePageButton = document.getElementById("deletePageButton");
-        if (data.documentType === "page") {
-          deleteArticleButton.style.display = "none";
-          deletePageButton.style.display = "block";
-        } else {
-          deletePageButton.style.display = "none";
-          deleteArticleButton.style.display = "block";
-        }
-      }
-
-      function deletePage() {
-        if (window.confirm("Are you sure you want to delete this page?")) { 
-          var loadingDiv = document.getElementById('loading');
-          loadingDiv.innerHTML = "Deleting page...";
-          loadingDiv.style.display = "block";
-
-          google.script.run.withFailureHandler(onFailureDelete).withSuccessHandler(onSuccessDelete).deletePage();
-        }
-      }
-      function deleteArticle() {
-        if (window.confirm("Are you sure you want to delete this article?")) { 
-          var loadingDiv = document.getElementById('loading');
-          loadingDiv.innerHTML = "Deleting article...";
-          loadingDiv.style.display = "block";
-
-          google.script.run.withFailureHandler(onFailureDelete).withSuccessHandler(onSuccessDelete).deleteArticle();
-        }
-      }
-
-      function onSuccessDelete(contents) {
-        hideConfigForm();
-
-        var loadingDiv = document.getElementById('loading');
-        loadingDiv.innerHTML = '<p style="color: #48C774;">' + contents + "</p>";
-        loadingDiv.style.display = "block";
-      }
-      function onFailureDelete(error) {
-        var loadingDiv = document.getElementById('loading');
-        console.log(error);
-        loadingDiv.innerHTML = "<p class='error'>An error occurred while deleting this article from the database: " + error + "</p>";
-      }
-
       // Prevent forms from submitting.
       function preventFormSubmit() {
         var forms = document.querySelectorAll('form');
@@ -371,7 +434,7 @@
         hideConfigForm();
         
         handleScriptConfig();
-
+        handleGetArticle();
       });
 
     </script>
@@ -500,22 +563,24 @@
         <button onclick="toggleConfigForm()">Toggle Config Form</button>
         <hr/>
         <button onclick="clearCache()">Clear Cache</button>
-        <hr/>
-        <br/>
-        <button style="display: none;" id="deleteArticleButton" class="create" onclick="deleteArticle()">Delete Article</button>
-        <button style="display: none;" id="deletePageButton" class="create" onclick="deletePage()">Delete Page</button>
         <br/>
         <hr/>
         <br/>
         <h3 class="gray">Debugging Info:</h3>
           <p class="gray">
+            <b>Document type:</b> <span id="document-type"></span>
+          </p>
+          <p class="gray">
+            <b>ID:</b> <span id="current-data-id"></span>
+          </p>
+          <p class="gray">
+            <b>Version ID:</b> <span id="version-id"></span>
+          </p>
+          <p class="gray">
             <b>Article slug:</b> <span id="slug"></span>
           </p>
           <p class="gray">
-            <b>Available locales:</b> <span id="available-locales"></span>
-          </p>
-          <p class="gray">
-            <b>Revision ID:</b> <span id="revision-id"></span>
+            <b>Article locale:</b> <span id="current-article-locale"></span>
           </p>
           <p class="gray">
             <b>Published?</b> <span id="is-published"></span>
@@ -527,7 +592,10 @@
             <b>Last published:</b> <span id="last-published"></span>
           </p>
           <p class="gray">
-            <b>Site-wide Locales:</b> <span id="sitewide-locales"></span>
+            <b>Click to translate:</b> <span id="available-locales"></span>
+          </p>
+          <p class="gray">
+            <b>Existing translations:</b> <span id="existing-translations"></span>
           </p>
       </div>
     </div>

@@ -706,7 +706,7 @@ const insertArticleGoogleDocMutation = `mutation MyMutation($locale_code: String
       category {
         slug
       }
-      article_translations(where: { locale_code: {_eq: $locale_code}, published: {_eq: true}}, order_by: {id: desc}, limit: 1) {
+      article_translations(where: { locale_code: {_eq: $locale_code}}, order_by: {id: desc}, limit: 1) {
         id
         article_id
         locale_code
@@ -806,6 +806,56 @@ async function hasuraCreateAuthorArticle(authorId, articleId) {
       author_id: authorId
     }
   );
+}
+
+const insertGoogleDocMutation = `mutation MyMutation($article_id: Int!, $document_id: String!, $locale_code: String!, $url: String) {
+  insert_article_google_documents(objects: {article_id: $article_id, google_document: {data: {document_id: $document_id, locale_code: $locale_code, url: $url}, on_conflict: {constraint: google_documents_organization_id_document_id_key, update_columns: url}}}, on_conflict: {constraint: article_google_documents_article_id_google_document_id_key, update_columns: google_document_id}) {
+    affected_rows
+  }
+}`;
+
+async function hasuraInsertGoogleDoc(articleId, docId, localeCode, url) {
+  return fetchGraphQL(
+    insertGoogleDocMutation,
+    "MyMutation",
+    {
+      article_id: articleId,
+      document_id: docId,
+      locale_code: localeCode,
+      url: url
+    }
+  );
+}
+async function hasuraCreateDoc(articleId, newLocale, headline) {
+  Logger.log("create new doc for article " + articleId + " and locale " + newLocale);
+  // create new document in google docs
+  var currentDocId = DocumentApp.getActiveDocument().getId();
+  var newDocId;
+  var newDocUrl;
+  var localisedHeadline = newLocale + " - " + headline;
+  var driveFile = DriveApp.getFileById(currentDocId);
+  var newFile = driveFile.makeCopy(localisedHeadline);
+  if (newFile) {
+    newDocId = newFile.getId();
+    newDocUrl = newFile.getUrl();
+  } else {
+    Logger.log("failed creating new file via DriveApp")
+    return null;
+  }
+
+  // insert new document ID in google_documents table with newLocale & articleID
+  var response = await hasuraInsertGoogleDoc(articleId, newDocId, newLocale, newDocUrl);
+  Logger.log("hasura insert googleDoc response: " + JSON.stringify(response));
+
+  // return new doc ID / url for link?
+
+  return {
+    articleId: articleId,
+    locale: newLocale,
+    docId: newDocId,
+    url: newDocUrl,
+    data: response
+  }
 }
 
 const unpublishArticleMutation = `mutation MyMutation($article_id: Int!, $locale_code: String!) {
@@ -915,7 +965,11 @@ async function hasuraHandlePublish(formObject) {
         var result = await hasuraCreateAuthorPage(author, pageID);
       }
     }
-    fullPublishUrl = publishUrl + "/" + slug;
+    if (formObject['article-locale']) {
+      fullPublishUrl = publishUrl + "/" + formObject['article-locale'] + "/" + slug;
+    } else {
+      fullPublishUrl = publishUrl + "/" + slug;
+    }
     Logger.log("fullPublishUrl: " + fullPublishUrl);
 
   } else {
@@ -963,7 +1017,11 @@ async function hasuraHandlePublish(formObject) {
         var result = await hasuraCreateAuthorArticle(author, articleID);
       }
     }
-    fullPublishUrl = publishUrl + "/articles/" + categorySlug + "/" + articleSlug;
+    if (formObject['article-locale']) {
+      fullPublishUrl = publishUrl + "/" + formObject['article-locale'] + "/articles/" + categorySlug + "/" + articleSlug;
+    } else {
+      fullPublishUrl = publishUrl + "/articles/" + categorySlug + "/" + articleSlug;
+    }
     Logger.log("fullPublishUrl: " + fullPublishUrl);
   }
 
@@ -1035,6 +1093,7 @@ async function hasuraHandlePreview(formObject) {
   } else {
     // insert or update article
     var data = await insertArticleGoogleDocs(formObject);
+    Logger.log("data: " + JSON.stringify(data));
     var articleID = data.data.insert_articles.returning[0].id;
 
     Logger.log("articleResult: " + JSON.stringify(data))
@@ -1145,40 +1204,14 @@ const getPageForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_code: 
   }
 }`;
 
-const getArticleForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_code: String!) {
-  articles(where: {article_google_documents: {google_document: {document_id: {_eq: $doc_id}, locale_code: {_eq: $locale_code}}}, article_translations: {locale_code: {_eq: $locale_code}}}) {
+const getArticleByGoogleDocQuery = `query MyQuery($doc_id: String!) {
+  articles(where: {article_google_documents: {google_document: {document_id: {_eq: $doc_id}}}}) {
     id
     slug
     category {
       id
       slug
       title
-    }
-    tag_articles {
-      tag {
-        id
-        slug
-        tag_translations(where: {locale_code: {_eq: $locale_code}}) {
-          title
-        }
-      }
-      tag_id
-    }
-    article_translations(order_by: {id: desc}, limit: 1, where: {locale_code: {_eq: $locale_code}}) {
-      id
-      locale_code
-      content
-      custom_byline
-      facebook_description
-      facebook_title
-      headline
-      last_published_at
-      first_published_at
-      search_description
-      published
-      search_title
-      twitter_description
-      twitter_title
     }
     author_articles {
       author {
@@ -1187,25 +1220,18 @@ const getArticleForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_cod
         slug
       }
     }
+    article_google_documents(where: {google_document: {document_id: {_eq: $doc_id}}}) {
+      google_document {
+        document_id
+        locale_code
+        url
+      }
+    }
   }
   authors {
     id
     slug
     name
-  }
-  categories {
-    id
-    slug
-    category_translations(where: {locale_code: {_eq: $locale_code}}) {
-      title
-    }
-  }
-  tags {
-    id
-    slug
-    tag_translations(where: {locale_code: {_eq: $locale_code}}) {
-      title
-    }
   }
   organization_locales {
     locale {
@@ -1215,11 +1241,11 @@ const getArticleForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_cod
   }
 }`;
 
-function fetchArticleForGoogleDoc(doc_id, locale_code) {
+function fetchArticleForGoogleDoc(doc_id) {
   return fetchGraphQL(
-    getArticleForGoogleDocQuery,
+    getArticleByGoogleDocQuery,
     "MyQuery",
-    {"doc_id": doc_id, "locale_code": locale_code}
+    {"doc_id": doc_id}
   );
 }
 
@@ -1258,15 +1284,109 @@ async function getPageForGoogleDoc(doc_id, locale_code) {
     throw errors;
   }
 
-  Logger.log("getpage data: " + JSON.stringify(data));
+  return data;
+}
+
+const getArticleTranslationForIdAndLocale = `query MyQuery($doc_id: String!, $article_id: Int, $locale_code: String!) {
+  article_translations(where: {article_id: {_eq: $article_id}, locale_code: {_eq: $locale_code}}, limit: 1, order_by: {id: desc}) {
+    content
+    custom_byline
+    facebook_description
+    facebook_title
+    first_published_at
+    headline
+    id
+    last_published_at
+    locale_code
+    published
+    search_description
+    search_title
+    twitter_description
+    twitter_title
+  }
+
+  articles(where: {article_google_documents: {google_document: {document_id: {_eq: $doc_id}}}}) {
+    id
+    slug
+    category {
+      id
+      slug
+      title
+    }
+    author_articles {
+      author {
+        id
+        name
+        slug
+      }
+    }
+    article_google_documents(where: {google_document: {document_id: {_eq: $doc_id}}}) {
+      google_document {
+        document_id
+        locale_code
+        url
+      }
+    }
+  }
+  authors {
+    id
+    slug
+    name
+  }
+  categories {
+    id
+    slug
+    category_translations(where: {locale_code: {_eq: $locale_code}}) {
+      title
+    }
+  }
+  article_google_documents(where: {article_id: {_eq: $article_id}}) {
+    google_document {
+      document_id
+      locale_code
+      url
+    }
+    article_id
+  }
+  organization_locales {
+    locale {
+      code
+      name
+    }
+  }
+  tags {
+    id
+    slug
+    tag_translations(where: {locale_code: {_eq: $locale_code}}) {
+      title
+    }
+  }
+}`
+
+function fetchTranslationDataForArticle(docId, articleId, localeCode) {
+  return fetchGraphQL(
+    getArticleTranslationForIdAndLocale,
+    "MyQuery",
+    {"doc_id": docId, "article_id": articleId, "locale_code": localeCode}
+  );
+}
+
+async function getTranslationDataForArticle(docId, articleId, localeCode) {
+  const { errors, data } = await fetchTranslationDataForArticle(docId, articleId, localeCode);
+
+  if (errors) {
+    console.error("errors:" + JSON.stringify(errors));
+    throw errors;
+  }
+
   return data;
 }
 
 /*
  * looks up an article by google doc ID and locale
  */
-async function getArticleForGoogleDoc(doc_id, locale_code) {
-  const { errors, data } = await fetchArticleForGoogleDoc(doc_id, locale_code);
+async function getArticleForGoogleDoc(doc_id) {
+  const { errors, data } = await fetchArticleForGoogleDoc(doc_id);
 
   if (errors) {
     console.error("errors:" + JSON.stringify(errors));
@@ -1290,6 +1410,61 @@ function isPage(documentID) {
   return isStaticPage;
 }
 
+async function hasuraGetTranslations(articleId, localeCode) {
+  var returnValue = {
+    localeCode: localeCode,
+    articleId: articleId,
+    status: "",
+    message: "",
+    data: {}
+  };
+
+  var documentID = DocumentApp.getActiveDocument().getId();
+  Logger.log("documentID: " + documentID);
+
+  var isStaticPage = isPage(documentID);
+
+  var data;
+  try {
+    if (isStaticPage) {
+      // 
+      // TODO
+      //
+      // data = await getPageForGoogleDoc(documentID, locale);
+      // Logger.log("getPage data: " + JSON.stringify(data));
+      // if (data && data.pages && data.pages[0]) {
+      //   returnValue.status = "success";
+      //   returnValue.message = "Retrieved page with ID: " + data.pages[0].id;
+      // } else {
+      //   Logger.log("getPage notFound data: " + JSON.stringify(data));
+      //   returnValue.status = "notFound";
+      //   returnValue.message = "Page not found";
+      // }
+      // returnValue.data = data;
+
+    } else {
+      data = await getTranslationDataForArticle(documentID, articleId, localeCode);
+      if (data && data.article_translations && data.article_translations[0]) {
+        returnValue.status = "success";
+        returnValue.message = "Retrieved article translation with ID: " + data.article_translations[0].id;
+      } else {
+        Logger.log("failed finding a translation: " + JSON.stringify(data));
+        returnValue.status = "notFound";
+        returnValue.message = "Article translation not found";
+      }
+      returnValue.documentId = documentID;
+      returnValue.data = data;
+    }
+
+  } catch (err) {
+    Logger.log(JSON.stringify(err));
+    returnValue.status = "error";
+    returnValue.message = "An error occurred getting the article or page";
+    returnValue.data = err;
+  }
+
+  return returnValue;
+}
 /*
 . * Returns metadata about the article, including its id, whether it was published
 . * headline and byline
@@ -1300,11 +1475,6 @@ async function hasuraGetArticle() {
     message: "",
     data: {}
   };
-
-  var locale = getSelectedLocaleName();
-  if (!locale) {
-    locale = "en-US"
-  }
 
   var documentID = DocumentApp.getActiveDocument().getId();
   Logger.log("documentID: " + documentID);
@@ -1327,7 +1497,7 @@ async function hasuraGetArticle() {
       returnValue.data = data;
 
     } else {
-      data = await getArticleForGoogleDoc(documentID, locale);
+      data = await getArticleForGoogleDoc(documentID);
       if (data && data.articles && data.articles[0]) {
         returnValue.status = "success";
         returnValue.message = "Retrieved article with ID: " + data.articles[0].id;
@@ -1336,6 +1506,7 @@ async function hasuraGetArticle() {
         returnValue.status = "notFound";
         returnValue.message = "Article not found";
       }
+      returnValue.documentId = documentID;
       returnValue.data = data;
     }
 
@@ -1350,64 +1521,12 @@ async function hasuraGetArticle() {
 }
 
 /**
- * 
- * Sets article as 'published: true'
- * @param {} formObject 
- */
-function handlePublish(formObject) {
-  // var t0 = new Date().getTime();
-  var response = getCurrentDocContents(formObject, false);
-  // var t1 = new Date().getTime();
-  // Logger.log("getCurrentDocContents took: " + (t1 - t0) + " milliseconds.")
-
-  var t2 = new Date().getTime();
-  var response = publishArticle();
-  var t3 = new Date().getTime();
-  Logger.log("publishArticle took: " + (t3 - t2) + " milliseconds.")
-
-  var t4 = new Date().getTime();
-  var metadata = hasuraGetArticle();
-  var t5 = new Date().getTime();
-  Logger.log("hasuraGetArticle took: " + (t5 - t4) + " milliseconds.")
-  response.data = metadata;
-  return response;
-}
-
-/**
- * 
- * Saves the article as a draft, opens preview
- * @param {} formObject 
- */
-function handlePreview(formObject) {
-  // save the article - pass publishFlag as false
-  var response = getCurrentDocContents(formObject, false);
-
-  if (response && response.status === "success") {
-    // construct preview url
-    var slug = getArticleSlug();
-    var locale = getSelectedLocaleName();
-    var scriptConfig = getScriptConfig();
-    var previewHost = scriptConfig['PREVIEW_URL'];
-    var previewSecret = scriptConfig['PREVIEW_SECRET'];
-    var fullPreviewUrl = previewHost + "?secret=" + previewSecret + "&slug=" + slug + "&locale=" + locale;
-
-    // open preview url in new window
-    response.message += "<br><a href='" + fullPreviewUrl + "' target='_blank'>Preview article in new window</a>"
-  }
-  var metadata = hasuraGetArticle();
-  response.data = metadata;
-
-  return response;
-}
-
-/**
 . * Gets the current document's contents
 . */
 function getCurrentDocContents() {
   var formattedElements = formatElements();
   return formattedElements;
 }
-
 
 /*
 .* Retrieves "elements" from the google doc - which are headings, images, paragraphs, lists
@@ -2437,123 +2556,6 @@ function createArticle(articleData) {
 
   }
   return returnValue;
-}
-
-/**
- * Deletes the page
- */
-function deletePage() {
-  var versionID = getArticleID();
-
-  var scriptConfig = getScriptConfig();
-  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
-  var CONTENT_API = scriptConfig['CONTENT_API'];
-
-  var formData = {
-    query: `mutation DeletePage($id: ID!) {
-      pages {
-        deletePage(id: $id) {
-          data
-          error {
-            code
-            message
-          }
-        }
-      }
-    }`,
-    variables: {
-      id: versionID,
-    }
-  };
-
-  var options = {
-    method: 'post',
-    muteHttpExceptions: true,
-    contentType: 'application/json',
-    headers: {
-      authorization: ACCESS_TOKEN,
-    },
-    payload: JSON.stringify(formData),
-  };
-
-  var response = UrlFetchApp.fetch(
-    CONTENT_API,
-    options
-  );
-  var responseText = response.getContentText();
-  var responseData = JSON.parse(responseText);
-
-  storeIsPublished(false);
-  deleteSEO();
-  deleteArticleSlug();
-  deleteArticleID();
-  deletePublishingInfo();
-  // deleteTags();
-  // deleteCategories();
-  if (responseData && responseData.data && responseData.data.pages.deletePage.error === null) {
-    return "Deleted article at revision " + versionID;
-  } else if (responseData && responseData.data && responseData.data.pages.deletePage.error !== null) {
-    return responseData.data.pages.deletePage.error;
-  }
-}
-
-/**
- * Deletes the article
- */
-function deleteArticle() {
-  var versionID = getArticleID();
-
-  var scriptConfig = getScriptConfig();
-  var ACCESS_TOKEN = scriptConfig['ACCESS_TOKEN'];
-  var CONTENT_API = scriptConfig['CONTENT_API'];
-
-  var formData = {
-    query: `mutation DeleteArticle($id: ID!) {
-      articles {
-        deleteArticle(id: $id) {
-          data
-          error {
-            code
-            message
-          }
-        }
-      }
-    }`,
-    variables: {
-      id: versionID,
-    }
-  };
-
-  var options = {
-    method: 'post',
-    muteHttpExceptions: true,
-    contentType: 'application/json',
-    headers: {
-      authorization: ACCESS_TOKEN,
-    },
-    payload: JSON.stringify(formData),
-  };
-
-  var response = UrlFetchApp.fetch(
-    CONTENT_API,
-    options
-  );
-  var responseText = response.getContentText();
-  var responseData = JSON.parse(responseText);
-
-  storeIsPublished(false);
-  deleteArticleSlug();
-  deleteArticleID();
-  deletePublishingInfo();
-  deleteSEO();
-  deleteTags();
-  deleteCategories();
-  deleteAllValues();
-  if (responseData && responseData.data && responseData.data.articles.deleteArticle.error === null) {
-    return "Deleted article at revision " + versionID;
-  } else if (responseData && responseData.data && responseData.data.articles.deleteArticle.error !== null) {
-    return responseData.data.articles.deleteArticle.error;
-  }
 }
 
 /* This function clears out the google doc properties (articleID, anything stored) without expecting
