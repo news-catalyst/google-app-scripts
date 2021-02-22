@@ -706,7 +706,7 @@ const insertArticleGoogleDocMutation = `mutation MyMutation($locale_code: String
       category {
         slug
       }
-      article_translations(where: { locale_code: {_eq: $locale_code}, published: {_eq: true}}, order_by: {id: desc}, limit: 1) {
+      article_translations(where: { locale_code: {_eq: $locale_code}}, order_by: {id: desc}, limit: 1) {
         id
         article_id
         locale_code
@@ -964,7 +964,11 @@ async function hasuraHandlePublish(formObject) {
         var result = await hasuraCreateAuthorPage(author, pageID);
       }
     }
-    fullPublishUrl = publishUrl + "/" + slug;
+    if (formObject['article-locale']) {
+      fullPublishUrl = publishUrl + "/" + formObject['article-locale'] + "/" + slug;
+    } else {
+      fullPublishUrl = publishUrl + "/" + slug;
+    }
     Logger.log("fullPublishUrl: " + fullPublishUrl);
 
   } else {
@@ -1012,7 +1016,11 @@ async function hasuraHandlePublish(formObject) {
         var result = await hasuraCreateAuthorArticle(author, articleID);
       }
     }
-    fullPublishUrl = publishUrl + "/articles/" + categorySlug + "/" + articleSlug;
+    if (formObject['article-locale']) {
+      fullPublishUrl = publishUrl + "/" + formObject['article-locale'] + "/articles/" + categorySlug + "/" + articleSlug;
+    } else {
+      fullPublishUrl = publishUrl + "/articles/" + categorySlug + "/" + articleSlug;
+    }
     Logger.log("fullPublishUrl: " + fullPublishUrl);
   }
 
@@ -1084,6 +1092,7 @@ async function hasuraHandlePreview(formObject) {
   } else {
     // insert or update article
     var data = await insertArticleGoogleDocs(formObject);
+    Logger.log("data: " + JSON.stringify(data));
     var articleID = data.data.insert_articles.returning[0].id;
 
     Logger.log("articleResult: " + JSON.stringify(data))
@@ -1278,7 +1287,7 @@ async function getPageForGoogleDoc(doc_id, locale_code) {
 }
 
 const getArticleTranslationForIdAndLocale = `query MyQuery($doc_id: String!, $article_id: Int, $locale_code: String!) {
-  article_translations(where: {article_id: {_eq: $article_id}, locale_code: {_eq: $locale_code}}) {
+  article_translations(where: {article_id: {_eq: $article_id}, locale_code: {_eq: $locale_code}}, limit: 1, order_by: {id: desc}) {
     content
     custom_byline
     facebook_description
@@ -1318,6 +1327,11 @@ const getArticleTranslationForIdAndLocale = `query MyQuery($doc_id: String!, $ar
       }
     }
   }
+  authors {
+    id
+    slug
+    name
+  }
   categories {
     id
     slug
@@ -1325,17 +1339,25 @@ const getArticleTranslationForIdAndLocale = `query MyQuery($doc_id: String!, $ar
       title
     }
   }
-  tags {
-    id
-    slug
-    tag_translations(where: {locale_code: {_eq: $locale_code}}) {
-      title
+  article_google_documents(where: {article_id: {_eq: $article_id}}) {
+    google_document {
+      document_id
+      locale_code
+      url
     }
+    article_id
   }
   organization_locales {
     locale {
       code
       name
+    }
+  }
+  tags {
+    id
+    slug
+    tag_translations(where: {locale_code: {_eq: $locale_code}}) {
+      title
     }
   }
 }`
@@ -1389,6 +1411,8 @@ function isPage(documentID) {
 
 async function hasuraGetTranslations(articleId, localeCode) {
   var returnValue = {
+    localeCode: localeCode,
+    articleId: articleId,
     status: "",
     message: "",
     data: {}
@@ -1496,64 +1520,12 @@ async function hasuraGetArticle() {
 }
 
 /**
- * 
- * Sets article as 'published: true'
- * @param {} formObject 
- */
-function handlePublish(formObject) {
-  // var t0 = new Date().getTime();
-  var response = getCurrentDocContents(formObject, false);
-  // var t1 = new Date().getTime();
-  // Logger.log("getCurrentDocContents took: " + (t1 - t0) + " milliseconds.")
-
-  var t2 = new Date().getTime();
-  var response = publishArticle();
-  var t3 = new Date().getTime();
-  Logger.log("publishArticle took: " + (t3 - t2) + " milliseconds.")
-
-  var t4 = new Date().getTime();
-  var metadata = hasuraGetArticle();
-  var t5 = new Date().getTime();
-  Logger.log("hasuraGetArticle took: " + (t5 - t4) + " milliseconds.")
-  response.data = metadata;
-  return response;
-}
-
-/**
- * 
- * Saves the article as a draft, opens preview
- * @param {} formObject 
- */
-function handlePreview(formObject) {
-  // save the article - pass publishFlag as false
-  var response = getCurrentDocContents(formObject, false);
-
-  if (response && response.status === "success") {
-    // construct preview url
-    var slug = getArticleSlug();
-    var locale = getSelectedLocaleName();
-    var scriptConfig = getScriptConfig();
-    var previewHost = scriptConfig['PREVIEW_URL'];
-    var previewSecret = scriptConfig['PREVIEW_SECRET'];
-    var fullPreviewUrl = previewHost + "?secret=" + previewSecret + "&slug=" + slug + "&locale=" + locale;
-
-    // open preview url in new window
-    response.message += "<br><a href='" + fullPreviewUrl + "' target='_blank'>Preview article in new window</a>"
-  }
-  var metadata = hasuraGetArticle();
-  response.data = metadata;
-
-  return response;
-}
-
-/**
 . * Gets the current document's contents
 . */
 function getCurrentDocContents() {
   var formattedElements = formatElements();
   return formattedElements;
 }
-
 
 /*
 .* Retrieves "elements" from the google doc - which are headings, images, paragraphs, lists

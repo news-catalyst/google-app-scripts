@@ -73,22 +73,27 @@
         buttonsDivTop.style.display = "block";
 
         var data;
+        var googleDocs;
         var translationData;
         var documentType = "article";
+        var localeCode = contents.localeCode;
         if (contents.data.articles) {
           if (contents.data.articles[0]) {
             data = contents.data.articles[0]
-            if (data.article_translations) {
-              translationData = data.article_translations[0];
-            }
+          }
+          if (contents.data.article_translations) {
+              translationData = contents.data.article_translations[0];
+          }
+          if (contents.data.article_google_documents) {
+            googleDocs = contents.data.article_google_documents;
           }
         } else if (contents.data.pages) {
           documentType = "page"
           if (contents.data.pages[0]) {
             data = contents.data.pages[0]
-            if (data.page_translations) {
-              translationData = data.page_translations[0];
-            }
+          }
+          if (contents.data.page_translations) {
+            translationData = contents.data.page_translations[0];
           }
         }
 
@@ -104,16 +109,15 @@
               option.text = "(BUG) unknown locale";
             }
             // mark this locale as selected if it's the article's locale ID -or- is the default locale
-            // if (data.localeID !== null && data.localeID === locale.id) {
-            //   option.selected = true;
-            // } else if (locale.default) {
-            //   option.selected = true;
-            // }
+            if (localeCode === localeData.locale.code) {
+              option.selected = true;
+            }
             option.value = localeData.locale.code;
 
             articleLocaleSelect.add(option);
           }
         })
+        
         if (documentType === "article") {
           var articleCategorySelect = document.getElementById('article-category');
           var categoriesSorted = contents.data.categories.sort(function (a, b) {
@@ -172,7 +176,7 @@
               }
               option.value = tag.slug;
 
-              if (data) {
+              if (data && data.tag_articles) {
                 const result = data.tag_articles.find( ({ tag_id }) => tag_id === tag.id );
                 if (result !== undefined) {
                   option.selected = true;
@@ -221,15 +225,17 @@
           var idHiddenField = document.getElementById('article-id');
           idHiddenField.value = data.id;
 
-          var selectedLocale = document.getElementById('selected-locale');
-          selectedLocale.innerHTML = data.article_translations[0].locale_code;
         }
 
+        // var selectedLocale = document.getElementById('selected-locale');
+        console.log("translationData:", translationData);
         if (translationData) {
           setPublishedFlag(translationData.published);
 
           var articleHeadline = document.getElementById('article-headline');
           articleHeadline.value = translationData.headline;
+
+          // selectedLocale.innerHTML = translationData.locale_code;
 
           setValueOrDefault('article-custom-byline', translationData.custom_byline, "");
           setValueOrDefault('article-search-title', translationData.search_title, translationData.search_title);
@@ -238,6 +244,8 @@
           setValueOrDefault('article-facebook-description', translationData.facebook_description, translationData.facebook_description);
           setValueOrDefault('article-twitter-title', translationData.twitter_title, translationData.twitter_title);
           setValueOrDefault('article-twitter-description', translationData.twitter_description, translationData.twitter_description);
+        } else {
+          // selectedLocale.innerHTML = localeCode;
         }
 
         $('#article-authors').select2({
@@ -270,8 +278,22 @@
         loadingDiv.innerHTML = "<p class='error'>An error occurred: " + error + "</p>";
       }
 
+      function handleGetTranslationsForArticle(data) {
+        console.log("data:", data);
+        var articleId;
+        var localeCode;
+        
+        try {
+          articleId = data.data.articles[0].id;
+          localeCode = data.data.articles[0].article_google_documents[0].google_document.locale_code;
+          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(articleId, localeCode);
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
       function handleGetArticle() {
-         google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetArticle();
+         google.script.run.withFailureHandler(onFailure).withSuccessHandler(handleGetTranslationsForArticle).hasuraGetArticle();
       }
 
       function onSuccessPreviewPublish(response) {
@@ -356,7 +378,7 @@
         } else if ( formIsValid) {
           loadingDiv.innerHTML = "<p class='gray'>Unpublishing article... </p>"
           var articleId = document.getElementById('article-id').value;
-          var selectedLocale = document.getElementById('selected-locale').innerText;
+          var selectedLocale = document.getElementById('article-locale').value;
 
           google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublish(articleId, selectedLocale);
         } else {
@@ -440,7 +462,6 @@
             <label for="article-locale">
               <b>Locale</b>
             </label>
-            <div id="selected-locale"></div>
             <select style="width: 100%" id="article-locale" name="article-locale"></select>
           </div>
 

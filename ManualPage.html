@@ -50,7 +50,6 @@
       }
 
       function handleCreateDoc(el) {
-        console.log("creating doc:", $(el).data('locale'), $(el).data('article-id'));
         var localeCode = $(el).data('locale'); 
         var articleId = $(el).data('article-id');
         var headline = $(el).data('headline');
@@ -73,6 +72,7 @@
         var googleDocs;
         var documentType = "article";
         var headline;
+        var localeCode = contents.localeCode;
         if (contents.data.pages) {
           data = contents.data.pages[0];
           if (data.page_translations) {
@@ -85,7 +85,7 @@
             translationData = data.article_translations[0];
             headline = translationData.headline;
           }
-          googleDocs = data.article_google_documents;
+          googleDocs = contents.data.article_google_documents;
         }
         var docType = document.getElementById('document-type');
         docType.innerHTML = documentType;
@@ -98,6 +98,7 @@
         if (googleDocs) {
           // loop over each locale available for this org
           contents.data.organization_locales.forEach( (orgLocale) => {
+            console.log("looking for doc in locale", orgLocale.locale.code);
             var foundLocaleDoc = false;
             // loop over each google doc associated with this article
             googleDocs.forEach( (doc) => {
@@ -154,12 +155,12 @@
           currentId.innerHTML = data.id;
         }
 
+        var articleLocale = document.getElementById('current-article-locale');
+        articleLocale.innerHTML = localeCode;
+
         if (translationData) {
           var versionId = document.getElementById('version-id');
           versionId.innerHTML = translationData.id;
-
-          var articleLocale = document.getElementById('current-article-locale');
-          articleLocale.innerHTML = translationData.locale_code;
 
           setPublishedFlag(translationData.published);
 
