@@ -724,6 +724,14 @@ const insertArticleGoogleDocMutation = `mutation MyMutation($locale_code: String
         locale_code
         published
       }
+      published_article_translations(where: {locale_code: {_eq: $locale_code}}) {
+        article_translation {
+          id
+          first_published_at
+          last_published_at
+          locale_code
+        }
+      }
     }
   }
 }`;
@@ -1388,6 +1396,14 @@ const getArticleTranslationForIdAndLocale = `query MyQuery($doc_id: String!, $ar
     slug
     tag_translations(where: {locale_code: {_eq: $locale_code}}) {
       title
+    }
+  }
+  published_article_translations(where: {locale_code: {_eq: $locale_code}, article_id: {_eq: $article_id}}) {
+    article_translation {
+      id
+      first_published_at
+      last_published_at
+      locale_code
     }
   }
 }`
