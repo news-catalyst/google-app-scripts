@@ -687,6 +687,18 @@ const insertPageGoogleDocsMutation = `mutation MyMutation($slug: String!, $local
   }
 }`;
 
+const upsertPublishedArticleTranslationMutation = `mutation MyMutation($article_id: Int = 10, $article_translation_id: Int = 10, $locale_code: String = "") {
+  insert_published_article_translations(objects: {article_id: $article_id, article_translation_id: $article_translation_id, locale_code: $locale_code}, on_conflict: {constraint: published_article_translations_article_id_locale_code_key, update_columns: article_translation_id}) {
+    affected_rows
+    returning {
+      article_id
+      article_translation_id
+      id
+      locale_code
+    }
+  }
+}`;
+
 const insertArticleGoogleDocMutation = `mutation MyMutation($locale_code: String!, $headline: String!, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String) {
   insert_articles(objects: {article_translations: {data: {headline: $headline, locale_code: $locale_code, published: $published, content: $content, custom_byline: $custom_byline, facebook_description: $facebook_description, facebook_title: $facebook_title, search_description: $search_description, search_title: $search_title, twitter_description: $twitter_description, twitter_title: $twitter_title}}, category_id: $category_id, slug: $slug, article_google_documents: {data: {google_document: {data: {document_id: $document_id, locale_code: $locale_code, url: $url}, on_conflict: {constraint: google_documents_organization_id_document_id_key, update_columns: locale_code}}}, on_conflict: {constraint: article_google_documents_article_id_google_document_id_key, update_columns: google_document_id}}}, on_conflict: {constraint: articles_slug_category_id_organization_id_key, update_columns: updated_at}) {
     returning {
@@ -741,6 +753,18 @@ function insertPageGoogleDocs(data) {
     insertPageGoogleDocsMutation,
     "MyMutation",
     pageData
+  );
+}
+
+function upsertPublishedArticle(articleId, translationId, localeCode) {
+  return fetchGraphQL(
+    upsertPublishedArticleTranslationMutation,
+    "MyMutation",
+    {
+      article_id: articleId,
+      locale_code: localeCode,
+      article_translation_id: translationId
+    }
   );
 }
 
@@ -980,7 +1004,12 @@ async function hasuraHandlePublish(formObject) {
     var articleID = data.data.insert_articles.returning[0].id;
     var categorySlug = data.data.insert_articles.returning[0].category.slug;
     var articleSlug = data.data.insert_articles.returning[0].slug;
+    var translationID = data.data.insert_articles.returning[0].article_translations[0].id;
 
+    if (articleID) {
+      var publishedArticleData = await upsertPublishedArticle(articleID, translationID, formObject['article-locale'])
+      Logger.log("Published article data: " + JSON.stringify(publishedArticleData));
+    }
     Logger.log("articleSlug: " + articleSlug + " || articleResult: " + JSON.stringify(data));
     if (articleID && formObject['article-tags']) {
       var tags;
