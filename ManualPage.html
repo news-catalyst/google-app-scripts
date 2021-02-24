@@ -403,7 +403,7 @@
           hideConfigForm();
 
           showLoading();
-          google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).associateArticle(formObject);
+          google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).hasuraAssociateArticle(formObject);
         }
       }
 

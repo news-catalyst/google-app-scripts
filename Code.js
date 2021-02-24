@@ -780,14 +780,22 @@ function upsertPublishedArticle(articleId, translationId, localeCode) {
 }
 
 function insertArticleGoogleDocs(data) {
-  var documentID = DocumentApp.getActiveDocument().getId();
-  var documentURL = DocumentApp.getActiveDocument().getUrl();
+
+  var documentID;
+  var documentUrl;
+  if (data['document-id']) {
+    documentID = data['document-id'];
+    documentUrl = data['document-url'];
+  } else {
+    documentID = DocumentApp.getActiveDocument().getId();
+    documentUrl = DocumentApp.getActiveDocument().getUrl();
+  }
   var content = getCurrentDocContents();
 
   let articleData = {
     "slug": data['article-slug'],
     "document_id": documentID,
-    "url": documentURL,
+    "url": documentUrl,
     "category_id": data['article-category'],
     "locale_code": data['article-locale'],
     "headline": data['article-headline'],
@@ -808,6 +816,20 @@ function insertArticleGoogleDocs(data) {
     articleData
   );
 }
+
+const linkDocMutation = `mutation MyMutation($article_id: Int = 10, $document_id: String = "", $locale_code: String = "", $url: String = "") {
+  delete_article_google_documents(where: {article_id: {_eq: $article_id}, google_document: {document_id: {_eq: $document_id}, locale_code: {_eq: $locale_code}}}) {
+    affected_rows
+  }
+  insert_article_google_documents(objects: {article_id: $article_id, google_document: {data: {document_id: $document_id, locale_code: $locale_code, url: $url}, on_conflict: {constraint: google_documents_organization_id_document_id_key, update_columns: document_id}}}, on_conflict: {constraint: article_google_documents_article_id_google_document_id_key, update_columns: google_document_id}) {
+    affected_rows
+    returning {
+      article_id
+      google_document_id
+      id
+    }
+  }
+}`;
 
 const insertAuthorPageMutation = `mutation MyMutation($page_id: Int!, $author_id: Int!) {
   insert_author_pages(objects: {page_id: $page_id, author_id: $author_id}, on_conflict: {constraint: author_pages_page_id_author_id_key, update_columns: page_id}) {
@@ -848,6 +870,25 @@ const insertGoogleDocMutation = `mutation MyMutation($article_id: Int!, $documen
     affected_rows
   }
 }`;
+
+const linkDocToArticleMutation = `mutation MyMutation($article_id: Int!, $document_id: String!, $locale_code: String!, $url: String) {
+  insert_article_google_documents(objects: {article_id: $article_id, google_document: {data: {document_id: $document_id, locale_code: $locale_code, url: $url}, on_conflict: {constraint: google_documents_organization_id_document_id_key, update_columns: url}}}, on_conflict: {constraint: article_google_documents_article_id_google_document_id_key, update_columns: google_document_id}) {
+    affected_rows
+  }
+}`;
+
+async function linkDocToArticle(data) {
+  return fetchGraphQL(
+    linkDocToArticleMutation,
+    "MyMutation",
+    {
+      article_id: data['article-id'],
+      document_id: data['document-id'],
+      locale_code: data['article-locale'],
+      url: data['document-url']
+    }
+  );
+}
 
 async function hasuraInsertGoogleDoc(articleId, docId, localeCode, url) {
   return fetchGraphQL(
@@ -891,6 +932,18 @@ async function hasuraCreateDoc(articleId, newLocale, headline) {
     url: newDocUrl,
     data: response
   }
+}
+
+async function hasuraAssociateArticle(formObject) {
+  var currentDocument = DocumentApp.getActiveDocument();
+  var documentId = currentDocument.getId();
+  var documentUrl = currentDocument.getUrl();
+
+  formObject['document-id'] = documentId;
+  formObject['document-url'] = documentUrl;
+  var data = await linkDocToArticle(formObject);
+  Logger.log(data);
+  return data;
 }
 
 const unpublishArticleMutation = `mutation MyMutation($article_id: Int!, $locale_code: String!) {
