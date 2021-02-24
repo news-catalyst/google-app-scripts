@@ -27,12 +27,22 @@
         var articleId;
         var localeCode;
         
-        try {
+        if (data && data.data && data.data.articles && data.data.articles[0]) {
           articleId = data.data.articles[0].id;
-          localeCode = data.data.articles[0].article_google_documents[0].google_document.locale_code;
+          if (
+            data.data.articles[0] && 
+            data.data.articles[0].article_google_documents && 
+            data.data.articles[0].article_google_documents[0] && 
+            data.data.articles[0].article_google_documents[0].google_document) {
+              localeCode = data.data.articles[0].article_google_documents[0].google_document.locale_code;
+            }
+        }
+        if (articleId && localeCode) {
           google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(articleId, localeCode);
-        } catch (err) {
-          console.error(err);
+        } else {
+          var div = document.getElementById('loading');
+          div.style.display = 'block';
+          div.innerHTML = data.message;
         }
       }
 
@@ -100,7 +110,6 @@
         if (googleDocs) {
           // loop over each locale available for this org
           contents.data.organization_locales.forEach( (orgLocale) => {
-            console.log("looking for doc in locale", orgLocale.locale.code);
             var foundLocaleDoc = false;
             // loop over each google doc associated with this article
             googleDocs.forEach( (doc) => {
@@ -131,20 +140,17 @@
           var existingDocItems = [];
           existingDocsOtherLocales.forEach(doc => {
             var item = "<a target='_new' href='" + doc.url + "'>" + doc.locale_code + "</a>";
-            console.log(item);
             existingDocItems.push(item)
           });
           existingTranslationsDiv.innerHTML = existingDocItems.join(', ');
         }
 
-        console.log("headline: ", headline);
         if (availableLocales.length > 0) {
           var availableLocaleLinks = [];
           availableLocales.forEach(availableLocale => {
             var item = "<a data-headline='" + headline + "' data-article-id='" + data.id + "' data-locale='" + availableLocale.code + "' onClick='handleCreateDoc(this)'>" + availableLocale.name + "</a>";
             availableLocaleLinks.push(item);
           });
-          console.log("availableLocale links: ", availableLocaleLinks);
           availableLocalesElement.innerHTML = availableLocaleLinks.join(', ');
         }
 
@@ -187,8 +193,6 @@
       }
 
       function onSuccessSearch(contents) {
-
-        console.log("contents.data:", contents.data);
 
         hideConfigForm();
         hideLoading();
@@ -249,7 +253,9 @@
         var div = document.getElementById('loading');
         div.style.display = 'block';
         console.log(contents);
-        div.innerHTML = '<p style="color: #48C774;">Success! This document is now associated with article ID#' + contents.id + '. You should now <input type="button" value="close" onclick="google.script.host.close()" /> this sidebar and open the Publishing Tools menu item to work with the article.</p>';
+        var articleId = contents.data.data.insert_article_google_documents.returning[0].article_id;
+        var articleSlug = contents.data.data.insert_article_google_documents.returning[0].article.slug;
+        div.innerHTML = '<p style="color: #48C774;">Success! This document is now associated with article ID#' + articleId + ' and slug "' + articleSlug + '". <input type="button" value="Close" onclick="google.script.host.close()" /> this sidebar and open the Publishing Tools menu item to work with the article.</p>';
       }
 
       function onFailure(error) {
@@ -398,12 +404,11 @@
       function handleAssociate(formObject) {
         if (window.confirm("Are you sure you want to do this? Any content in the linked article in this locale will be replaced by your document!")) { 
           hideLoading();
-          console.log("associating article...", formObject);
 
           hideConfigForm();
 
           showLoading();
-          google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).associateArticle(formObject);
+          google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).hasuraAssociateArticle(formObject);
         }
       }
 
