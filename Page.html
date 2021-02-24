@@ -354,10 +354,9 @@
           form.style.display = "block";
           var buttonsDivBottom = document.getElementById('action-buttons-bottom')
           buttonsDivBottom.style.display = "block";
-          console.log(buttonsDivBottom.style.display);
           var buttonsDivTop = document.getElementById('action-buttons-top')
           buttonsDivTop.style.display = "block";
-          console.log(buttonsDivTop.style.display);
+          setPublishedFlag(false); // new article is not published, ensure correct action buttons display
 
           displayLocales(data.data.organization_locales, localeCode);
           displayCategories(data.data.categories, null);
