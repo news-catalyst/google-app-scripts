@@ -691,10 +691,13 @@ const upsertPublishedArticleTranslationMutation = `mutation MyMutation($article_
   insert_published_article_translations(objects: {article_id: $article_id, article_translation_id: $article_translation_id, locale_code: $locale_code}, on_conflict: {constraint: published_article_translations_article_id_locale_code_key, update_columns: article_translation_id}) {
     affected_rows
     returning {
-      article_id
-      article_translation_id
-      id
-      locale_code
+      article_translation {
+        id
+        first_published_at
+        last_published_at
+        locale_code
+        article_id
+      }
     }
   }
 }`;
@@ -723,6 +726,14 @@ const insertArticleGoogleDocMutation = `mutation MyMutation($locale_code: String
         article_id
         locale_code
         published
+      }
+      published_article_translations(where: {locale_code: {_eq: $locale_code}}) {
+        article_translation {
+          id
+          first_published_at
+          last_published_at
+          locale_code
+        }
       }
     }
   }
@@ -1008,7 +1019,12 @@ async function hasuraHandlePublish(formObject) {
 
     if (articleID) {
       var publishedArticleData = await upsertPublishedArticle(articleID, translationID, formObject['article-locale'])
-      Logger.log("Published article data: " + JSON.stringify(publishedArticleData));
+      if (publishedArticleData) {
+        Logger.log("Published article data: " + JSON.stringify(publishedArticleData));
+        Logger.log("Insert1: " + JSON.stringify(data.data.insert_articles.returning[0].published_article_translations));
+        data.data.insert_articles.returning[0].published_article_translations = publishedArticleData.data.insert_published_article_translations.returning;
+        Logger.log("Insert2: " + JSON.stringify(data.data.insert_articles.returning[0].published_article_translations));
+      }
     }
     Logger.log("articleSlug: " + articleSlug + " || articleResult: " + JSON.stringify(data));
     if (articleID && formObject['article-tags']) {
@@ -1388,6 +1404,14 @@ const getArticleTranslationForIdAndLocale = `query MyQuery($doc_id: String!, $ar
     slug
     tag_translations(where: {locale_code: {_eq: $locale_code}}) {
       title
+    }
+  }
+  published_article_translations(where: {locale_code: {_eq: $locale_code}, article_id: {_eq: $article_id}}) {
+    article_translation {
+      id
+      first_published_at
+      last_published_at
+      locale_code
     }
   }
 }`

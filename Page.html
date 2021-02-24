@@ -9,6 +9,13 @@
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/js/select2.min.js"></script>
 
     <script>
+      // thanks stack overflow 
+      // https://stackoverflow.com/questions/8888491/how-do-you-display-javascript-datetime-in-12-hour-am-pm-format
+      function formatDate(dateString) {
+        var d = new Date(dateString);
+        return d.toLocaleString();
+      }
+
       function setValueOrDefault(elementId, value, defaultValue) {
         var element = document.getElementById(elementId);
         if (value !== undefined && value !== null && value !== "") {
@@ -16,6 +23,22 @@
         } else {
           element.value = defaultValue;
         }
+      }
+
+      function displayPublishedInfo(publishedInfo, translationData) {
+          var pubInfoDiv = document.getElementById("published-info");
+          var firstSpan = document.getElementById("first-published-at");
+          firstSpan.innerHTML = formatDate(publishedInfo.first_published_at);
+          var lastSpan = document.getElementById("last-published-at");
+          lastSpan.innerHTML = formatDate(publishedInfo.last_published_at);
+
+          var translationIdSpan = document.getElementById("translation-id");
+          if (translationData && publishedInfo.id === translationData.id) {
+            translationIdSpan.innerHTML = "This translation was published at:";
+          } else {
+            translationIdSpan.innerHTML = "Another translation with id " + publishedInfo.id + " was published at:";
+          }
+          pubInfoDiv.style.display = "block";
       }
 
       function setPublishedFlag(value) {
@@ -75,6 +98,7 @@
         var data;
         var googleDocs;
         var translationData;
+        var publishedInfo;
         var documentType = "article";
         var localeCode = contents.localeCode;
         if (contents.data.articles) {
@@ -87,6 +111,10 @@
           if (contents.data.article_google_documents) {
             googleDocs = contents.data.article_google_documents;
           }
+          if (contents.data.published_article_translations) {
+            publishedInfo = contents.data.published_article_translations[0].article_translation;
+            console.log("Pub Info: ", publishedInfo);
+          }
         } else if (contents.data.pages) {
           documentType = "page"
           if (contents.data.pages[0]) {
@@ -97,6 +125,9 @@
           }
         }
 
+        if (publishedInfo) {
+          displayPublishedInfo(publishedInfo, translationData);
+        }
         var articleLocaleSelect = document.getElementById('article-locale');
         contents.data.organization_locales.forEach(localeData => {
           // first check if this option already exists; don't add dupes!
@@ -316,6 +347,11 @@
               console.log("Published: ", translations[0].published);
               setPublishedFlag(translations[0].published);
             }
+            var publishedInfo = response.data.data.insert_articles.returning[0].published_article_translations;
+            console.log("publishedInfo:", publishedInfo);
+            if (publishedInfo && publishedInfo[0]) {
+              displayPublishedInfo(publishedInfo[0].article_translation, translations[0]);
+            }
 
           } else if (response.data && response.data.data && response.data.data.insert_pages) {
             console.log("page ID:", response.data.data.insert_pages.returning[0].id)
@@ -437,6 +473,9 @@
       input:invalid:required, textarea:invalid:required {
         border: 1px solid red;
       }
+      #published-info {
+        display: none;
+      }
 
     </style>
   </head>
@@ -549,6 +588,11 @@
             <input type="submit" name="preview" id="preview-button-bottom" class="blue" value="Preview" onclick="this.form.submitted=this.value;"/>
             <input type="submit" class="blue" id="publish-button-bottom" value="Publish" onclick="this.form.submitted=this.value;"/>
             <input type="submit" class="blue" id="unpublish-button-bottom" value="Unpublish" onclick="this.form.submitted=this.value;"/>
+          </div>
+          <div class="block" id="published-info">
+            <div class="small" id="translation-id"></div>
+            <div class="small" style="width: 100%" id="published-info-first"><b>Initial:</b> <span id="first-published-at"></span></div>
+            <div class="small" style="width: 100%" id="published-info-last"><b>Updated:</b> <span id="last-published-at"></span></div>
           </div>
         </form>
       </div>
