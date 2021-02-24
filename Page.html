@@ -206,16 +206,17 @@
         var form = document.getElementById('article-form');
         form.style.display = "block";
 
+        var buttonsDivBottom = document.getElementById('action-buttons-bottom')
+        buttonsDivBottom.style.display = "block";
+        var buttonsDivTop = document.getElementById('action-buttons-top')
+        buttonsDivTop.style.display = "block";
+
         if (contents && contents.status && contents.status === "error") {
           div.innerHTML = "<p class='error'>An error occurred: " + contents.message + '</p>';
         } else {
           div.innerHTML = '<p style="color: #48C774;">' + contents.message + "</p>";
         }
 
-        var buttonsDivBottom = document.getElementById('action-buttons-bottom')
-        buttonsDivBottom.style.display = "block";
-        var buttonsDivTop = document.getElementById('action-buttons-top')
-        buttonsDivTop.style.display = "block";
 
         var data;
         var googleDocs;
@@ -342,13 +343,22 @@
           google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(articleId, localeCode);
         } else {
           console.log("didn't find article...")
+
           var configDiv = document.getElementById('config');
           configDiv.style.display = 'none';
+
           var div = document.getElementById('loading');
           div.style.display = 'block';
           div.innerHTML = data.message;
           var form = document.getElementById('article-form');
           form.style.display = "block";
+          var buttonsDivBottom = document.getElementById('action-buttons-bottom')
+          buttonsDivBottom.style.display = "block";
+          console.log(buttonsDivBottom.style.display);
+          var buttonsDivTop = document.getElementById('action-buttons-top')
+          buttonsDivTop.style.display = "block";
+          console.log(buttonsDivTop.style.display);
+
           displayLocales(data.data.organization_locales, localeCode);
           displayCategories(data.data.categories, null);
           displayTags(data.data.tags, null);
