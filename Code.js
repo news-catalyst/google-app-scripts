@@ -872,8 +872,16 @@ const insertGoogleDocMutation = `mutation MyMutation($article_id: Int!, $documen
 }`;
 
 const linkDocToArticleMutation = `mutation MyMutation($article_id: Int!, $document_id: String!, $locale_code: String!, $url: String) {
-  insert_article_google_documents(objects: {article_id: $article_id, google_document: {data: {document_id: $document_id, locale_code: $locale_code, url: $url}, on_conflict: {constraint: google_documents_organization_id_document_id_key, update_columns: url}}}, on_conflict: {constraint: article_google_documents_article_id_google_document_id_key, update_columns: google_document_id}) {
+  delete_article_google_documents(where: {article_id: {_eq: $article_id}, google_document: {locale_code: {_eq: $locale_code}}}) {
     affected_rows
+  }
+  insert_article_google_documents(objects: {article_id: $article_id, google_document: {data: {document_id: $document_id, locale_code: $locale_code, url: $url}, on_conflict: {constraint: google_documents_organization_id_document_id_key, update_columns: url}}}, on_conflict: {constraint: article_google_documents_article_id_google_document_id_key, update_columns: google_document_id}) {
+    returning {
+      article_id
+      article {
+        slug
+      }
+    }
   }
 }`;
 
@@ -943,7 +951,11 @@ async function hasuraAssociateArticle(formObject) {
   formObject['document-url'] = documentUrl;
   var data = await linkDocToArticle(formObject);
   Logger.log(data);
-  return data;
+  return {
+    status: "success",
+    message: "Successfully linked document to article",
+    data: data
+  }
 }
 
 const unpublishArticleMutation = `mutation MyMutation($article_id: Int!, $locale_code: String!) {
@@ -1331,10 +1343,24 @@ const getArticleByGoogleDocQuery = `query MyQuery($doc_id: String!) {
     slug
     name
   }
+  categories {
+    id
+    slug
+    category_translations(where: {locale_code: {_eq: "en-US"}}) {
+      title
+    }
+  }
   organization_locales {
     locale {
       code
       name
+    }
+  }
+  tags {
+    id
+    slug
+    tag_translations(where: {locale_code: {_eq: "en-US"}}) {
+      title
     }
   }
 }`;
@@ -1604,6 +1630,7 @@ async function hasuraGetArticle() {
 
     } else {
       data = await getArticleForGoogleDoc(documentID);
+      Logger.log(data);
       if (data && data.articles && data.articles[0]) {
         returnValue.status = "success";
         returnValue.message = "Retrieved article with ID: " + data.articles[0].id;
