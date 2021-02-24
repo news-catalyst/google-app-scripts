@@ -233,7 +233,7 @@
               } else {
                 option.text = "(BUG) unknown locale";
               }
-              option.value = localeData.locale.id;
+              option.value = localeData.locale.code;
 
               articleLocaleSelect.add(option);
             }
@@ -253,6 +253,7 @@
         var div = document.getElementById('loading');
         div.style.display = 'block';
         console.log(contents);
+
         var articleId = contents.data.data.insert_article_google_documents.returning[0].article_id;
         var articleSlug = contents.data.data.insert_article_google_documents.returning[0].article.slug;
         div.innerHTML = '<p style="color: #48C774;">Success! This document is now associated with article ID#' + articleId + ' and slug "' + articleSlug + '". <input type="button" value="Close" onclick="google.script.host.close()" /> this sidebar and open the Publishing Tools menu item to work with the article.</p>';
