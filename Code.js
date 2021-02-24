@@ -886,6 +886,7 @@ const linkDocToArticleMutation = `mutation MyMutation($article_id: Int!, $docume
 }`;
 
 async function linkDocToArticle(data) {
+  Logger.log("linkDoc params: " + JSON.stringify(data))
   return fetchGraphQL(
     linkDocToArticleMutation,
     "MyMutation",
@@ -949,13 +950,21 @@ async function hasuraAssociateArticle(formObject) {
 
   formObject['document-id'] = documentId;
   formObject['document-url'] = documentUrl;
+
+  Logger.log("formObject: " + JSON.stringify(formObject));
   var data = await linkDocToArticle(formObject);
   Logger.log(data);
-  return {
+  var returnValue = {
     status: "success",
     message: "Successfully linked document to article",
     data: data
+  };
+
+  if (data && data.errors) {
+    returnValue.message = data.errors[0].message;
+    returnValue.status = "error";
   }
+  return returnValue;
 }
 
 const unpublishArticleMutation = `mutation MyMutation($article_id: Int!, $locale_code: String!) {
