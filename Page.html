@@ -193,6 +193,12 @@
           unpublishButtonTop.style.display = "none";
           var unpublishButtonBottom = document.getElementById('unpublish-button-bottom');
           unpublishButtonBottom.style.display = "none";
+
+          var pubInfoDiv = document.getElementById("published-info");
+          console.log("pubInfoDiv:", pubInfoDiv);
+          var translationIdSpan = document.getElementById("translation-id");
+          translationIdSpan.innerHTML = "";
+          pubInfoDiv.style.display = "none";
         }
         // isPublishedSpan.innerHTML = isPublishedYesNo;
       }

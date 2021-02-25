@@ -974,6 +974,7 @@ const unpublishArticleMutation = `mutation MyMutation($article_id: Int!, $locale
 }`;
 
 async function hasuraUnpublishArticle(articleId, localeCode) {
+  Logger.log("articleId: " + articleId + " localeCode: " + localeCode)
   return fetchGraphQL(
     unpublishArticleMutation,
     "MyMutation",
