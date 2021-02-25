@@ -326,9 +326,15 @@
         var loadingDiv = document.getElementById('loading');
         loadingDiv.style.display = "block";
         loadingDiv.innerHTML = "<p class='error'>An error occurred: " + error + "</p>";
+        var form = document.getElementById('article-form');
+        form.style.display = "none";
       }
 
       function handleGetTranslationsForArticle(data) {
+        if (data && data.status === "error") {
+          onFailure(data.message);
+          return;
+        }
         console.log("data:", data);
         var articleId;
         var localeCode;

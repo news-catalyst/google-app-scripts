@@ -846,11 +846,30 @@ async function getArticleForGoogleDoc(doc_id) {
   return data;
 }
 
+  // this logs whether the doc is in an "articles" or "pages" folder
+  // otherwise, it's in the wrong spot and we should throw an error
+function isValid(documentID) {
+  var driveFile = DriveApp.getFileById(documentID)
+  var fileParents = driveFile.getParents();
+
+  var docIsValid = false;
+  while ( fileParents.hasNext() ) {
+    var folder = fileParents.next();
+    if (folder.getName() === "pages") {
+      docIsValid = true;
+    } else if (folder.getName() === "articles") {
+      docIsValid = true;
+    }
+  }
+  return docIsValid;
+}
+
 function isPage(documentID) {
   // determine if this is a static page or an article - it will usually be an article
   var driveFile = DriveApp.getFileById(documentID)
   var fileParents = driveFile.getParents();
   var isStaticPage = false;
+
   while ( fileParents.hasNext() ) {
     var folder = fileParents.next();
     if (folder.getName() === "pages") {
@@ -928,6 +947,13 @@ async function hasuraGetArticle() {
 
   var documentID = DocumentApp.getActiveDocument().getId();
   Logger.log("documentID: " + documentID);
+
+  var valid = isValid(documentID);
+  if (!valid) {
+    returnValue.status = "error";
+    returnValue.message = "Documents must be in the right folder to be published: orgName/articles (and subfolders) for articles and orgName/pages for static pages (like About or Contact); please move this document and try again."
+    return returnValue;
+  }
 
   var isStaticPage = isPage(documentID);
 
