@@ -203,7 +203,7 @@
         // isPublishedSpan.innerHTML = isPublishedYesNo;
       }
       function onSuccessGetArticle(contents) {
-        console.log(contents);
+        console.log("onSuccessGetArticle: ", contents);
 
         var configDiv = document.getElementById('config');
         configDiv.style.display = 'none';
@@ -240,7 +240,7 @@
           if (contents.data.article_google_documents) {
             googleDocs = contents.data.article_google_documents;
           }
-          if (contents.data.published_article_translations) {
+          if (contents.data.published_article_translations && contents.data.published_article_translations[0]) {
             publishedInfo = contents.data.published_article_translations[0].article_translation;
             console.log("Pub Info: ", publishedInfo);
           }
