@@ -408,7 +408,17 @@
         } else {
           div.innerHTML = '<p style="color: #48C774;">' + response.message + "</p>";
           if (response.data && response.data.data && response.data.data.insert_articles) {
-            console.log("article ID:", response.data.data.insert_articles.returning[0].id)
+            var articleID = response.data.data.insert_articles.returning[0].id;
+            console.log("article ID:", articleID);
+            var idHiddenField = document.getElementById('article-id');
+            idHiddenField.value = articleID;
+
+            var articleSlug = response.data.data.insert_articles.returning[0].slug;
+            console.log("article slug:", articleSlug);
+            var slugHiddenField = document.getElementById('article-slug');
+            slugHiddenField.value = articleSlug;
+            var slugDisplayField = document.getElementById('slug');
+            slugDisplayField.value = articleSlug;
 
             var translations = response.data.data.insert_articles.returning[0].article_translations;
             console.log("translations:", translations);
@@ -485,7 +495,7 @@
           var articleId = document.getElementById('article-id').value;
           var selectedLocale = document.getElementById('article-locale').value;
 
-          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublish(articleId, selectedLocale);
+          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublish(formObject);
         } else {
           if (errorMessage !== "") {
             loadingDiv.innerHTML = "<p class='error'>" + errorMessage + "</p>"
