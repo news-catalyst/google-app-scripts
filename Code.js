@@ -775,11 +775,11 @@ function fetchArticleForGoogleDoc(doc_id) {
   );
 }
 
-function fetchPageForGoogleDoc(doc_id, locale_code) {
+function fetchPageForGoogleDoc(doc_id) {
   return fetchGraphQL(
     getPageForGoogleDocQuery,
     "MyQuery",
-    {"doc_id": doc_id, "locale_code": locale_code}
+    {"doc_id": doc_id}
   );
 }
 
@@ -802,8 +802,9 @@ function hasuraSearchArticles(formObject) {
 /*
  * looks up a page by google doc ID and locale
  */
-async function getPageForGoogleDoc(doc_id, locale_code) {
-  const { errors, data } = await fetchPageForGoogleDoc(doc_id, locale_code);
+async function getPageForGoogleDoc(doc_id) {
+  Logger.log("getPageForGoogleDoc: " + doc_id);
+  const { errors, data } = await fetchPageForGoogleDoc(doc_id);
 
   if (errors) {
     console.error("errors:" + JSON.stringify(errors));
@@ -813,12 +814,31 @@ async function getPageForGoogleDoc(doc_id, locale_code) {
   return data;
 }
 
+function fetchTranslationDataForPage(docId, pageId, localeCode) {
+  return fetchGraphQL(
+    getPageTranslationForIdAndLocale,
+    "MyQuery",
+    {"doc_id": docId, "page_id": pageId, "locale_code": localeCode}
+  );
+}
+
 function fetchTranslationDataForArticle(docId, articleId, localeCode) {
   return fetchGraphQL(
     getArticleTranslationForIdAndLocale,
     "MyQuery",
     {"doc_id": docId, "article_id": articleId, "locale_code": localeCode}
   );
+}
+
+async function getTranslationDataForPage(docId, pageId, localeCode) {
+  const { errors, data } = await fetchTranslationDataForPage(docId, pageId, localeCode);
+
+  if (errors) {
+    console.error("errors:" + JSON.stringify(errors));
+    throw errors;
+  }
+
+  return data;
 }
 
 async function getTranslationDataForArticle(docId, articleId, localeCode) {
@@ -836,6 +856,7 @@ async function getTranslationDataForArticle(docId, articleId, localeCode) {
  * looks up an article by google doc ID and locale
  */
 async function getArticleForGoogleDoc(doc_id) {
+  Logger.log("getArticleForGoogleDoc: " + doc_id);
   const { errors, data } = await fetchArticleForGoogleDoc(doc_id);
 
   if (errors) {
@@ -879,10 +900,10 @@ function isPage(documentID) {
   return isStaticPage;
 }
 
-async function hasuraGetTranslations(articleId, localeCode) {
+async function hasuraGetTranslations(pageOrArticleId, localeCode) {
   var returnValue = {
     localeCode: localeCode,
-    articleId: articleId,
+    articleId: pageOrArticleId,
     status: "",
     message: "",
     data: {}
@@ -896,23 +917,21 @@ async function hasuraGetTranslations(articleId, localeCode) {
   var data;
   try {
     if (isStaticPage) {
-      // 
-      // TODO
-      //
-      // data = await getPageForGoogleDoc(documentID, locale);
-      // Logger.log("getPage data: " + JSON.stringify(data));
-      // if (data && data.pages && data.pages[0]) {
-      //   returnValue.status = "success";
-      //   returnValue.message = "Retrieved page with ID: " + data.pages[0].id;
-      // } else {
-      //   Logger.log("getPage notFound data: " + JSON.stringify(data));
-      //   returnValue.status = "notFound";
-      //   returnValue.message = "Page not found";
-      // }
-      // returnValue.data = data;
+      data = await getTranslationDataForPage(documentID, pageOrArticleId, locale);
+      Logger.log("getPage data: " + JSON.stringify(data));
+      if (data && data.page_translations && data.page_translations[0]) {
+        returnValue.status = "success";
+        returnValue.message = "Retrieved page translation with ID: " + data.page_translations[0].id;
+      } else {
+        Logger.log("getPage notFound data: " + JSON.stringify(data));
+        returnValue.status = "notFound";
+        returnValue.message = "Page not found";
+      }
+      returnValue.documentId = documentID;
+      returnValue.data = data;
 
     } else {
-      data = await getTranslationDataForArticle(documentID, articleId, localeCode);
+      data = await getTranslationDataForArticle(documentID, pageOrArticleId, localeCode);
       if (data && data.article_translations && data.article_translations[0]) {
         returnValue.status = "success";
         returnValue.message = "Retrieved article translation with ID: " + data.article_translations[0].id;
@@ -956,45 +975,45 @@ async function hasuraGetArticle() {
   }
 
   var isStaticPage = isPage(documentID);
+  Logger.log("isStaticPage: " + isStaticPage);
 
   var data;
-  try {
-    if (isStaticPage) {
-      data = await getPageForGoogleDoc(documentID, locale);
-      Logger.log("getPage data: " + JSON.stringify(data));
-      if (data && data.pages && data.pages[0]) {
-        storeArticleSlug(data.pages[0].slug);
-        returnValue.status = "success";
-        returnValue.message = "Retrieved page with ID: " + data.pages[0].id;
-      } else {
-        Logger.log("getPage notFound data: " + JSON.stringify(data));
-        returnValue.status = "notFound";
-        returnValue.message = "Page not found";
-      }
-      returnValue.data = data;
+  if (isStaticPage) {
 
+    data = await getPageForGoogleDoc(documentID);
+    if (data && data.pages && data.pages[0]) {
+      storeArticleSlug(data.pages[0].slug);
+      returnValue.status = "success";
+      returnValue.message = "Retrieved page with ID: " + data.pages[0].id;
     } else {
-      data = await getArticleForGoogleDoc(documentID);
-      Logger.log(data);
-      if (data && data.articles && data.articles[0]) {
-        storeArticleSlug(data.articles[0].slug);
-        returnValue.status = "success";
-        returnValue.message = "Retrieved article with ID: " + data.articles[0].id;
-      } else {
-        Logger.log("getArticle notFound data: " + JSON.stringify(data));
-        returnValue.status = "notFound";
-        returnValue.message = "Article not found";
-      }
-      returnValue.documentId = documentID;
-      returnValue.data = data;
+      Logger.log("getPage notFound data: " + JSON.stringify(data));
+      returnValue.status = "notFound";
+      returnValue.message = "Page not found";
     }
+    returnValue.data = data;
 
-  } catch (err) {
-    Logger.log(JSON.stringify(err));
-    returnValue.status = "error";
-    returnValue.message = "An error occurred getting the article or page";
-    returnValue.data = err;
+  } else {
+    data = await getArticleForGoogleDoc(documentID);
+    Logger.log("data: " + JSON.stringify(data));
+    if (data && data.articles && data.articles[0]) {
+      storeArticleSlug(data.articles[0].slug);
+      returnValue.status = "success";
+      returnValue.message = "Retrieved article with ID: " + data.articles[0].id;
+    } else {
+      Logger.log("getArticle notFound data: " + JSON.stringify(data));
+      returnValue.status = "notFound";
+      returnValue.message = "Article not found";
+    }
+    returnValue.documentId = documentID;
+    returnValue.data = data;
   }
+
+  Logger.log("returnValue: " + JSON.stringify(returnValue));
+
+    // Logger.log("error: " + JSON.stringify(err));
+    // returnValue.status = "error";
+    // returnValue.message = "An error occurred getting the article or page";
+    // returnValue.data = err;
 
   return returnValue;
 }

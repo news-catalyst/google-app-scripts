@@ -170,6 +170,62 @@ const getArticleByGoogleDocQuery = `query MyQuery($doc_id: String!) {
   }
 }`;
 
+const getPageTranslationForIdAndLocale = `query MyQuery($doc_id: String!, $page_id: Int, $locale_code: String!) {
+  page_translations(where: {page_id: {_eq: $page_id}, locale_code: {_eq: $locale_code}}, limit: 1, order_by: {id: desc}) {
+    content
+    facebook_description
+    facebook_title
+    first_published_at
+    headline
+    id
+    last_published_at
+    locale_code
+    published
+    search_description
+    search_title
+    twitter_description
+    twitter_title
+  }
+
+  pages(where: {page_google_documents: {google_document: {document_id: {_eq: $doc_id}}}}) {
+    id
+    slug
+    author_pages {
+      author {
+        id
+        name
+        slug
+      }
+    }
+    page_google_documents(where: {google_document: {document_id: {_eq: $doc_id}}}) {
+      google_document {
+        document_id
+        locale_code
+        url
+      }
+    }
+  }
+  authors {
+    id
+    slug
+    name
+  }
+  page_google_documents(where: {page_id: {_eq: $page_id}}) {
+    google_document {
+      document_id
+      locale_code
+      url
+    }
+    page_id
+  }
+  organization_locales {
+    locale {
+      code
+      name
+    }
+  }
+}`;
+
 const getArticleTranslationForIdAndLocale = `query MyQuery($doc_id: String!, $article_id: Int, $locale_code: String!) {
   article_translations(where: {article_id: {_eq: $article_id}, locale_code: {_eq: $locale_code}}, limit: 1, order_by: {id: desc}) {
     content
@@ -254,23 +310,16 @@ const getArticleTranslationForIdAndLocale = `query MyQuery($doc_id: String!, $ar
   }
 }`
 
-const getPageForGoogleDocQuery = `query MyQuery($doc_id: String!, $locale_code: String!) {
-  pages(where: {page_google_documents: {google_document: {document_id: {_eq: $doc_id}, locale_code: {_eq: $locale_code}}}, page_translations: {locale_code: {_eq: $locale_code}}}) {
+const getPageForGoogleDocQuery = `query MyQuery($doc_id: String!) {
+  pages(where: {page_google_documents: {google_document: {document_id: {_eq: $doc_id} }}}) {
     id
     slug
-    page_translations(where: {locale_code: {_eq: $locale_code}}) {
-      content
-      facebook_description
-      facebook_title
-      first_published_at
-      headline
-      last_published_at
-      locale_code
-      published
-      search_description
-      search_title
-      twitter_title
-      twitter_description
+    page_google_documents(where: {google_document: {document_id: {_eq: $doc_id}}}) {
+      google_document {
+        document_id
+        locale_code
+        url
+      }
     }
     author_pages {
       author {

@@ -337,6 +337,7 @@
         }
         console.log("data:", data);
         var articleId;
+        var pageId;
         var localeCode;
         
         if (data && data.data && data.data.articles && data.data.articles[0]) {
@@ -350,9 +351,24 @@
               localeCode = data.data.articles[0].article_google_documents[0].google_document.locale_code;
             }
         }
+        if (data && data.data && data.data.pages && data.data.pages[0]) {
+          console.log("found page")
+          pageId = data.data.pages[0].id;
+          if (
+            data.data.pages[0] && 
+            data.data.pages[0].page_google_documents && 
+            data.data.pages[0].page_google_documents[0] && 
+            data.data.pages[0].page_google_documents[0].google_document) {
+              localeCode = data.data.pages[0].page_google_documents[0].google_document.locale_code;
+            }
+        }
+
         if (articleId && localeCode) {
-          console.log("looking up translations")
+          console.log("looking up article translations")
           google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(articleId, localeCode);
+        } else if (pageId && localeCode) {
+          console.log("looking up page translations")
+          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(pageId, localeCode);
         } else {
           console.log("didn't find article...")
 
