@@ -974,6 +974,7 @@ const unpublishArticleMutation = `mutation MyMutation($article_id: Int!, $locale
 }`;
 
 async function hasuraUnpublishArticle(articleId, localeCode) {
+
   return fetchGraphQL(
     unpublishArticleMutation,
     "MyMutation",
@@ -1002,7 +1003,10 @@ async function hasuraCreateTag(tagData) {
   );
 }
 
-async function hasuraHandleUnpublish(articleID, localeCode) {
+async function hasuraHandleUnpublish(formObject) {
+  Logger.log("formObject: " + JSON.stringify(formObject))
+  var articleID = formObject['article-id'];
+  var localeCode = formObject['article-locale'];
   var response = await hasuraUnpublishArticle(articleID, localeCode);
   Logger.log("hasura unpublish response: " + JSON.stringify(response));
   var returnValue = {
