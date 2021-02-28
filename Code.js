@@ -683,14 +683,15 @@ async function hasuraHandlePreview(formObject) {
   formObject['published'] = false;
 
   var data;
+  var documentType;
 
   var documentID = DocumentApp.getActiveDocument().getId();
   var isStaticPage = isPage(documentID);
 
   if (isStaticPage) {
+    documentType = "page";
     // insert or update page
     var data = await insertPageGoogleDocs(formObject);
-    Logger.log("pageResult: " + JSON.stringify(data))
 
     var pageID = data.data.insert_pages.returning[0].id;
 
@@ -702,22 +703,18 @@ async function hasuraHandlePreview(formObject) {
       } else {
         authors = formObject['article-authors'];
       }
-      Logger.log("Found authors: " + JSON.stringify(authors));
       for (var index = 0; index < authors.length; index++) {
         var author = authors[index];
-        Logger.log("creating author page link: " + author + " -- " + pageID)
         var result = await hasuraCreateAuthorPage(author, pageID);
-        Logger.log("create author page result:" + JSON.stringify(result))
       }
     }
 
   } else {
+    documentType = "article";
     // insert or update article
     var data = await insertArticleGoogleDocs(formObject);
-    Logger.log("data: " + JSON.stringify(data));
     var articleID = data.data.insert_articles.returning[0].id;
 
-    Logger.log("articleResult: " + JSON.stringify(data))
     if (articleID && formObject['article-tags']) {
       var tags;
       // ensure this is an array; selecting one in the UI results in a string being sent
@@ -736,7 +733,6 @@ async function hasuraHandlePreview(formObject) {
           article_id: articleID,
           locale_code: formObject['article-locale']
         });
-        Logger.log("create tag result:" + JSON.stringify(result))
       }
     }
 
@@ -757,7 +753,11 @@ async function hasuraHandlePreview(formObject) {
   }
 
   //construct preview url
-  var fullPreviewUrl = scriptConfig['PREVIEW_URL'] + "?secret=" + scriptConfig['PREVIEW_SECRET'] + "&slug=" + formObject['article-slug'] + "&locale=" + formObject['article-locale'];
+  var fullPreviewUrl = scriptConfig['PREVIEW_URL'];
+  if (documentType === 'page') {
+    fullPreviewUrl += "-static";
+  } 
+  fullPreviewUrl += "?secret=" + scriptConfig['PREVIEW_SECRET'] + "&slug=" + formObject['article-slug'] + "&locale=" + formObject['article-locale'];
   var message = "<a href='" + fullPreviewUrl + "' target='_blank'>Preview article in new window</a>";
 
   return {
@@ -803,7 +803,6 @@ function hasuraSearchArticles(formObject) {
  * looks up a page by google doc ID and locale
  */
 async function getPageForGoogleDoc(doc_id) {
-  Logger.log("getPageForGoogleDoc: " + doc_id);
   const { errors, data } = await fetchPageForGoogleDoc(doc_id);
 
   if (errors) {
@@ -856,7 +855,6 @@ async function getTranslationDataForArticle(docId, articleId, localeCode) {
  * looks up an article by google doc ID and locale
  */
 async function getArticleForGoogleDoc(doc_id) {
-  Logger.log("getArticleForGoogleDoc: " + doc_id);
   const { errors, data } = await fetchArticleForGoogleDoc(doc_id);
 
   if (errors) {
@@ -910,20 +908,17 @@ async function hasuraGetTranslations(pageOrArticleId, localeCode) {
   };
 
   var documentID = DocumentApp.getActiveDocument().getId();
-  Logger.log("documentID: " + documentID);
 
   var isStaticPage = isPage(documentID);
 
   var data;
   try {
     if (isStaticPage) {
-      data = await getTranslationDataForPage(documentID, pageOrArticleId, locale);
-      Logger.log("getPage data: " + JSON.stringify(data));
+      data = await getTranslationDataForPage(documentID, pageOrArticleId, localeCode);
       if (data && data.page_translations && data.page_translations[0]) {
         returnValue.status = "success";
         returnValue.message = "Retrieved page translation with ID: " + data.page_translations[0].id;
       } else {
-        Logger.log("getPage notFound data: " + JSON.stringify(data));
         returnValue.status = "notFound";
         returnValue.message = "Page not found";
       }

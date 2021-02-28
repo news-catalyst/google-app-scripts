@@ -34,6 +34,7 @@
             aTitle = a.category_translations[0].title
           }
           if (b.category_translations && b.category_translations[0] && b.category_translations[0].title) {
+            console.log("doc is an article")
             bTitle = b.category_translations[0].title
           }
           if (aTitle > bTitle) {
@@ -202,6 +203,7 @@
         }
         // isPublishedSpan.innerHTML = isPublishedYesNo;
       }
+
       function onSuccessGetArticle(contents) {
         console.log("onSuccessGetArticle: ", contents);
 
@@ -223,12 +225,21 @@
           div.innerHTML = '<p style="color: #48C774;">' + contents.message + "</p>";
         }
 
+        var typeHiddenField = document.getElementById('document-type');
+        var documentType = typeHiddenField.value;
+        console.log("documentType: " + documentType);
+
+        // hide form fields that are relevant for articles only from documents that are static pages
+        if (documentType !== "article") {
+          [].forEach.call(document.querySelectorAll('.articles-only'), function (el) {
+            el.style.display = 'none';
+          });
+        }
 
         var data;
         var googleDocs;
         var translationData;
         var publishedInfo;
-        var documentType = "article";
         var localeCode = contents.localeCode;
         if (contents.data.articles) {
           if (contents.data.articles[0]) {
@@ -242,7 +253,6 @@
           }
           if (contents.data.published_article_translations && contents.data.published_article_translations[0]) {
             publishedInfo = contents.data.published_article_translations[0].article_translation;
-            console.log("Pub Info: ", publishedInfo);
           }
         } else if (contents.data.pages) {
           documentType = "page"
@@ -258,9 +268,12 @@
           displayPublishedInfo(publishedInfo, translationData);
         }
 
-        displayLocales(contents.data.organization_locales, localeCode);
+        if (contents.data.organization_locales) {
+          displayLocales(contents.data.organization_locales, localeCode);
+        }
         
         if (documentType === "article") {
+          console.log("doc is an article")
           displayCategories(contents.data.categories, data.category);
           displayTags(contents.data.tags, data.tag_articles);
           displayAuthors(contents.data.authors, data.author_articles);
@@ -274,7 +287,6 @@
 
           var idHiddenField = document.getElementById('article-id');
           idHiddenField.value = data.id;
-
         }
 
         // var selectedLocale = document.getElementById('selected-locale');
@@ -339,9 +351,11 @@
         var articleId;
         var pageId;
         var localeCode;
+        var typeHiddenField = document.getElementById('document-type');
         
         if (data && data.data && data.data.articles && data.data.articles[0]) {
-          console.log("found article")
+          typeHiddenField.value = "article";
+
           articleId = data.data.articles[0].id;
           if (
             data.data.articles[0] && 
@@ -352,7 +366,7 @@
             }
         }
         if (data && data.data && data.data.pages && data.data.pages[0]) {
-          console.log("found page")
+          typeHiddenField.value = "page";
           pageId = data.data.pages[0].id;
           if (
             data.data.pages[0] && 
@@ -364,14 +378,10 @@
         }
 
         if (articleId && localeCode) {
-          console.log("looking up article translations")
           google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(articleId, localeCode);
         } else if (pageId && localeCode) {
-          console.log("looking up page translations")
           google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(pageId, localeCode);
         } else {
-          console.log("didn't find article...")
-
           var configDiv = document.getElementById('config');
           configDiv.style.display = 'none';
 
@@ -431,25 +441,20 @@
           div.innerHTML = '<p style="color: #48C774;">' + response.message + "</p>";
           if (response.data && response.data.data && response.data.data.insert_articles) {
             var articleID = response.data.data.insert_articles.returning[0].id;
-            console.log("article ID:", articleID);
             var idHiddenField = document.getElementById('article-id');
             idHiddenField.value = articleID;
 
             var articleSlug = response.data.data.insert_articles.returning[0].slug;
-            console.log("article slug:", articleSlug);
             var slugHiddenField = document.getElementById('article-slug');
             slugHiddenField.value = articleSlug;
             var slugDisplayField = document.getElementById('slug');
             slugDisplayField.value = articleSlug;
 
             var translations = response.data.data.insert_articles.returning[0].article_translations;
-            console.log("translations:", translations);
             if (translations[0]) {
-              console.log("Published: ", translations[0].published);
               setPublishedFlag(translations[0].published);
             }
             var publishedInfo = response.data.data.insert_articles.returning[0].published_article_translations;
-            console.log("publishedInfo:", publishedInfo);
             if (publishedInfo && publishedInfo[0]) {
               displayPublishedInfo(publishedInfo[0].article_translation, translations[0]);
             }
@@ -489,7 +494,10 @@
         var searchTitle = document.getElementById('article-search-title');
         var searchDescription = document.getElementById('article-search-description');
 
-        if ( (selectedAuthors === undefined || selectedAuthors.length <= 0) && ( customByline === null || customByline === undefined || customByline === "") ) {
+        var typeHiddenField = document.getElementById('document-type');
+        var documentType = typeHiddenField.value;
+
+        if ( (documentType === "article") && (selectedAuthors === undefined || selectedAuthors.length <= 0) && ( customByline === null || customByline === undefined || customByline === "") ) {
           errorMessage += "<br>Author or custom byline is required.";
           formIsValid = false;
         }
@@ -612,6 +620,7 @@
             <div id="slug"></div>
             <input type="hidden" id="article-id" name="article-id" />
             <input type="hidden" id="article-slug" name="article-slug" />
+            <input type="hidden" id="document-type" name="document-type" />
           </div>
 
           <div class="block form-group">
