@@ -798,6 +798,9 @@ async function isArticleFeatured(articleId) {
     throw errors;
   }
 
+  var scriptConfig = getScriptConfig();
+  var editorUrl = scriptConfig['EDITOR_URL'];
+
   Logger.log("data: " + JSON.stringify(data))
   var isFeatured = false;
   if (data && data.homepage_layout_datas) {
@@ -811,7 +814,10 @@ async function isArticleFeatured(articleId) {
       }
     });
   }
-  return isFeatured;
+  return {
+    featured: isFeatured,
+    editorUrl: editorUrl
+  };
 }
 
 /*
