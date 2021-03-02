@@ -783,6 +783,37 @@ function fetchPageForGoogleDoc(doc_id) {
   );
 }
 
+function fetchFeaturedArticles() {
+  return fetchGraphQL(
+    getHomepageFeaturedArticles,
+    "MyQuery"
+  );
+}
+
+async function isArticleFeatured(articleId) {
+  const { errors, data } = await fetchFeaturedArticles();
+
+  if (errors) {
+    console.error("errors:" + JSON.stringify(errors));
+    throw errors;
+  }
+
+  Logger.log("data: " + JSON.stringify(data))
+  var isFeatured = false;
+  if (data && data.homepage_layout_datas) {
+    data.homepage_layout_datas.fo
+    data.homepage_layout_datas.forEach(hpData => {
+      var values = Object.values(hpData);
+      Logger.log(values);
+      if (values.includes(articleId)){
+        isFeatured = true;
+        Logger.log(articleId + " article is featured")
+      }
+    });
+  }
+  return isFeatured;
+}
+
 /*
 .* called from ManualPage.html, this function searches for a matching article by headline
 .*/

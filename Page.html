@@ -331,8 +331,30 @@
             }
           }
         });
+
+        if (data && documentType === "article") {
+          google.script.run.withFailureHandler(onFailureFeatured).withSuccessHandler(onSuccessFeatured).isArticleFeatured(data.id);
+        }
       }
       
+      function onSuccessFeatured(result) {
+        if (result) {
+          var div = document.getElementById('featured');
+          div.style.display = "block";
+          div.innerHTML = "<b>Featured on the homepage</b>";
+
+          // hide the unpublish button
+          var unpublishButtonTop = document.getElementById('unpublish-button-top');
+          unpublishButtonTop.style.display = "none";
+          var unpublishButtonBottom = document.getElementById('unpublish-button-bottom');
+          unpublishButtonBottom.style.display = "none";
+        }
+      }
+
+      function onFailureFeatured(error) {
+        console.log("onFailureFeatured error:", error);
+      }
+
       function onFailure(error) {
         console.log("onFailure error:", error);
         var loadingDiv = document.getElementById('loading');
@@ -605,6 +627,7 @@
             <input type="submit" class="blue" id="publish-button-top" value="Publish" onclick="this.form.submitted=this.value;"/>
             <input type="submit" class="blue" id="unpublish-button-top" value="Unpublish" onclick="this.form.submitted=this.value;"/>
           </div>
+          <div class="block" id="featured"></div>
 
           <div class="block form-group">
             <label for="article-locale">
