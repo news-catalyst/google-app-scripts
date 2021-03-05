@@ -34,7 +34,6 @@
             aTitle = a.category_translations[0].title
           }
           if (b.category_translations && b.category_translations[0] && b.category_translations[0].title) {
-            console.log("doc is an article")
             bTitle = b.category_translations[0].title
           }
           if (aTitle > bTitle) {
@@ -183,7 +182,6 @@
           unpublishButtonBottom.style.display = "inline";
 
         } else {
-          console.log("Unpublished article, resetting buttons")
           var publishButtonTop = document.getElementById('publish-button-top');
           publishButtonTop.value = "Publish";
           var publishButtonBottom = document.getElementById('publish-button-bottom');
@@ -196,7 +194,6 @@
           unpublishButtonBottom.style.display = "none";
 
           var pubInfoDiv = document.getElementById("published-info");
-          console.log("pubInfoDiv:", pubInfoDiv);
           var translationIdSpan = document.getElementById("translation-id");
           translationIdSpan.innerHTML = "";
           pubInfoDiv.style.display = "none";
@@ -205,7 +202,6 @@
       }
 
       function onSuccessGetArticle(contents) {
-        console.log("onSuccessGetArticle: ", contents);
 
         var configDiv = document.getElementById('config');
         configDiv.style.display = 'none';
@@ -227,7 +223,6 @@
 
         var typeHiddenField = document.getElementById('document-type');
         var documentType = typeHiddenField.value;
-        console.log("documentType: " + documentType);
 
         // hide form fields that are relevant for articles only from documents that are static pages
         if (documentType !== "article") {
@@ -273,7 +268,6 @@
         }
         
         if (documentType === "article") {
-          console.log("doc is an article")
           displayCategories(contents.data.categories, data.category);
           displayTags(contents.data.tags, data.tag_articles);
           displayAuthors(contents.data.authors, data.author_articles);
@@ -290,7 +284,6 @@
         }
 
         // var selectedLocale = document.getElementById('selected-locale');
-        console.log("translationData:", translationData);
         if (translationData) {
           setPublishedFlag(translationData.published);
 
@@ -331,8 +324,35 @@
             }
           }
         });
+
+        if (data && documentType === "article") {
+          google.script.run.withFailureHandler(onFailureFeatured).withSuccessHandler(onSuccessFeatured).isArticleFeatured(data.id);
+        }
       }
       
+      function onSuccessFeatured(result) {
+        if (result && result.featured) {
+          console.log("result: ", result);
+          var div = document.getElementById('featured');
+          div.style.display = "block";
+          var message = "<b>This article is featured on the homepage</b>";
+          if (result.editorUrl) {
+            message += ": <a target='_new' href='" + result.editorUrl + "'>edit</a>"
+          }
+          div.innerHTML = message;
+
+          // hide the unpublish button
+          var unpublishButtonTop = document.getElementById('unpublish-button-top');
+          unpublishButtonTop.style.display = "none";
+          var unpublishButtonBottom = document.getElementById('unpublish-button-bottom');
+          unpublishButtonBottom.style.display = "none";
+        }
+      }
+
+      function onFailureFeatured(error) {
+        console.log("onFailureFeatured error:", error);
+      }
+
       function onFailure(error) {
         console.log("onFailure error:", error);
         var loadingDiv = document.getElementById('loading');
@@ -347,7 +367,6 @@
           onFailure(data.message);
           return;
         }
-        console.log("data:", data);
         var articleId;
         var pageId;
         var localeCode;
@@ -429,7 +448,6 @@
       }
 
       function onSuccessPreviewPublish(response) {
-        console.log("success preview/publish:", response);
         var configDiv = document.getElementById('config');
         configDiv.style.display = 'none';
         var div = document.getElementById('loading');
@@ -597,6 +615,8 @@
       <div class="block gray" id="loading">Loading...</div>
 
       <div id="config"></div>
+
+      <div class="block" id="featured"></div>
 
       <div id="article-form">
         <form onsubmit="handleClick(this)">

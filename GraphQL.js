@@ -377,3 +377,11 @@ const searchArticlesByHeadlineQuery = `query MyQuery($locale_code: String!, $ter
     }
   }
 }`;
+
+const getHomepageFeaturedArticles = `query MyQuery {
+  homepage_layout_datas {
+    article_priority_1
+    article_priority_2
+    article_priority_3
+  }
+}`

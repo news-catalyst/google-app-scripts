@@ -288,6 +288,9 @@
         var contentApi = document.getElementById('content-api');
         contentApi.value = data.contentApi ? data.contentApi : data['CONTENT_API'];
 
+        var editorUrl = document.getElementById('editor-url');
+        editorUrl.value = data.editorUrl ? data.editorUrl : data['EDITOR_URL'];
+
         var publishUrl = document.getElementById('publish-url');
         publishUrl.value = data.publishUrl ? data.publishUrl : data['PUBLISH_URL'];
 
@@ -479,6 +482,14 @@
           </label>
           <input id="content-api" name="CONTENT_API" type="text" />
         </div>
+
+        <div class="block form-group">
+          <label for="editor-url">
+            <b>Homepage Editor URL</b>
+          </label>
+          <input id="editor-url" name="EDITOR_URL" type="text" placeholder="http://localhost:3000/tinycms/homepage" />
+        </div>
+
         <div class="block form-group">
           <label for="publish-url">
             <b>Publish Host URL</b>
