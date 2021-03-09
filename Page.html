@@ -371,9 +371,16 @@
         var pageId;
         var localeCode;
         var typeHiddenField = document.getElementById('document-type');
+        var documentType = "article";
         
-        if (data && data.data && data.data.articles && data.data.articles[0]) {
-          typeHiddenField.value = "article";
+        if (data && data.data && data.data.articles) {
+          documentType = "article";
+        }
+        if (data && data.data && data.data.pages) {
+          documentType = "page";
+        }
+        if (documentType === "article" && data.data.articles[0]) {
+          typeHiddenField.value = documentType;
 
           articleId = data.data.articles[0].id;
           if (
@@ -384,8 +391,8 @@
               localeCode = data.data.articles[0].article_google_documents[0].google_document.locale_code;
             }
         }
-        if (data && data.data && data.data.pages && data.data.pages[0]) {
-          typeHiddenField.value = "page";
+        if (documentType === "page" && data.data.pages[0]) {
+          typeHiddenField.value = documentType;
           pageId = data.data.pages[0].id;
           if (
             data.data.pages[0] && 
@@ -416,30 +423,38 @@
           setPublishedFlag(false); // new article is not published, ensure correct action buttons display
 
           displayLocales(data.data.organization_locales, localeCode);
-          displayCategories(data.data.categories, null);
-          displayTags(data.data.tags, null);
-          displayAuthors(data.data.authors, null);
-          $('#article-authors').select2({
-            width: 'resolve',
-          });
 
-          $('#article-tags').select2({
-            width: 'resolve',
-            tags: true,
-            createTag: function (params) {
-              var term = $.trim(params.term);
+          if (documentType === "article") {
+            displayCategories(data.data.categories, null);
+            displayTags(data.data.tags, null);
+            displayAuthors(data.data.authors, null);
 
-              if (term === '') {
-                return null;
+            $('#article-authors').select2({
+              width: 'resolve',
+            });
+
+            $('#article-tags').select2({
+              width: 'resolve',
+              tags: true,
+              createTag: function (params) {
+                var term = $.trim(params.term);
+
+                if (term === '') {
+                  return null;
+                }
+
+                return {
+                  id: term,
+                  text: term,
+                  newTag: true // add additional parameters
+                }
               }
-
-              return {
-                id: term,
-                text: term,
-                newTag: true // add additional parameters
-              }
-            }
-          });
+            });
+          } else {
+            [].forEach.call(document.querySelectorAll('.articles-only'), function (el) {
+              el.style.display = 'none';
+            });
+          }
         }
       }
 
@@ -505,19 +520,21 @@
         loadingDiv.style.display = "block";
 
         var errorMessage = "";
-        var selectedAuthors = $('#article-authors').select2('data')
-        var customByline = document.getElementById("article-custom-byline").value;
+
+        var typeHiddenField = document.getElementById('document-type');
+        var documentType = typeHiddenField.value;
 
         var headline = document.getElementById('article-headline');
         var searchTitle = document.getElementById('article-search-title');
         var searchDescription = document.getElementById('article-search-description');
 
-        var typeHiddenField = document.getElementById('document-type');
-        var documentType = typeHiddenField.value;
-
-        if ( (documentType === "article") && (selectedAuthors === undefined || selectedAuthors.length <= 0) && ( customByline === null || customByline === undefined || customByline === "") ) {
-          errorMessage += "<br>Author or custom byline is required.";
-          formIsValid = false;
+        if (documentType === "article")  {
+          var selectedAuthors = $('#article-authors').select2('data')
+          var customByline = document.getElementById("article-custom-byline").value;
+          if ( (selectedAuthors === undefined || selectedAuthors.length <= 0) && ( customByline === null || customByline === undefined || customByline === "") ) {
+            errorMessage += "<br>Author or custom byline is required.";
+            formIsValid = false;
+          }
         }
         if (headline.value === "" || headline.value === undefined || headline.value === "") {
           errorMessage += "<br>Headline is required.";
