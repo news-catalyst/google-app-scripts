@@ -67,7 +67,7 @@
       }
 
       function onSuccessGetArticle(contents) {
-        console.log(contents);
+        console.log("onSuccessGetArticle contents:", contents);
 
         var div = document.getElementById('loading');
         div.style.display = 'block';
@@ -252,7 +252,6 @@
         hideConfigForm();
         var div = document.getElementById('loading');
         div.style.display = 'block';
-        console.log(contents);
 
         var articleId = contents.data.data.insert_article_google_documents.returning[0].article_id;
         var articleSlug = contents.data.data.insert_article_google_documents.returning[0].article.slug;
@@ -260,7 +259,7 @@
       }
 
       function onFailure(error) {
-        console.log(error);
+        console.log("onFailure error: ", error);
         var loadingDiv = document.getElementById('loading');
         loadingDiv.style.display = "block";
         var message = "An error occurred: ";
@@ -282,6 +281,7 @@
       }
 
       function onSuccessConfigFormValues(data) {
+        console.log("config form data:", data);
         var accessToken = document.getElementById('access-token');
         accessToken.value = data.accessToken ? data.accessToken : data['ACCESS_TOKEN'];
 
@@ -308,9 +308,6 @@
 
         var awsBucket = document.getElementById('aws-bucket');
         awsBucket.value = data.awsBucket ? data.awsBucket : data['AWS_BUCKET'];
-
-        var deployHook = document.getElementById('aws-bucket');
-        deployHook.value = data.vercelDeployHook ? data.vercelDeployHook : data['VERCEL_DEPLOY_HOOK'];
 
         showConfigForm();
       }
@@ -525,12 +522,6 @@
             <b>AWS Bucket</b>
           </label>
           <input id="aws-bucket" name="AWS_BUCKET" type="text" />
-        </div>
-        <div class="block form-group">
-          <label for="deploy-hook">
-            <b>Vercel Deploy Hook</b>
-          </label>
-          <input id="deploy-hook" name="VERCEL_DEPLOY_HOOK_URL" type="text" />
         </div>
         <div class="block">
           <button class="blue">Save Config</button>
