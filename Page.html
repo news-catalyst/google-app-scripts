@@ -532,6 +532,7 @@
           var selectedAuthors = $('#article-authors').select2('data')
           var customByline = document.getElementById("article-custom-byline").value;
           if ( (selectedAuthors === undefined || selectedAuthors.length <= 0) && ( customByline === null || customByline === undefined || customByline === "") ) {
+            console.log("selectedAuthors:", selectedAuthors, "customByline:", customByline)
             errorMessage += "<br>Author or custom byline is required.";
             formIsValid = false;
           }
