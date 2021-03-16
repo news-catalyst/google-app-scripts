@@ -309,6 +309,9 @@
         var awsBucket = document.getElementById('aws-bucket');
         awsBucket.value = data.awsBucket ? data.awsBucket : data['AWS_BUCKET'];
 
+        var vercelWebhook = document.getElementById('vercel-webhook');
+        vercelWebhook.value = data.vercelWebhook ? data.vercelWebhook : data['VERCEL_WEBHOOK'];
+
         showConfigForm();
       }
 
@@ -522,6 +525,12 @@
             <b>AWS Bucket</b>
           </label>
           <input id="aws-bucket" name="AWS_BUCKET" type="text" />
+        </div>
+        <div class="block form-group">
+          <label for="vercel-webhook">
+            <b>Vercel Webhook</b>
+          </label>
+          <input id="vercel-webhook" name="VERCEL_WEBHOOK" type="text" />
         </div>
         <div class="block">
           <button class="blue">Save Config</button>

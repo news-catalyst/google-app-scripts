@@ -524,6 +524,9 @@ async function hasuraHandleUnpublish(formObject) {
     returnValue.status = "error";
     returnValue.message = "An unexpected error occurred trying to unpublish the article";
     returnValue.data = response.errors;
+  } else {
+    // trigger republish of the site to reflect this article no longer being live
+    rebuildSite();
   }
   return returnValue;
 }
@@ -646,6 +649,9 @@ async function hasuraHandlePublish(formObject) {
       fullPublishUrl = publishUrl + "/articles/" + categorySlug + "/" + articleSlug;
     }
   }
+
+  // trigger republish of the site to reflect new article
+  rebuildSite();
 
   // open preview url in new window
   var message = "Published the " + documentType + ". <a href='" + fullPublishUrl + "' target='_blank'>Click to view</a>."
@@ -1283,7 +1289,7 @@ function formatElements() {
  */
 function rebuildSite() {
   var scriptConfig = getScriptConfig();
-  var DEPLOY_HOOK = scriptConfig['VERCEL_DEPLOY_HOOK_URL'];
+  var WEBHOOK = scriptConfig['VERCEL_WEBHOOK'];
 
   var options = {
     method: 'post',
@@ -1292,7 +1298,7 @@ function rebuildSite() {
   };
 
   var response = UrlFetchApp.fetch(
-    DEPLOY_HOOK,
+    WEBHOOK,
     options
   );
   var responseText = response.getContentText();
