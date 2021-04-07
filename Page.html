@@ -482,6 +482,10 @@
             var slugField = document.getElementById('article-slug');
             slugField.value = articleSlug;
 
+            var articleID = response.data.data.insert_articles.returning[0].id;
+            var idHiddenField = document.getElementById('article-id');
+            idHiddenField.value = articleID;
+
             var translations = response.data.data.insert_articles.returning[0].article_translations;
             if (translations[0]) {
               setPublishedFlag(translations[0].published);
@@ -492,7 +496,10 @@
             }
 
           } else if (response.data && response.data.data && response.data.data.insert_pages) {
-            console.log("page ID:", response.data.data.insert_pages.returning[0].id)
+            var pageID = response.data.data.insert_pages.returning[0].id;
+            console.log("page ID:", pageID)
+            var idHiddenField = document.getElementById('article-id');
+            idHiddenField.value = pageID;
 
           } else if (response.data && response.data.data && response.data.data.update_article_translations) {
             console.log("unpublished article:", response.data);

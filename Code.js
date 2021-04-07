@@ -314,7 +314,6 @@ function insertPageGoogleDocs(data) {
   var content = getCurrentDocContents();
 
   let pageData = {
-    "id": data['article-id'],
     "slug": data['article-slug'],
     "document_id": documentID,
     "url": documentURL,
@@ -329,12 +328,24 @@ function insertPageGoogleDocs(data) {
     "facebook_title": data['article-facebook-title'],
     "facebook_description": data['article-facebook-description'],
   };
-  Logger.log("page data:" + JSON.stringify(pageData));
-  return fetchGraphQL(
-    insertPageGoogleDocsMutation,
-    "MyMutation",
-    pageData
-  );
+
+  if (data["article-id"] === "") {
+    Logger.log("page data:" + JSON.stringify(pageData));
+    return fetchGraphQL(
+      insertPageGoogleDocsMutationWithoutId,
+      "MyMutation",
+      pageData
+    );
+
+  } else {
+    pageData["id"] = data['article-id'];
+    Logger.log("page data:" + JSON.stringify(pageData));
+    return fetchGraphQL(
+      insertPageGoogleDocsMutation,
+      "MyMutation",
+      pageData
+    );
+  }
 }
 
 function upsertPublishedArticle(articleId, translationId, localeCode) {
@@ -382,11 +393,20 @@ function insertArticleGoogleDocs(data) {
   };
   Logger.log("article data:" + JSON.stringify(articleData));
 
-  return fetchGraphQL(
-    insertArticleGoogleDocMutation,
-    "MyMutation",
-    articleData
-  );
+  if (articleData["id"] === "") {
+    // articleData.delete("id")
+    return fetchGraphQL(
+      insertArticleGoogleDocMutationWithoutId,
+      "MyMutation",
+      articleData
+    );
+  } else {
+    return fetchGraphQL(
+      insertArticleGoogleDocMutation,
+      "MyMutation",
+      articleData
+    );
+  }
 }
 
 async function hasuraCreateAuthorPage(authorId, pageId) {
