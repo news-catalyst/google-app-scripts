@@ -363,6 +363,7 @@ function insertArticleGoogleDocs(data) {
   var content = getCurrentDocContents();
 
   let articleData = {
+    "id": data['article-id'],
     "slug": data['article-slug'],
     "document_id": documentID,
     "url": documentUrl,
@@ -379,6 +380,7 @@ function insertArticleGoogleDocs(data) {
     "facebook_description": data['article-facebook-description'],
     "custom_byline": data['article-custom-byline'],
   };
+  Logger.log("article data:" + JSON.stringify(articleData));
 
   return fetchGraphQL(
     insertArticleGoogleDocMutation,
@@ -721,6 +723,7 @@ async function hasuraHandlePreview(formObject) {
     documentType = "article";
     // insert or update article
     var data = await insertArticleGoogleDocs(formObject);
+    Logger.log("articleResult: " + JSON.stringify(data))
     var articleID = data.data.insert_articles.returning[0].id;
 
     if (articleID && formObject['article-tags']) {
