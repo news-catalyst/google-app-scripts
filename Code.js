@@ -314,6 +314,7 @@ function insertPageGoogleDocs(data) {
   var content = getCurrentDocContents();
 
   let pageData = {
+    "id": data['article-id'],
     "slug": data['article-slug'],
     "document_id": documentID,
     "url": documentURL,
@@ -698,6 +699,7 @@ async function hasuraHandlePreview(formObject) {
     documentType = "page";
     // insert or update page
     var data = await insertPageGoogleDocs(formObject);
+    Logger.log("pageResult: " + JSON.stringify(data))
 
     var pageID = data.data.insert_pages.returning[0].id;
 

@@ -253,6 +253,7 @@
           documentType = "page"
           if (contents.data.pages[0]) {
             data = contents.data.pages[0]
+            console.log("get translations data.pages[0]:", data);
           }
           if (contents.data.page_translations) {
             translationData = contents.data.page_translations[0];
@@ -274,13 +275,12 @@
         }
 
         if (data) {
-          var slugDiv = document.getElementById('slug');
-          var slugHiddenField = document.getElementById('article-slug');
-          slugHiddenField.value = data.slug;
-          slugDiv.innerHTML = data.slug;
+          var slugField = document.getElementById('article-slug');
+          slugField.value = data.slug;
 
           var idHiddenField = document.getElementById('article-id');
           idHiddenField.value = data.id;
+          console.log("idHiddenField value:", idHiddenField.value);
         }
 
         // var selectedLocale = document.getElementById('selected-locale');
@@ -394,6 +394,7 @@
         if (documentType === "page" && data.data.pages[0]) {
           typeHiddenField.value = documentType;
           pageId = data.data.pages[0].id;
+          console.log("hasuraGetPage id:", pageId);
           if (
             data.data.pages[0] && 
             data.data.pages[0].page_google_documents && 
@@ -478,10 +479,8 @@
             idHiddenField.value = articleID;
 
             var articleSlug = response.data.data.insert_articles.returning[0].slug;
-            var slugHiddenField = document.getElementById('article-slug');
-            slugHiddenField.value = articleSlug;
-            var slugDisplayField = document.getElementById('slug');
-            slugDisplayField.value = articleSlug;
+            var slugField = document.getElementById('article-slug');
+            slugField.value = articleSlug;
 
             var translations = response.data.data.insert_articles.returning[0].article_translations;
             if (translations[0]) {
@@ -655,9 +654,8 @@
             <label for="article-slug">
               <b>Article slug</b>
             </label>
-            <div id="slug"></div>
             <input type="hidden" id="article-id" name="article-id" />
-            <input type="hidden" id="article-slug" name="article-slug" />
+            <input id="article-slug" name="article-slug" type="text" />
             <input type="hidden" id="document-type" name="document-type" />
           </div>
 
