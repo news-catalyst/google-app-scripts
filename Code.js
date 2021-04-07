@@ -328,12 +328,24 @@ function insertPageGoogleDocs(data) {
     "facebook_title": data['article-facebook-title'],
     "facebook_description": data['article-facebook-description'],
   };
-  Logger.log("page data:" + JSON.stringify(pageData));
-  return fetchGraphQL(
-    insertPageGoogleDocsMutation,
-    "MyMutation",
-    pageData
-  );
+
+  if (data["article-id"] === "") {
+    Logger.log("page data:" + JSON.stringify(pageData));
+    return fetchGraphQL(
+      insertPageGoogleDocsMutationWithoutId,
+      "MyMutation",
+      pageData
+    );
+
+  } else {
+    pageData["id"] = data['article-id'];
+    Logger.log("page data:" + JSON.stringify(pageData));
+    return fetchGraphQL(
+      insertPageGoogleDocsMutation,
+      "MyMutation",
+      pageData
+    );
+  }
 }
 
 function upsertPublishedArticle(articleId, translationId, localeCode) {
@@ -378,12 +390,23 @@ function insertArticleGoogleDocs(data) {
     "facebook_description": data['article-facebook-description'],
     "custom_byline": data['article-custom-byline'],
   };
+  Logger.log("article data:" + JSON.stringify(articleData));
 
-  return fetchGraphQL(
-    insertArticleGoogleDocMutation,
-    "MyMutation",
-    articleData
-  );
+  if (data["article-id"] === "") {
+    // articleData.delete("id")
+    return fetchGraphQL(
+      insertArticleGoogleDocMutationWithoutId,
+      "MyMutation",
+      articleData
+    );
+  } else {
+    articleData['id'] = data['article-id'];
+    return fetchGraphQL(
+      insertArticleGoogleDocMutation,
+      "MyMutation",
+      articleData
+    );
+  }
 }
 
 async function hasuraCreateAuthorPage(authorId, pageId) {
@@ -698,6 +721,7 @@ async function hasuraHandlePreview(formObject) {
     documentType = "page";
     // insert or update page
     var data = await insertPageGoogleDocs(formObject);
+    Logger.log("pageResult: " + JSON.stringify(data))
 
     var pageID = data.data.insert_pages.returning[0].id;
 
@@ -719,6 +743,7 @@ async function hasuraHandlePreview(formObject) {
     documentType = "article";
     // insert or update article
     var data = await insertArticleGoogleDocs(formObject);
+    Logger.log("articleResult: " + JSON.stringify(data))
     var articleID = data.data.insert_articles.returning[0].id;
 
     if (articleID && formObject['article-tags']) {
