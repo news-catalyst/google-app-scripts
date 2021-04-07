@@ -374,7 +374,6 @@ function insertArticleGoogleDocs(data) {
   var content = getCurrentDocContents();
 
   let articleData = {
-    "id": data['article-id'],
     "slug": data['article-slug'],
     "document_id": documentID,
     "url": documentUrl,
@@ -393,7 +392,7 @@ function insertArticleGoogleDocs(data) {
   };
   Logger.log("article data:" + JSON.stringify(articleData));
 
-  if (articleData["id"] === "") {
+  if (data["article-id"] === "") {
     // articleData.delete("id")
     return fetchGraphQL(
       insertArticleGoogleDocMutationWithoutId,
@@ -401,6 +400,7 @@ function insertArticleGoogleDocs(data) {
       articleData
     );
   } else {
+    articleData['id'] = data['article-id'];
     return fetchGraphQL(
       insertArticleGoogleDocMutation,
       "MyMutation",
