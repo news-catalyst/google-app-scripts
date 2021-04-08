@@ -1,5 +1,17 @@
 /* Mutations */
 
+const insertArticleSlugVersion = `mutation MyMutation($article_id: Int!, $slug: String!) {
+  insert_article_slug_versions(objects: {article_id: $article_id, slug: $slug}, on_conflict: {constraint: slug_versions_pkey, update_columns: article_id}) {
+    affected_rows
+  }
+}`;
+
+const insertPageSlugVersion = `mutation MyMutation($slug: String!, $page_id: Int!) {
+  insert_page_slug_versions(objects: {page_id: $page_id, slug: $slug}, on_conflict: {constraint: page_slug_versions_pkey, update_columns: page_id}) {
+    affected_rows
+  }
+}`;
+
 const insertAuthorArticleMutation = `mutation MyMutation($article_id: Int!, $author_id: Int!) {
   insert_author_articles(objects: {article_id: $article_id, author_id: $author_id}, on_conflict: {constraint: author_articles_article_id_author_id_key, update_columns: article_id}) {
     affected_rows
