@@ -617,6 +617,11 @@ async function hasuraHandlePublish(formObject) {
 
     var pageID = data.data.insert_pages.returning[0].id;
 
+    // store slug + page ID in slug versions table
+    var result = await storePageIdAndSlug(pageID, slug);
+    Logger.log("stored page id + slug: " + JSON.stringify(result));
+
+
     if (pageID && formObject['article-authors']) {
       var authors;
       // ensure this is an array; selecting one in the UI results in a string being sent
@@ -647,6 +652,10 @@ async function hasuraHandlePublish(formObject) {
     var translationID = data.data.insert_articles.returning[0].article_translations[0].id;
 
     if (articleID) {
+      // store slug + article ID in slug versions table
+      var result = await storeArticleIdAndSlug(articleID, slug);
+      Logger.log("stored article id + slug: " + JSON.stringify(result));
+
       var publishedArticleData = await upsertPublishedArticle(articleID, translationID, formObject['article-locale'])
       if (publishedArticleData) {
         data.data.insert_articles.returning[0].published_article_translations = publishedArticleData.data.insert_published_article_translations.returning;
