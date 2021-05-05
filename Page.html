@@ -49,7 +49,11 @@
           if ( $(selectorString).length <= 0 ) {
             var option = document.createElement("option");
             if (category.category_translations && category.category_translations[0] && category.category_translations[0].title) {
-              option.text = category.category_translations[0].title
+              var optionText = category.category_translations[0].title;
+              if (!category.published) {
+                optionText += " (hidden)";
+              }
+              option.text = optionText;
             } else {
               option.text = "(BUG) unknown title";
             }
