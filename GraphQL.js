@@ -336,7 +336,7 @@ const getArticleTranslationForIdAndLocale = `query MyQuery($doc_id: String!, $ar
     slug
     name
   }
-  categories {
+  categories(where: {published: {_eq: true}}) {
     id
     slug
     category_translations(where: {locale_code: {_eq: $locale_code}}) {
