@@ -349,6 +349,7 @@ function insertPageGoogleDocs(data) {
     "twitter_description": data['article-twitter-description'],
     "facebook_title": data['article-facebook-title'],
     "facebook_description": data['article-facebook-description'],
+    "created_by_email": data['created_by_email'],
   };
 
   if (data["article-id"] === "") {
@@ -411,6 +412,7 @@ function insertArticleGoogleDocs(data) {
     "facebook_title": data['article-facebook-title'],
     "facebook_description": data['article-facebook-description'],
     "custom_byline": data['article-custom-byline'],
+    "created_by_email": data['created_by_email'],
   };
   Logger.log("article data:" + JSON.stringify(articleData));
 
@@ -579,6 +581,10 @@ async function hasuraHandleUnpublish(formObject) {
 async function hasuraHandlePublish(formObject) {
   var scriptConfig = getScriptConfig();
 
+  // set the email for auditing changes
+  var currentUserEmail = Session.getActiveUser().getEmail();
+  formObject["created_by_email"] = currentUserEmail;
+
   var slug = formObject['article-slug'];
   var headline = formObject['article-headline'];
 
@@ -719,7 +725,10 @@ async function hasuraHandlePublish(formObject) {
 
 async function hasuraHandlePreview(formObject) {
   var scriptConfig = getScriptConfig();
-  Logger.log("formObject: " + JSON.stringify(formObject));
+
+  // set the email for auditing changes
+  var currentUserEmail = Session.getActiveUser().getEmail();
+  formObject["created_by_email"] = currentUserEmail;
 
   var slug = formObject['article-slug'];
   var headline = formObject['article-headline'];
