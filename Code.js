@@ -404,8 +404,7 @@ function insertArticleGoogleDocs(data) {
     "locale_code": data['article-locale'],
     "headline": data['article-headline'],
     "published": data['published'],
-    // TODO DON'T FORGET TO UNCOMMENT THE ARTICLE CONTENT!
-    // "content": content,
+    "content": content,
     "search_description": data['article-search-description'],
     "search_title": data['article-search-title'],
     "twitter_title": data['article-twitter-title'],
@@ -417,7 +416,6 @@ function insertArticleGoogleDocs(data) {
   };
 
   if (data["source-name"]) {
-    // let sources = [];
     let source = {
       name: data['source-name'],
       affiliation: data['source-affiliation'],
@@ -434,19 +432,12 @@ function insertArticleGoogleDocs(data) {
     if (data['source-id']) {
       source.id = data['source-id'];
     }
-    // sources.push(source);
     articleData["article_sources"] = source;
-    // {
-    //   "data": {
-    //      "source": { "data": source }
-    //   }
-    // };
     Logger.log("pushed sources onto article data:" + JSON.stringify(source));
   }
 
   Logger.log("article data:" + JSON.stringify(articleData));
   if (data["article-id"] === "") {
-    // articleData.delete("id")
     return fetchGraphQL(
       insertArticleGoogleDocMutationWithoutId,
       "MyMutation",
