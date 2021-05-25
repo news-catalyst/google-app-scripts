@@ -421,6 +421,7 @@
               ) {
               var source = data.data.articles[0].article_sources[0].source;
               console.log("found source: ", source);
+              fillInTextField('source-id', source.id);
               fillInTextField('source-name', source.name);
               fillInTextField('source-affiliation', source.affiliation);
               fillInTextField('source-zip-code', source.zip);
@@ -788,6 +789,7 @@
               <label for="source-name">
                 <b>Name</b>
               </label>
+              <input id="source-id" name="source-id" type="hidden" />
               <input id="source-name" name="source-name" type="text" />
             </div>
             <div class="block form-group">

@@ -431,12 +431,16 @@ function insertArticleGoogleDocs(data) {
       sexual_orientation: data['source-sexual-orientation'],
       zip: data['source-zip']
     }
+    if (data['source-id']) {
+      source.id = data['source-id'];
+    }
     // sources.push(source);
-    articleData["article_sources"] = {
-      "data": {
-         "source": { "data": source }
-      }
-    };
+    articleData["article_sources"] = source;
+    // {
+    //   "data": {
+    //      "source": { "data": source }
+    //   }
+    // };
     Logger.log("pushed sources onto article data:" + JSON.stringify(source));
   }
 

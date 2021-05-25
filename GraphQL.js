@@ -60,7 +60,8 @@ const insertArticleGoogleDocMutationWithoutId = `mutation MyMutation($locale_cod
     }
   }
 }`;
-const insertArticleGoogleDocMutation = `mutation MyMutation($id: Int!, $locale_code: String!, $headline: String!, $created_by_email: String, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $article_sources: article_source_arr_rel_insert_input) {
+const insertArticleGoogleDocMutation = `mutation MyMutation($id: Int!, $locale_code: String!, $headline: String!, $created_by_email: String, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, 
+  $article_sources: sources_insert_input!) {
   insert_articles(
     objects: {
       article_translations: {
@@ -68,7 +69,17 @@ const insertArticleGoogleDocMutation = `mutation MyMutation($id: Int!, $locale_c
           created_by_email: $created_by_email, headline: $headline, locale_code: $locale_code, published: $published, content: $content, custom_byline: $custom_byline, facebook_description: $facebook_description, facebook_title: $facebook_title, search_description: $search_description, search_title: $search_title, twitter_description: $twitter_description, twitter_title: $twitter_title
         }
       }, 
-      article_sources: $article_sources,
+      article_sources: {
+        data: {
+          source: {
+            data: $article_sources, 
+            on_conflict: {
+              constraint: sources_pkey, 
+              update_columns: [name, affiliation, age, phone, zip, race, gender, sexual_orientation, ethnicity, role, email]
+            }
+          }
+        }
+      },
       category_id: $category_id, 
       id: $id, 
       slug: $slug, 
