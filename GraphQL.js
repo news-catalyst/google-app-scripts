@@ -60,8 +60,38 @@ const insertArticleGoogleDocMutationWithoutId = `mutation MyMutation($locale_cod
     }
   }
 }`;
-const insertArticleGoogleDocMutation = `mutation MyMutation($id: Int!, $locale_code: String!, $headline: String!, $created_by_email: String, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String) {
-  insert_articles(objects: {article_translations: {data: {created_by_email: $created_by_email, headline: $headline, locale_code: $locale_code, published: $published, content: $content, custom_byline: $custom_byline, facebook_description: $facebook_description, facebook_title: $facebook_title, search_description: $search_description, search_title: $search_title, twitter_description: $twitter_description, twitter_title: $twitter_title}}, category_id: $category_id, id: $id, slug: $slug, article_google_documents: {data: {google_document: {data: {document_id: $document_id, locale_code: $locale_code, url: $url}, on_conflict: {constraint: google_documents_organization_id_document_id_key, update_columns: locale_code}}}, on_conflict: {constraint: article_google_documents_article_id_google_document_id_key, update_columns: google_document_id}}}, on_conflict: {constraint: articles_pkey, update_columns: [category_id, slug, updated_at]}) {
+const insertArticleGoogleDocMutation = `mutation MyMutation($id: Int!, $locale_code: String!, $headline: String!, $created_by_email: String, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $article_sources: article_source_arr_rel_insert_input) {
+  insert_articles(
+    objects: {
+      article_translations: {
+        data: {
+          created_by_email: $created_by_email, headline: $headline, locale_code: $locale_code, published: $published, content: $content, custom_byline: $custom_byline, facebook_description: $facebook_description, facebook_title: $facebook_title, search_description: $search_description, search_title: $search_title, twitter_description: $twitter_description, twitter_title: $twitter_title
+        }
+      }, 
+      article_sources: $article_sources,
+      category_id: $category_id, 
+      id: $id, 
+      slug: $slug, 
+      article_google_documents: {
+        data: {
+          google_document: {
+            data: {
+              document_id: $document_id, locale_code: $locale_code, url: $url
+            }, 
+            on_conflict: {
+              constraint: google_documents_organization_id_document_id_key, update_columns: locale_code
+            }
+          }
+        }, 
+        on_conflict: {
+          constraint: article_google_documents_article_id_google_document_id_key, update_columns: google_document_id
+        }
+      }
+    }, 
+    on_conflict: {
+      constraint: articles_pkey, update_columns: [category_id, slug, updated_at]
+    }
+  ) {
     returning {
       id
       slug
@@ -74,6 +104,22 @@ const insertArticleGoogleDocMutation = `mutation MyMutation($id: Int!, $locale_c
           locale_code
           url
           id
+        }
+      }
+      article_sources {
+        source {
+          affiliation
+          age
+          email
+          ethnicity
+          gender
+          id
+          name
+          phone
+          race
+          role
+          sexual_orientation
+          zip
         }
       }
       category {
@@ -204,6 +250,24 @@ const getArticleByGoogleDocQuery = `query MyQuery($doc_id: String!) {
         document_id
         locale_code
         url
+      }
+    }
+    article_sources {
+      source {
+        affiliation
+        age
+        created_at
+        email
+        ethnicity
+        gender
+        id
+        name
+        phone
+        race
+        role
+        sexual_orientation
+        updated_at
+        zip
       }
     }
   }

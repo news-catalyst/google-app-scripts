@@ -366,6 +366,24 @@
         form.style.display = "none";
       }
 
+      function fillInTextField(fieldName, fieldValue) {
+        var field = document.getElementById(fieldName);
+        if (field) {
+          field.value = fieldValue
+        }
+      }
+
+      function selectOption(fieldName, fieldValue) {
+        var field = document.getElementById(fieldName);
+        var opts = field.options;
+        for (var opt, i = 0; opt = opts[i]; i++) {
+          if (opt.value == fieldValue) {
+            field.selectedIndex = i;
+            break;
+          }
+        }
+      }
+
       function handleGetTranslationsForArticle(data) {
         if (data && data.status === "error") {
           onFailure(data.message);
@@ -394,7 +412,29 @@
             data.data.articles[0].article_google_documents[0].google_document) {
               localeCode = data.data.articles[0].article_google_documents[0].google_document.locale_code;
             }
+
+            if (
+              data.data.articles[0] &&
+              data.data.articles[0].article_sources &&
+              data.data.articles[0].article_sources[0] &&
+              data.data.articles[0].article_sources[0].source
+              ) {
+              var source = data.data.articles[0].article_sources[0].source;
+              console.log("found source: ", source);
+              fillInTextField('source-name', source.name);
+              fillInTextField('source-affiliation', source.affiliation);
+              fillInTextField('source-zip-code', source.zip);
+              fillInTextField('source-email', source.email);
+              fillInTextField('source-phone', source.phone);
+              selectOption('source-race', source.race);
+              selectOption('source-ethnicity', source.ethnicity);
+              selectOption('source-gender', source.gender);
+              selectOption('source-sexual-orientation', source.sexual_orientation);
+              selectOption('source-age', source.age);
+              selectOption('source-role', source.role);
+            }
         }
+
         if (documentType === "page" && data.data.pages[0]) {
           typeHiddenField.value = documentType;
           pageId = data.data.pages[0].id;
@@ -864,6 +904,14 @@
               </label>
             </div>
           </div>
+
+          <div class="block">
+            <p>
+              Add another source (to-do)
+            </p>
+          </div>
+
+          <hr class="block" />
 
           <div class="block" id="action-buttons-bottom">
             <input type="submit" name="preview" id="preview-button-bottom" class="blue" value="Preview" onclick="this.form.submitted=this.value;"/>

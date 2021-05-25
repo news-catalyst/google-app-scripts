@@ -404,7 +404,8 @@ function insertArticleGoogleDocs(data) {
     "locale_code": data['article-locale'],
     "headline": data['article-headline'],
     "published": data['published'],
-    "content": content,
+    // TODO DON'T FORGET TO UNCOMMENT THE ARTICLE CONTENT!
+    // "content": content,
     "search_description": data['article-search-description'],
     "search_title": data['article-search-title'],
     "twitter_title": data['article-twitter-title'],
@@ -414,8 +415,32 @@ function insertArticleGoogleDocs(data) {
     "custom_byline": data['article-custom-byline'],
     "created_by_email": data['created_by_email'],
   };
-  Logger.log("article data:" + JSON.stringify(articleData));
 
+  if (data["source-name"]) {
+    // let sources = [];
+    let source = {
+      name: data['source-name'],
+      affiliation: data['source-affiliation'],
+      age: data['source-age'],
+      email: data['source-email'],
+      ethnicity: data['source-ethnicity'],
+      gender: data['source-gender'],
+      phone: data['source-phone'],
+      race: data['source-race'],
+      role: data['source-role'],
+      sexual_orientation: data['source-sexual-orientation'],
+      zip: data['source-zip']
+    }
+    // sources.push(source);
+    articleData["article_sources"] = {
+      "data": {
+         "source": { "data": source }
+      }
+    };
+    Logger.log("pushed sources onto article data:" + JSON.stringify(source));
+  }
+
+  Logger.log("article data:" + JSON.stringify(articleData));
   if (data["article-id"] === "") {
     // articleData.delete("id")
     return fetchGraphQL(
@@ -786,6 +811,8 @@ async function hasuraHandlePreview(formObject) {
   } else {
     documentType = "article";
     // insert or update article
+    Logger.log("formObject:" + JSON.stringify(formObject));
+
     var data = await insertArticleGoogleDocs(formObject);
     Logger.log("articleResult: " + JSON.stringify(data))
     var articleID = data.data.insert_articles.returning[0].id;
