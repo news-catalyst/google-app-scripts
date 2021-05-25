@@ -741,6 +741,130 @@
             </label>
             <textarea id="article-twitter-description" name="article-twitter-description"></textarea>
           </div>
+
+          <div id="source-tracking-form">
+            <h2 class="title">Source Tracking</h2>
+            <div class="block form-group">
+              <label for="source-name">
+                <b>Name</b>
+              </label>
+              <input id="source-name" name="source-name" type="text" />
+            </div>
+            <div class="block form-group">
+              <label for="source-affiliation">
+                <b>Affiliation</b>
+              </label>
+              <input id="source-affiliation" name="source-affiliation" type="text" />
+            </div>
+            <div class="block form-group">
+              <label for="source-race">
+                <b>Race</b>
+                <select style="width: 100%" id="source-race" name="source-race">
+                  <option value="" disabled selected>Please choose</option>
+                  <option value="White">White</option>
+                  <option value="Black or African-American">Black or African-American</option>
+                  <option value="American Indian or Alaskan Native">American Indian or Alaskan Native</option>
+                  <option value="Asian">Asian</option>
+                  <option value="Native Hawaiian or other Pacific Islander">Native Hawaiian or other Pacific Islander</option>
+                  <option value="From multiple races">From multiple races</option>
+                  <option value="Prefer to self-describe">Prefer to self-describe</option>
+                  <option value="Prefer not to say">Prefer not to say</option>
+                </select>
+              </label>
+            </div>
+            <div class="block form-group">
+              <label for="source-ethnicity">
+                <b>Ethnicity</b>
+                <select style="width: 100%" id="source-ethnicity" name="source-ethnicity">
+                  <option value="" disabled selected>Please choose</option>
+                  <option value="African, African-American">African, African-American</option>
+                  <option value="Asian, Asian-American">Asian, Asian-American</option>
+                  <option value="European, European-American (Caucasian)">European, European-American (Caucasian)</option>
+                  <option value="Latino, Latino-American, Chicano">Latino, Latino-American, Chicano</option>
+                  <option value="Native American or Alaska Native">Native American or Alaska Native</option>
+                  <option value="Middle Eastern">Middle Eastern</option>
+                  <option value="Multiethnic">Multiethnic</option>
+                  <option value="Prefer to self-describe">Prefer to self-describe</option>
+                  <option value="Prefer not to say">Prefer not to say</option>
+                </select>
+              </label>
+            </div>
+            <div class="block form-group">
+              <label for="source-gender">
+                <b>Gender</b>
+                <select style="width: 100%" id="source-gender" name="source-gender">
+                  <option value="" disabled selected>Please choose</option>
+                  <option value="Female">Female</option>
+                  <option value="Male">Male</option>
+                  <option value="Non-binary/third gender">Non-binary/third gender</option>
+                  <option value="Transgender">Transgender</option>
+                  <option value="Agender">Agender</option>
+                  <option value="Genderqueer">Genderqueer</option>
+                  <option value="Prefer to self-describe">Prefer to self-describe</option>
+                  <option value="Prefer not to say">Prefer not to say</option>
+                </select>
+              </label>
+            </div>
+            <div class="block form-group">
+              <label for="source-sexual-orientation">
+                <b>Sexual Orientation</b>
+                <select style="width: 100%" id="source-sexual-orientation" name="source-sexual-orientation">
+                  <option value="" disabled selected>Please choose</option>
+                  <option value="Straight/Heterosexual">Straight/Heterosexual</option>
+                  <option value="Gay or Lesbian">Gay or Lesbian</option>
+                  <option value="Bisexual">Bisexual</option>
+                  <option value="Queer">Queer</option>
+                  <option value="Asexual">Asexual</option>
+                  <option value="Prefer to self-describe">Prefer to self-describe</option>
+                  <option value="Prefer not to say">Prefer not to say</option>
+                </select>
+              </label>
+            </div>
+            <div class="block form-group">
+              <label for="source-age">
+                <b>Age</b>
+                <select style="width: 100%" id="source-age" name="source-age">
+                  <option value="" disabled selected>Please choose</option>
+                  <option value="18-20">18-20</option>
+                  <option value="21-29">21-29</option>
+                  <option value="30-39">30-39</option>
+                  <option value="40-49">40-49</option>
+                  <option value="50-59">50-59</option>
+                  <option value="60 or older">60 or older</option>
+                </select>
+              </label>
+            </div>
+            <div class="block form-group">
+              <label for="source-zip-code">
+                <b>Zip Code</b>
+              </label>
+              <input id="source-zip-code" name="source-zip-code" type="text" />
+            </div>
+            <div class="block form-group">
+              <label for="source-email">
+                <b>Contact email address</b>
+              </label>
+              <input id="source-email" name="source-email" type="text" />
+            </div>
+            <div class="block form-group">
+              <label for="source-phone">
+                <b>Contact phone number</b>
+              </label>
+              <input id="source-phone" name="source-phone" type="text" />
+            </div>
+            <div class="block form-group">
+              <label for="source-role">
+                <b>Role in story</b>
+                <select style="width: 100%" id="source-role" name="source-role">
+                  <option value="" disabled selected>Please choose</option>
+                  <option value="Quoted">Quoted</option>
+                  <option value="Mentioned">Mentioned</option>
+                  <option value="Background">Background</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
           <div class="block" id="action-buttons-bottom">
             <input type="submit" name="preview" id="preview-button-bottom" class="blue" value="Preview" onclick="this.form.submitted=this.value;"/>
             <input type="submit" class="blue" id="publish-button-bottom" value="Publish" onclick="this.form.submitted=this.value;"/>
