@@ -404,7 +404,7 @@ function insertArticleGoogleDocs(data) {
     "locale_code": data['article-locale'],
     "headline": data['article-headline'],
     "published": data['published'],
-    "content": content,
+    // "content": content,
     "search_description": data['article-search-description'],
     "search_title": data['article-search-title'],
     "twitter_title": data['article-twitter-title'],
@@ -415,25 +415,64 @@ function insertArticleGoogleDocs(data) {
     "created_by_email": data['created_by_email'],
   };
 
-  let source = {};
+  let sources = {};
   
   Object.keys(data).forEach(key => {
     let keyMatch = key.match(/source\[(.*?)\]\.(.*?)$/);
     if (keyMatch) {
-      Logger.log(key, JSON.stringify(keyMatch));
       var id = keyMatch[1];
       var fieldName = keyMatch[2];
       var val = data[key];
 
-      source["id"] = id;
-      source[fieldName] = val;
-      Logger.log("id #" + id + ": " + fieldName + " => " + val);
+      if (sources[id] === null || sources[id] === undefined) {
+        if (id === null || id === "" || id === undefined) {
+          sources[id] = {};
+        } else {
+          sources[id] = {id: id};
+        }
+        sources[id][fieldName] = val;
+      }
+      sources[id][fieldName] = val;
+      // Logger.log("id #" + id + ": " + fieldName + " => " + val);
     }
   })
 
-  if (source !== {} && Object.keys(source).length > 0) {
-    articleData["article_sources"] = source;
-    Logger.log("pushed sources onto article data:" + JSON.stringify(source));
+  var dataSources = [];
+  if (sources !== {} && Object.keys(sources).length > 0) {
+    Object.keys(sources).forEach(id => {
+      Logger.log("id: " + typeof(id) + " -> " + id)
+      var source = sources[id];
+
+      var sourceData = {
+        name: source['name'],
+        affiliation: source['affiliation'],
+        race: source['race'],
+        ethnicity: source['ethnicity'],
+        age: source['age'],
+        gender: source['gender'],
+        phone: source['phone'],
+        email: source['email'],
+        zip: source['zip'],
+        sexual_orientation: source['sexual_orientation'],
+        role: source['role'],
+      };
+
+      if (id !== null && id !== undefined && id !== "") {
+        sourceData["id"] = parseInt(id);
+      }
+
+      dataSources.push({
+        source: {
+          data: sourceData,
+          on_conflict: {
+            constraint: "sources_pkey", 
+            update_columns: ["name", "affiliation", "age", "phone", "zip", "race", "gender", "sexual_orientation", "ethnicity", "role", "email"]
+          }
+        }
+      })
+    })
+    articleData["article_sources"] =  dataSources;
+    Logger.log("pushed sources onto article data:" + JSON.stringify(articleData['article_sources']));
   }
 
   Logger.log("article data:" + JSON.stringify(articleData));

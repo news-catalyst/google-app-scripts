@@ -379,7 +379,13 @@
       }
 
       function createTextInputDiv(id, label, name, value) {
-        var fieldName = "source[" + id + "]." + name;
+        var fieldName;
+        if (id === null) {
+          fieldName = "source[]." + name;
+        } else {
+          fieldName = "source[" + id + "]." + name;
+        }
+
         var div = document.createElement("div");
         div.class = "block form-group"
         var labelTag = document.createElement("label");
@@ -395,7 +401,12 @@
       }
 
       function createSelectDiv(id, label, name, value, choices) {
-        var fieldName = "source[" + id + "]." + name;
+        var fieldName;
+        if (id === null) {
+          fieldName = "source[]." + name;
+        } else {
+          fieldName = "source[" + id + "]." + name;
+        }
 
         var div = document.createElement("div");
         div.class = "block form-group"
@@ -469,6 +480,104 @@
               localeCode = data.data.articles[0].article_google_documents[0].google_document.locale_code;
             }
 
+            // first add an empty set of form fields to the top of the sources-container
+            var sourceContainer = document.getElementById('sources-container');
+            var nameDiv = createTextInputDiv(null, "Name", "name", "");
+            sourceContainer.appendChild(nameDiv);
+
+            var affDiv = createTextInputDiv(null, "Affiliation", "affiliation", "");
+            sourceContainer.appendChild(affDiv);
+
+            var races = [
+              "White",
+              "Black or African-American",
+              "American Indian or Alaskan Native",
+              "Asian",
+              "Native Hawaiian or other Pacific Islander",
+              "From multiple races",
+              "Prefer to self-describe",
+              "Prefer not to say"
+            ];
+            var raceDiv = createSelectDiv(null, "Race", "race", null, races);
+            sourceContainer.appendChild(raceDiv);
+
+            var ethnicities = [
+              "African, African-American",
+              "Asian, Asian-American",
+              "European, European-American (Caucasian)",
+              "Latino, Latino-American, Chicano",
+              "Native American or Alaska Native",
+              "Middle Eastern",
+              "Multiethnic",
+              "Prefer to self-describe",
+              "Prefer not to say"
+            ];
+
+            var ethnicityDiv = createSelectDiv(null, "Ethnicity", "ethnicity", null, ethnicities);
+            sourceContainer.appendChild(ethnicityDiv);
+
+            var genders = [
+              "Female",
+              "Male",
+              "Non-binary/third gender",
+              "Transgender",
+              "Agender",
+              "Genderqueer",
+              "Prefer to self-describe",
+              "Prefer not to say"
+            ];
+
+            var genderDiv = createSelectDiv(null, "Gender", "gender", null, genders);
+            sourceContainer.appendChild(genderDiv);
+
+            var sexOrientations = [
+              "Straight/Heterosexual",
+              "Gay or Lesbian",
+              "Bisexual",
+              "Queer",
+              "Asexual",
+              "Prefer to self-describe",
+              "Prefer not to say"
+            ];
+
+            var sexOrientationDiv = createSelectDiv(null, 'Sexual Orientation', "sexual_orientation", null, sexOrientations);
+            sourceContainer.appendChild(sexOrientationDiv);
+
+            var ages = [
+              "18-20",
+              "21-29",
+              "30-39",
+              "40-49",
+              "50-59",
+              "60 or older"
+            ];
+
+            var ageDiv = createSelectDiv(null, "Age", "age", null, ages);
+            sourceContainer.appendChild(ageDiv);
+
+            var zipDiv = createTextInputDiv(null, "Zip Code", "zip", "");
+            sourceContainer.appendChild(zipDiv);
+
+            var emailDiv = createTextInputDiv(null, "Contact Email Address", "email", "");
+            sourceContainer.appendChild(emailDiv);
+
+            var phoneDiv = createTextInputDiv(null, "Contact Phone Number", "phone", "");
+            sourceContainer.appendChild(phoneDiv);
+
+            var roles = [
+              "Quoted",
+              "Mentioned",
+              "Background"
+            ];
+
+            var roleDiv = createSelectDiv(null, "Role", "role", null, roles);
+            sourceContainer.appendChild(roleDiv);
+
+            var dividerLine = document.createElement("hr");
+            dividerLine.setAttribute("width", "100%");
+            sourceContainer.appendChild(dividerLine);
+
+            // then loop over existing sources and render the filled-in set of form fields
             if (
               data.data.articles[0] &&
               data.data.articles[0].article_sources
@@ -479,75 +588,24 @@
                   var source = sourceData.source;
                   console.log("found source id# " + source.id);
 
-                  var sourceContainer = document.getElementById('sources-container');
-
                   var nameDiv = createTextInputDiv(source.id, "Name", "name", source.name);
                   sourceContainer.appendChild(nameDiv);
 
                   var affDiv = createTextInputDiv(source.id, "Affiliation", "affiliation", source.affiliation);
                   sourceContainer.appendChild(affDiv);
 
-                  var races = [
-                    "White",
-                    "Black or African-American",
-                    "American Indian or Alaskan Native",
-                    "Asian",
-                    "Native Hawaiian or other Pacific Islander",
-                    "From multiple races",
-                    "Prefer to self-describe",
-                    "Prefer not to say"
-                  ];
-
                   var raceDiv = createSelectDiv(source.id, "Race", "race", source.race, races);
                   sourceContainer.appendChild(raceDiv);
 
-                  var ethnicities = [
-                    "African, African-American",
-                    "Asian, Asian-American",
-                    "European, European-American (Caucasian)",
-                    "Latino, Latino-American, Chicano",
-                    "Native American or Alaska Native",
-                    "Middle Eastern",
-                    "Multiethnic",
-                    "Prefer to self-describe",
-                    "Prefer not to say"
-                  ];
                   var ethnicityDiv = createSelectDiv(source.id, "Ethnicity", "ethnicity", source.ethnicity, ethnicities);
                   sourceContainer.appendChild(ethnicityDiv);
 
-                  var genders = [
-                    "Female",
-                    "Male",
-                    "Non-binary/third gender",
-                    "Transgender",
-                    "Agender",
-                    "Genderqueer",
-                    "Prefer to self-describe",
-                    "Prefer not to say"
-                  ];
                   var genderDiv = createSelectDiv(source.id, "Gender", "gender", source.gender, genders);
                   sourceContainer.appendChild(genderDiv);
 
-                  var sexOrientations = [
-                    "Straight/Heterosexual",
-                    "Gay or Lesbian",
-                    "Bisexual",
-                    "Queer",
-                    "Asexual",
-                    "Prefer to self-describe",
-                    "Prefer not to say"
-                  ];
                   var sexOrientationDiv = createSelectDiv(source.id, 'Sexual Orientation', "sexual_orientation", source.sexual_orientation, sexOrientations);
                   sourceContainer.appendChild(sexOrientationDiv);
 
-                  var ages = [
-                    "18-20",
-                    "21-29",
-                    "30-39",
-                    "40-49",
-                    "50-59",
-                    "60 or older"
-                  ];
                   var ageDiv = createSelectDiv(source.id, "Age", "age", source.age, ages);
                   sourceContainer.appendChild(ageDiv);
 
@@ -560,11 +618,6 @@
                   var phoneDiv = createTextInputDiv(source.id, "Contact Phone Number", "phone", source.phone);
                   sourceContainer.appendChild(phoneDiv);
 
-                  var roles = [
-                    "Quoted",
-                    "Mentioned",
-                    "Background"
-                  ];
                   var roleDiv = createSelectDiv(source.id, "Role", "role", source.role, roles);
                   sourceContainer.appendChild(roleDiv);
                 });

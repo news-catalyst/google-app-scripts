@@ -129,7 +129,7 @@ const insertArticleGoogleDocMutationWithoutId = `mutation MyMutation($locale_cod
   }
 }`;
 const insertArticleGoogleDocMutation = `mutation MyMutation($id: Int!, $locale_code: String!, $headline: String!, $created_by_email: String, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, 
-  $article_sources: sources_insert_input!) {
+  $article_sources: [article_source_insert_input!]!) {
   insert_articles(
     objects: {
       article_translations: {
@@ -138,15 +138,7 @@ const insertArticleGoogleDocMutation = `mutation MyMutation($id: Int!, $locale_c
         }
       }, 
       article_sources: {
-        data: {
-          source: {
-            data: $article_sources, 
-            on_conflict: {
-              constraint: sources_pkey, 
-              update_columns: [name, affiliation, age, phone, zip, race, gender, sexual_orientation, ethnicity, role, email]
-            }
-          }
-        },
+        data: $article_sources,
         on_conflict: {constraint: article_source_article_id_source_id_key, update_columns: article_id}
       },
       category_id: $category_id, 
