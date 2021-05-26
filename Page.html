@@ -25,6 +25,18 @@
         }
       }
 
+      function addAnotherSource() {
+        var container = document.getElementById('sources-container')
+
+        container.appendChild(document.createTextNode("Source: "));
+        // Create an <input> element, set its type and name attributes
+        var input = document.createElement("input");
+        input.type = "text";
+        input.name = "source[].name";
+        container.appendChild(input);
+        // Append a line break 
+      }
+
       function displayCategories(categories, selectedCategory) {
         var articleCategorySelect = document.getElementById('article-category');
         var categoriesSorted = categories.sort(function (a, b) {
@@ -373,6 +385,57 @@
         }
       }
 
+      function createTextInputDiv(id, name, value) {
+        var fieldName = "source[" + id + "].name";
+        var div = document.createElement("div");
+        div.class = "block form-group"
+        var label = document.createElement("label");
+        label.setAttribute("for", fieldName);
+        label.innerHTML = "<b>" + name + ":</b>";
+        div.appendChild(label);
+        var input = document.createElement("input");
+        input.type = "text";
+        input.name = fieldName;
+        input.value = value;
+        div.appendChild(input);
+        return div
+      }
+
+      function createSelectDiv(id, name, value, choices) {
+        var fieldName = "source[" + id + "]." + name;
+
+        var div = document.createElement("div");
+        div.class = "block form-group"
+
+        var label = document.createElement("label");
+        label.setAttribute("for", fieldName);
+        label.innerHTML = "<b>" + name + ":</b>";
+        div.appendChild(label);
+
+        var select = document.createElement("select");
+        select.style = "width: 100%";
+        select.name = fieldName;
+
+        var pleaseChooseOption = document.createElement("option");
+        pleaseChooseOption.setAttribute("disabled", "");
+        pleaseChooseOption.setAttribute("selected", "");
+        pleaseChooseOption.value = "";
+        select.appendChild(pleaseChooseOption);
+
+        choices.forEach(choice => {
+          var option = document.createElement("option");
+          option.value = choice;
+          option.innerHTML = choice;
+          if (value === choice) {
+            option.selected = "selected";
+          }
+          select.appendChild(option);
+        })
+        div.appendChild(select);
+
+        return div;
+      }
+
       function selectOption(fieldName, fieldValue) {
         var field = document.getElementById(fieldName);
         var opts = field.options;
@@ -415,24 +478,116 @@
 
             if (
               data.data.articles[0] &&
-              data.data.articles[0].article_sources &&
-              data.data.articles[0].article_sources[0] &&
-              data.data.articles[0].article_sources[0].source
+              data.data.articles[0].article_sources
               ) {
-              var source = data.data.articles[0].article_sources[0].source;
-              console.log("found source: ", source);
-              fillInTextField('source-id', source.id);
-              fillInTextField('source-name', source.name);
-              fillInTextField('source-affiliation', source.affiliation);
-              fillInTextField('source-zip-code', source.zip);
-              fillInTextField('source-email', source.email);
-              fillInTextField('source-phone', source.phone);
-              selectOption('source-race', source.race);
-              selectOption('source-ethnicity', source.ethnicity);
-              selectOption('source-gender', source.gender);
-              selectOption('source-sexual-orientation', source.sexual_orientation);
-              selectOption('source-age', source.age);
-              selectOption('source-role', source.role);
+                var sources = data.data.articles[0].article_sources;
+                console.log("found " + sources.length + " sources");
+                sources.forEach(sourceData => {
+                  var source = sourceData.source;
+                  console.log("found source id# " + source.id);
+
+                  var sourceContainer = document.getElementById('sources-container');
+
+                  var nameDiv = createTextInputDiv(source.id, "name", source.name);
+                  sourceContainer.appendChild(nameDiv);
+
+                  var affDiv = createTextInputDiv(source.id, "affiliation", source.affiliation);
+                  sourceContainer.appendChild(affDiv);
+
+                  var races = [
+                    "White",
+                    "Black or African-American",
+                    "American Indian or Alaskan Native",
+                    "Asian",
+                    "Native Hawaiian or other Pacific Islander",
+                    "From multiple races",
+                    "Prefer to self-describe",
+                    "Prefer not to say"
+                  ];
+
+                  var raceDiv = createSelectDiv(source.id, "race", source.race, races);
+                  sourceContainer.appendChild(raceDiv);
+
+                  var ethnicities = [
+                    "African, African-American",
+                    "Asian, Asian-American",
+                    "European, European-American (Caucasian)",
+                    "Latino, Latino-American, Chicano",
+                    "Native American or Alaska Native",
+                    "Middle Eastern",
+                    "Multiethnic",
+                    "Prefer to self-describe",
+                    "Prefer not to say"
+                  ];
+                  var ethnicityDiv = createSelectDiv(source.id, "ethnicity", source.ethnicity, ethnicities);
+                  sourceContainer.appendChild(ethnicityDiv);
+
+                  var genders = [
+                    "Female",
+                    "Male",
+                    "Non-binary/third gender",
+                    "Transgender",
+                    "Agender",
+                    "Genderqueer",
+                    "Prefer to self-describe",
+                    "Prefer not to say"
+                  ];
+                  var genderDiv = createSelectDiv(source.id, "gender", source.gender, genders);
+                  sourceContainer.appendChild(genderDiv);
+
+                  var sexOrientations = [
+                    "Straight/Heterosexual",
+                    "Gay or Lesbian",
+                    "Bisexual",
+                    "Queer",
+                    "Asexual",
+                    "Prefer to self-describe",
+                    "Prefer not to say"
+                  ];
+                  var sexOrientationDiv = createSelectDiv(source.id, "sexual_orientation", source.sexual_orientation, sexOrientations);
+                  sourceContainer.appendChild(sexOrientationDiv);
+
+                  var ages = [
+                    "18-20",
+                    "21-29",
+                    "30-39",
+                    "40-49",
+                    "50-59",
+                    "60 or older"
+                  ];
+                  var ageDiv = createSelectDiv(source.id, "age", source.age, ages);
+                  sourceContainer.appendChild(ageDiv);
+
+                  var zipDiv = createTextInputDiv(source.id, "zip", source.zip);
+                  sourceContainer.appendChild(zipDiv);
+
+                  var emailDiv = createTextInputDiv(source.id, "email", source.email);
+                  sourceContainer.appendChild(emailDiv);
+
+                  var phoneDiv = createTextInputDiv(source.id, "phone", source.phone);
+                  sourceContainer.appendChild(phoneDiv);
+
+                  var roles = [
+                    "Quoted",
+                    "Mentioned",
+                    "Background"
+                  ];
+                  var roleDiv = createSelectDiv(source.id, "role", source.role, roles);
+                  sourceContainer.appendChild(roleDiv);
+
+                  // fillInTextField('source-id', source.id);
+                  // fillInTextField('source-name', source.name);
+                  // fillInTextField('source-affiliation', source.affiliation);
+                  // fillInTextField('source-zip-code', source.zip);
+                  // fillInTextField('source-email', source.email);
+                  // fillInTextField('source-phone', source.phone);
+                  // selectOption('source-race', source.race);
+                  // selectOption('source-ethnicity', source.ethnicity);
+                  // selectOption('source-gender', source.gender);
+                  // selectOption('source-sexual-orientation', source.sexual_orientation);
+                  // selectOption('source-age', source.age);
+                  // selectOption('source-role', source.role);
+                });
             }
         }
 
@@ -783,6 +938,10 @@
             <textarea id="article-twitter-description" name="article-twitter-description"></textarea>
           </div>
 
+          <div id="sources-container" class="articles-only">
+            <h2 class="title">Source Tracking</h2>
+          </div>
+
           <div id="source-tracking-form" class="articles-only">
             <h2 class="title">Source Tracking</h2>
             <div class="block form-group">
@@ -909,7 +1068,7 @@
 
           <div class="block">
             <p>
-              Add another source (to-do)
+              <button id="add-another-source" onClick="addAnotherSource()">Add another source</button>
             </p>
           </div>
 
