@@ -415,23 +415,23 @@ function insertArticleGoogleDocs(data) {
     "created_by_email": data['created_by_email'],
   };
 
-  if (data["source-name"]) {
-    let source = {
-      name: data['source-name'],
-      affiliation: data['source-affiliation'],
-      age: data['source-age'],
-      email: data['source-email'],
-      ethnicity: data['source-ethnicity'],
-      gender: data['source-gender'],
-      phone: data['source-phone'],
-      race: data['source-race'],
-      role: data['source-role'],
-      sexual_orientation: data['source-sexual-orientation'],
-      zip: data['source-zip']
+  let source = {};
+  
+  Object.keys(data).forEach(key => {
+    let keyMatch = key.match(/source\[(.*?)\]\.(.*?)$/);
+    if (keyMatch) {
+      Logger.log(key, JSON.stringify(keyMatch));
+      var id = keyMatch[1];
+      var fieldName = keyMatch[2];
+      var val = data[key];
+
+      source["id"] = id;
+      source[fieldName] = val;
+      Logger.log("id #" + id + ": " + fieldName + " => " + val);
     }
-    if (data['source-id']) {
-      source.id = data['source-id'];
-    }
+  })
+
+  if (source !== {} && Object.keys(source).length > 0) {
     articleData["article_sources"] = source;
     Logger.log("pushed sources onto article data:" + JSON.stringify(source));
   }

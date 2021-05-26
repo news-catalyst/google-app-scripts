@@ -146,7 +146,8 @@ const insertArticleGoogleDocMutation = `mutation MyMutation($id: Int!, $locale_c
               update_columns: [name, affiliation, age, phone, zip, race, gender, sexual_orientation, ethnicity, role, email]
             }
           }
-        }
+        },
+        on_conflict: {constraint: article_source_article_id_source_id_key, update_columns: article_id}
       },
       category_id: $category_id, 
       id: $id, 
