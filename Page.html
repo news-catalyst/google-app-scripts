@@ -780,6 +780,40 @@
         var searchDescription = document.getElementById('article-search-description');
 
         if (documentType === "article")  {
+          var elements = formObject.elements;
+
+          // build up an object with source data
+          // keys are source ids
+          var sources = {};
+          for (var i = 0, element; element = elements[i++];) {
+            var elementMatch = element.name.match(/source\[(.*?)\]\.(.*?)$/);
+            if (elementMatch) {
+              var id = elementMatch[1];
+              if (sources[id] === undefined) {
+                sources[id] = {};
+              }
+              var fieldName = elementMatch[2];
+              var value = element.value;
+              console.log(id, fieldName, value);
+
+              sources[id][fieldName] = value
+            }
+          }
+
+          // loop over sources and check that each has either an email or phone specified
+          Object.keys(sources).forEach(id => {
+            var email = sources[id]['email'];
+            var phone = sources[id]['phone'];
+            var name = sources[id]['name'];
+            
+            if (name && (phone || email)) {
+              console.log(name, "has a phone or email:", phone, email);
+            } else {
+              errorMessage += "<br>All sources must have either a phone or email.";
+              formIsValid = false;
+            }
+          })
+
           var selectedAuthors = $('#article-authors').select2('data')
           var customByline = document.getElementById("article-custom-byline").value;
           if ( (selectedAuthors === undefined || selectedAuthors.length <= 0) && ( customByline === null || customByline === undefined || customByline === "") ) {
