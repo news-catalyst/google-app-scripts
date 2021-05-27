@@ -404,7 +404,7 @@ function insertArticleGoogleDocs(data) {
     "locale_code": data['article-locale'],
     "headline": data['article-headline'],
     "published": data['published'],
-    "content": content,
+    // "content": content,
     "search_description": data['article-search-description'],
     "search_title": data['article-search-title'],
     "twitter_title": data['article-twitter-title'],
@@ -414,10 +414,72 @@ function insertArticleGoogleDocs(data) {
     "custom_byline": data['article-custom-byline'],
     "created_by_email": data['created_by_email'],
   };
-  Logger.log("article data:" + JSON.stringify(articleData));
 
+  let sources = {};
+  
+  Object.keys(data).forEach(key => {
+    let keyMatch = key.match(/source\[(.*?)\]\.(.*?)$/);
+    if (keyMatch) {
+      var id = keyMatch[1];
+      var fieldName = keyMatch[2];
+      var val = data[key];
+
+      if (/new_/.test(id)) {
+        Logger.log("new source! " + id);
+      }
+      if (sources[id] === null || sources[id] === undefined) {
+        if (id === null || id === "" || id === undefined || /new_/.test(id)) {
+          sources[id] = {};
+        } else { // don't set the id for a new source
+          sources[id] = {id: id};
+        }
+        sources[id][fieldName] = val;
+      }
+      sources[id][fieldName] = val;
+      // Logger.log("id #" + id + ": " + fieldName + " => " + val);
+    }
+  })
+
+  var dataSources = [];
+  if (sources !== {} && Object.keys(sources).length > 0) {
+    Object.keys(sources).forEach(id => {
+      Logger.log("id: " + typeof(id) + " -> " + id)
+      var source = sources[id];
+
+      var sourceData = {
+        name: source['name'],
+        affiliation: source['affiliation'],
+        race: source['race'],
+        ethnicity: source['ethnicity'],
+        age: source['age'],
+        gender: source['gender'],
+        phone: source['phone'],
+        email: source['email'],
+        zip: source['zip'],
+        sexual_orientation: source['sexual_orientation'],
+        role: source['role'],
+      };
+
+      if (id !== null && id !== undefined && id !== "" && !(/new_/.test(id))) {
+        sourceData["id"] = parseInt(id);
+      }
+
+      dataSources.push({
+        source: {
+          data: sourceData,
+          on_conflict: {
+            constraint: "sources_pkey", 
+            update_columns: ["name", "affiliation", "age", "phone", "zip", "race", "gender", "sexual_orientation", "ethnicity", "role", "email"]
+          }
+        }
+      })
+    })
+    articleData["article_sources"] =  dataSources;
+    Logger.log("pushed sources onto article data:" + JSON.stringify(articleData['article_sources']));
+  }
+
+  Logger.log("article data:" + JSON.stringify(articleData));
   if (data["article-id"] === "") {
-    // articleData.delete("id")
     return fetchGraphQL(
       insertArticleGoogleDocMutationWithoutId,
       "MyMutation",
@@ -786,6 +848,8 @@ async function hasuraHandlePreview(formObject) {
   } else {
     documentType = "article";
     // insert or update article
+    Logger.log("formObject:" + JSON.stringify(formObject));
+
     var data = await insertArticleGoogleDocs(formObject);
     Logger.log("articleResult: " + JSON.stringify(data))
     var articleID = data.data.insert_articles.returning[0].id;
