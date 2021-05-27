@@ -25,18 +25,6 @@
         }
       }
 
-      function addAnotherSource() {
-        var container = document.getElementById('sources-container')
-
-        container.appendChild(document.createTextNode("Source: "));
-        // Create an <input> element, set its type and name attributes
-        var input = document.createElement("input");
-        input.type = "text";
-        input.name = "source[].name";
-        container.appendChild(input);
-        // Append a line break 
-      }
-
       function displayCategories(categories, selectedCategory) {
         var articleCategorySelect = document.getElementById('article-category');
         var categoriesSorted = categories.sort(function (a, b) {
@@ -451,6 +439,132 @@
         }
       }
 
+      function addAnotherSourceForm() {
+        // determine how many new field sets there are
+        // call addAnotherSource with the right id
+
+        var blankSource = {
+          name: "",
+          race: "",
+          zip: "",
+          affiliation: "",
+          phone: "",
+          email: "",
+          gender: "",
+          sexual_orientation: "",
+          ethnicity: "",
+          role: "",
+          age: ""
+        }
+
+        var counterField = document.getElementById("source-tracking-counter");
+        console.log("counter is currently: ", counterField.value, parseInt(counterField.value));
+        var newCount = parseInt(counterField.value) + 1;
+        counterField.value = newCount;
+        var newId = "new_" + newCount;
+        console.log("adding new source with id", newId)
+        addAnotherSource(newId, blankSource);
+
+      }
+
+      function addAnotherSource(id, data) {
+        var sourceContainer = document.getElementById('sources-container');
+        var nameDiv = createTextInputDiv(id, "Name", "name", data.name);
+        sourceContainer.appendChild(nameDiv);
+
+        var affDiv = createTextInputDiv(id, "Affiliation", "affiliation", data.affiliation)
+        sourceContainer.appendChild(affDiv);
+
+        var races = [
+          "White",
+          "Black or African-American",
+          "American Indian or Alaskan Native",
+          "Asian",
+          "Native Hawaiian or other Pacific Islander",
+          "From multiple races",
+          "Prefer to self-describe",
+          "Prefer not to say"
+        ];
+        var raceDiv = createSelectDiv(id, "Race", "race", data.race, races);
+        sourceContainer.appendChild(raceDiv);
+
+        var ethnicities = [
+          "African, African-American",
+          "Asian, Asian-American",
+          "European, European-American (Caucasian)",
+          "Latino, Latino-American, Chicano",
+          "Native American or Alaska Native",
+          "Middle Eastern",
+          "Multiethnic",
+          "Prefer to self-describe",
+          "Prefer not to say"
+        ];
+
+        var ethnicityDiv = createSelectDiv(id, "Ethnicity", "ethnicity", data.ethnicity, ethnicities);
+        sourceContainer.appendChild(ethnicityDiv);
+
+        var genders = [
+          "Female",
+          "Male",
+          "Non-binary/third gender",
+          "Transgender",
+          "Agender",
+          "Genderqueer",
+          "Prefer to self-describe",
+          "Prefer not to say"
+        ];
+
+        var genderDiv = createSelectDiv(id, "Gender", "gender", data.gender, genders);
+        sourceContainer.appendChild(genderDiv);
+
+        var sexOrientations = [
+          "Straight/Heterosexual",
+          "Gay or Lesbian",
+          "Bisexual",
+          "Queer",
+          "Asexual",
+          "Prefer to self-describe",
+          "Prefer not to say"
+        ];
+
+        var sexOrientationDiv = createSelectDiv(id, 'Sexual Orientation', "sexual_orientation", data.sexual_orientation, sexOrientations);
+        sourceContainer.appendChild(sexOrientationDiv);
+
+        var ages = [
+          "18-20",
+          "21-29",
+          "30-39",
+          "40-49",
+          "50-59",
+          "60 or older"
+        ];
+
+        var ageDiv = createSelectDiv(id, "Age", "age", data.age, ages);
+        sourceContainer.appendChild(ageDiv);
+
+        var zipDiv = createTextInputDiv(id, "Zip Code", "zip", data.zip);
+        sourceContainer.appendChild(zipDiv);
+
+        var emailDiv = createTextInputDiv(id, "Contact Email Address", "email", data.email);
+        sourceContainer.appendChild(emailDiv);
+
+        var phoneDiv = createTextInputDiv(id, "Contact Phone Number", "phone", data.phone);
+        sourceContainer.appendChild(phoneDiv);
+
+        var roles = [
+          "Quoted",
+          "Mentioned",
+          "Background"
+        ];
+
+        var roleDiv = createSelectDiv(id, "Role", "role", data.role, roles);
+        sourceContainer.appendChild(roleDiv);
+
+        var dividerLine = document.createElement("hr");
+        dividerLine.setAttribute("width", "100%");
+        sourceContainer.appendChild(dividerLine);
+      }
+
       function handleGetTranslationsForArticle(data) {
         if (data && data.status === "error") {
           onFailure(data.message);
@@ -480,102 +594,27 @@
               localeCode = data.data.articles[0].article_google_documents[0].google_document.locale_code;
             }
 
-            // first add an empty set of form fields to the top of the sources-container
+            var blankSource = {
+              name: "",
+              race: "",
+              zip: "",
+              affiliation: "",
+              phone: "",
+              email: "",
+              gender: "",
+              sexual_orientation: "",
+              ethnicity: "",
+              role: "",
+              age: ""
+            }
+
             var sourceContainer = document.getElementById('sources-container');
-            var nameDiv = createTextInputDiv(null, "Name", "name", "");
-            sourceContainer.appendChild(nameDiv);
+            var sourcesCounter = 0;
+            sourcesCounter += 1;
 
-            var affDiv = createTextInputDiv(null, "Affiliation", "affiliation", "");
-            sourceContainer.appendChild(affDiv);
-
-            var races = [
-              "White",
-              "Black or African-American",
-              "American Indian or Alaskan Native",
-              "Asian",
-              "Native Hawaiian or other Pacific Islander",
-              "From multiple races",
-              "Prefer to self-describe",
-              "Prefer not to say"
-            ];
-            var raceDiv = createSelectDiv(null, "Race", "race", null, races);
-            sourceContainer.appendChild(raceDiv);
-
-            var ethnicities = [
-              "African, African-American",
-              "Asian, Asian-American",
-              "European, European-American (Caucasian)",
-              "Latino, Latino-American, Chicano",
-              "Native American or Alaska Native",
-              "Middle Eastern",
-              "Multiethnic",
-              "Prefer to self-describe",
-              "Prefer not to say"
-            ];
-
-            var ethnicityDiv = createSelectDiv(null, "Ethnicity", "ethnicity", null, ethnicities);
-            sourceContainer.appendChild(ethnicityDiv);
-
-            var genders = [
-              "Female",
-              "Male",
-              "Non-binary/third gender",
-              "Transgender",
-              "Agender",
-              "Genderqueer",
-              "Prefer to self-describe",
-              "Prefer not to say"
-            ];
-
-            var genderDiv = createSelectDiv(null, "Gender", "gender", null, genders);
-            sourceContainer.appendChild(genderDiv);
-
-            var sexOrientations = [
-              "Straight/Heterosexual",
-              "Gay or Lesbian",
-              "Bisexual",
-              "Queer",
-              "Asexual",
-              "Prefer to self-describe",
-              "Prefer not to say"
-            ];
-
-            var sexOrientationDiv = createSelectDiv(null, 'Sexual Orientation', "sexual_orientation", null, sexOrientations);
-            sourceContainer.appendChild(sexOrientationDiv);
-
-            var ages = [
-              "18-20",
-              "21-29",
-              "30-39",
-              "40-49",
-              "50-59",
-              "60 or older"
-            ];
-
-            var ageDiv = createSelectDiv(null, "Age", "age", null, ages);
-            sourceContainer.appendChild(ageDiv);
-
-            var zipDiv = createTextInputDiv(null, "Zip Code", "zip", "");
-            sourceContainer.appendChild(zipDiv);
-
-            var emailDiv = createTextInputDiv(null, "Contact Email Address", "email", "");
-            sourceContainer.appendChild(emailDiv);
-
-            var phoneDiv = createTextInputDiv(null, "Contact Phone Number", "phone", "");
-            sourceContainer.appendChild(phoneDiv);
-
-            var roles = [
-              "Quoted",
-              "Mentioned",
-              "Background"
-            ];
-
-            var roleDiv = createSelectDiv(null, "Role", "role", null, roles);
-            sourceContainer.appendChild(roleDiv);
-
-            var dividerLine = document.createElement("hr");
-            dividerLine.setAttribute("width", "100%");
-            sourceContainer.appendChild(dividerLine);
+            // first add an empty set of form fields to the top of the sources-container
+            addAnotherSource("new_1", blankSource);
+            sourcesCounter += 1;
 
             // then loop over existing sources and render the filled-in set of form fields
             if (
@@ -585,43 +624,16 @@
                 var sources = data.data.articles[0].article_sources;
                 console.log("found " + sources.length + " sources");
                 sources.forEach(sourceData => {
+                  sourcesCounter += 1;
                   var source = sourceData.source;
                   console.log("found source id# " + source.id);
 
-                  var nameDiv = createTextInputDiv(source.id, "Name", "name", source.name);
-                  sourceContainer.appendChild(nameDiv);
-
-                  var affDiv = createTextInputDiv(source.id, "Affiliation", "affiliation", source.affiliation);
-                  sourceContainer.appendChild(affDiv);
-
-                  var raceDiv = createSelectDiv(source.id, "Race", "race", source.race, races);
-                  sourceContainer.appendChild(raceDiv);
-
-                  var ethnicityDiv = createSelectDiv(source.id, "Ethnicity", "ethnicity", source.ethnicity, ethnicities);
-                  sourceContainer.appendChild(ethnicityDiv);
-
-                  var genderDiv = createSelectDiv(source.id, "Gender", "gender", source.gender, genders);
-                  sourceContainer.appendChild(genderDiv);
-
-                  var sexOrientationDiv = createSelectDiv(source.id, 'Sexual Orientation', "sexual_orientation", source.sexual_orientation, sexOrientations);
-                  sourceContainer.appendChild(sexOrientationDiv);
-
-                  var ageDiv = createSelectDiv(source.id, "Age", "age", source.age, ages);
-                  sourceContainer.appendChild(ageDiv);
-
-                  var zipDiv = createTextInputDiv(source.id, "Zip Code", "zip", source.zip);
-                  sourceContainer.appendChild(zipDiv);
-
-                  var emailDiv = createTextInputDiv(source.id, "Contact Email Address", "email", source.email);
-                  sourceContainer.appendChild(emailDiv);
-
-                  var phoneDiv = createTextInputDiv(source.id, "Contact Phone Number", "phone", source.phone);
-                  sourceContainer.appendChild(phoneDiv);
-
-                  var roleDiv = createSelectDiv(source.id, "Role", "role", source.role, roles);
-                  sourceContainer.appendChild(roleDiv);
+                  addAnotherSource(source.id, source);
                 });
             }
+
+            var counterField = document.getElementById("source-tracking-counter");
+            counterField.value = sourcesCounter;
         }
 
         if (documentType === "page" && data.data.pages[0]) {
@@ -973,11 +985,12 @@
 
           <div id="sources-container" class="articles-only">
             <h2 class="title">Source Tracking</h2>
+            <input type="hidden" name="source-tracking-counter" value="0" id="source-tracking-counter" />
           </div>
 
           <div class="block">
             <p>
-              <button id="add-another-source" onClick="addAnotherSource()">Add another source</button>
+              <button id="add-another-source" name="add-another-source" type="button" onClick="addAnotherSourceForm()">Add another source</button>
             </p>
           </div>
 

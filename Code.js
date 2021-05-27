@@ -424,10 +424,13 @@ function insertArticleGoogleDocs(data) {
       var fieldName = keyMatch[2];
       var val = data[key];
 
+      if (/new_/.test(id)) {
+        Logger.log("new source! " + id);
+      }
       if (sources[id] === null || sources[id] === undefined) {
-        if (id === null || id === "" || id === undefined) {
+        if (id === null || id === "" || id === undefined || /new_/.test(id)) {
           sources[id] = {};
-        } else {
+        } else { // don't set the id for a new source
           sources[id] = {id: id};
         }
         sources[id][fieldName] = val;
@@ -457,7 +460,7 @@ function insertArticleGoogleDocs(data) {
         role: source['role'],
       };
 
-      if (id !== null && id !== undefined && id !== "") {
+      if (id !== null && id !== undefined && id !== "" && !(/new_/.test(id))) {
         sourceData["id"] = parseInt(id);
       }
 
