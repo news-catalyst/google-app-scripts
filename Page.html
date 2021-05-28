@@ -662,6 +662,7 @@
                   addAnotherSource(source.id, source);
 
                   var sourceListItem = document.createElement("li");
+                  sourceListItem.style.cursor = "pointer";
                   sourceListItem.innerHTML = "<span onClick='expandSource(" + source.id + ")'>" + source.name + "</span>";
                   sourceUnorderedList.appendChild(sourceListItem)
                 });
