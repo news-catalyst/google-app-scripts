@@ -15,7 +15,7 @@ function onInstall(e) {
 function onOpen(e) {
   // display sidebar
   DocumentApp.getUi()
-    .createMenu('TNC Tools')
+    .createMenu('TinyCMS Publishing Tools')
     .addItem('Publishing Tools', 'showSidebar')
     .addItem('Administrator Tools', 'showSidebarManualAssociate')
     .addToUi();
