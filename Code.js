@@ -10,12 +10,12 @@ function onInstall(e) {
  * The event handler triggered when opening the document.
  * @param {Event} e The onOpen event.
  *
- * This adds a "Webiny" menu option.
+ * This adds a "TNC Tools" menu option.
  */
 function onOpen(e) {
   // display sidebar
   DocumentApp.getUi()
-    .createMenu('Webiny')
+    .createMenu('TinyCMS Publishing Tools')
     .addItem('Publishing Tools', 'showSidebar')
     .addItem('Administrator Tools', 'showSidebarManualAssociate')
     .addToUi();
