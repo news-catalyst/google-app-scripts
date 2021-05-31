@@ -663,7 +663,7 @@
 
                   var sourceListItem = document.createElement("li");
                   sourceListItem.style.cursor = "pointer";
-                  sourceListItem.innerHTML = "<span onClick='expandSource(" + source.id + ")'>" + source.name + "</span>";
+                  sourceListItem.innerHTML = "<a onClick='expandSource(" + source.id + ")'>" + source.name + "</a>";
                   sourceUnorderedList.appendChild(sourceListItem)
                 });
             }
@@ -844,11 +844,20 @@
             var phone = sources[id]['phone'];
             var name = sources[id]['name'];
             
-            if (name && (phone || email)) {
-              console.log(name, "has a phone or email:", phone, email);
+            if (/new_/.test(id) && !name && !email && !phone) {
+              console.log(id, " has a blank source form; omit")
+              // remove blank source from the list
+              delete sources[id]
+              console.log(sources);
+
             } else {
-              errorMessage += "<br>All sources must have either a phone or email.";
-              formIsValid = false;
+              if (name && (phone || email)) {
+                console.log(name, "has a phone or email:", phone, email);
+              } else {
+                console.log(id, name, "is missing a phone/email")
+                errorMessage += "<br>All sources must have either a phone or email.";
+                formIsValid = false;
+              }
             }
           })
 
