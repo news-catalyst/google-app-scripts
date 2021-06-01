@@ -451,6 +451,8 @@ function insertArticleGoogleDocs(data) {
     })
     articleData["article_sources"] =  dataSources;
     Logger.log("pushed sources onto article data:" + JSON.stringify(articleData['article_sources']));
+  } else {
+    articleData['article_sources'] = [];
   }
 
   Logger.log("article data:" + JSON.stringify(articleData));
@@ -689,6 +691,7 @@ async function hasuraHandlePublish(formObject) {
     documentType = "article";
     // insert or update article
     var data = await insertArticleGoogleDocs(formObject);
+    console.log(data);
     var articleID = data.data.insert_articles.returning[0].id;
     var categorySlug = data.data.insert_articles.returning[0].category.slug;
     var articleSlug = data.data.insert_articles.returning[0].slug;

@@ -908,6 +908,7 @@
             submitData[key] = value;
           }
         }
+
         submitData["sources"] = sources;
         console.log("submitData:", submitData);
 
@@ -915,8 +916,18 @@
           loadingDiv.innerHTML = "<p class='gray'>Loading preview...</p>"
           google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePreview(submitData);
         } else if ( formIsValid && (formObject.submitted === "Publish") || (formObject.submitted === "Re-publish") ) {
-          loadingDiv.innerHTML = "<p class='gray'>Publishing article... </p>"
-          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(submitData);
+          if ($.isEmptyObject(sources)) {
+            if (!window.confirm("You're trying to publish an article without any source tracking info: are you sure?")) { 
+              form.style.display = "block";
+              loadingDiv.innerHTML = "Please enter source tracking info, then try publishing again.";
+            } else {
+              loadingDiv.innerHTML = "<p class='gray'>Publishing article without any sources... </p>"
+              google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(submitData);
+            }
+          } else {
+            loadingDiv.innerHTML = "<p class='gray'>Publishing article... </p>"
+            google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(submitData);
+          }
         } else if ( formIsValid) {
           loadingDiv.innerHTML = "<p class='gray'>Unpublishing article... </p>"
           var articleId = document.getElementById('article-id').value;
