@@ -439,6 +439,24 @@
         }
       }
 
+      function expandSource(sourceId) {
+        console.log("expanding source: ", sourceId);
+        var sourceContainer = document.getElementById('sources-container');
+        console.log(sourceContainer.children);
+        // first hide all source forms
+        var i;
+        for (i = 0; i < sourceContainer.children.length; i++) {
+        // sourceContainer.children.forEach(el => {
+          var el = sourceContainer.children[i];
+          if (/source-form-/.test(el.id)) {
+            console.log("hiding source form: ", el.id, el.style.display);
+            el.style.display = "none";
+          }
+        }
+        var sourceFormDiv = document.getElementById("source-form-" + sourceId);
+        sourceFormDiv.style.display = "block";
+      }
+
       function addAnotherSourceForm() {
         // determine how many new field sets there are
         // call addAnotherSource with the right id
@@ -463,17 +481,24 @@
         counterField.value = newCount;
         var newId = "new_" + newCount;
         console.log("adding new source with id", newId)
-        addAnotherSource(newId, blankSource);
+        addAnotherSource(newId, blankSource, true);
 
       }
 
-      function addAnotherSource(id, data) {
+      function addAnotherSource(id, data, showForm) {
         var sourceContainer = document.getElementById('sources-container');
+
+        var formDiv = document.createElement("div");
+        if (!showForm) {
+          formDiv.style.display = "none";
+        }
+        formDiv.id = "source-form-" + id;
+
         var nameDiv = createTextInputDiv(id, "Name", "name", data.name);
-        sourceContainer.appendChild(nameDiv);
+        formDiv.appendChild(nameDiv);
 
         var affDiv = createTextInputDiv(id, "Affiliation", "affiliation", data.affiliation)
-        sourceContainer.appendChild(affDiv);
+        formDiv.appendChild(affDiv);
 
         var races = [
           "White",
@@ -483,10 +508,10 @@
           "Native Hawaiian or other Pacific Islander",
           "From multiple races",
           "Prefer to self-describe",
-          "Prefer not to say"
+          "Other"
         ];
         var raceDiv = createSelectDiv(id, "Race", "race", data.race, races);
-        sourceContainer.appendChild(raceDiv);
+        formDiv.appendChild(raceDiv);
 
         var ethnicities = [
           "African, African-American",
@@ -497,11 +522,11 @@
           "Middle Eastern",
           "Multiethnic",
           "Prefer to self-describe",
-          "Prefer not to say"
+          "Other"
         ];
 
         var ethnicityDiv = createSelectDiv(id, "Ethnicity", "ethnicity", data.ethnicity, ethnicities);
-        sourceContainer.appendChild(ethnicityDiv);
+        formDiv.appendChild(ethnicityDiv);
 
         var genders = [
           "Female",
@@ -511,11 +536,11 @@
           "Agender",
           "Genderqueer",
           "Prefer to self-describe",
-          "Prefer not to say"
+          "Other"
         ];
 
         var genderDiv = createSelectDiv(id, "Gender", "gender", data.gender, genders);
-        sourceContainer.appendChild(genderDiv);
+        formDiv.appendChild(genderDiv);
 
         var sexOrientations = [
           "Straight/Heterosexual",
@@ -524,11 +549,11 @@
           "Queer",
           "Asexual",
           "Prefer to self-describe",
-          "Prefer not to say"
+          "Other"
         ];
 
         var sexOrientationDiv = createSelectDiv(id, 'Sexual Orientation', "sexual_orientation", data.sexual_orientation, sexOrientations);
-        sourceContainer.appendChild(sexOrientationDiv);
+        formDiv.appendChild(sexOrientationDiv);
 
         var ages = [
           "18-20",
@@ -540,16 +565,16 @@
         ];
 
         var ageDiv = createSelectDiv(id, "Age", "age", data.age, ages);
-        sourceContainer.appendChild(ageDiv);
+        formDiv.appendChild(ageDiv);
 
         var zipDiv = createTextInputDiv(id, "Zip Code", "zip", data.zip);
-        sourceContainer.appendChild(zipDiv);
+        formDiv.appendChild(zipDiv);
 
         var emailDiv = createTextInputDiv(id, "Contact Email Address", "email", data.email);
-        sourceContainer.appendChild(emailDiv);
+        formDiv.appendChild(emailDiv);
 
         var phoneDiv = createTextInputDiv(id, "Contact Phone Number", "phone", data.phone);
-        sourceContainer.appendChild(phoneDiv);
+        formDiv.appendChild(phoneDiv);
 
         var roles = [
           "Quoted",
@@ -558,11 +583,14 @@
         ];
 
         var roleDiv = createSelectDiv(id, "Role", "role", data.role, roles);
-        sourceContainer.appendChild(roleDiv);
+        formDiv.appendChild(roleDiv);
 
         var dividerLine = document.createElement("hr");
         dividerLine.setAttribute("width", "100%");
-        sourceContainer.appendChild(dividerLine);
+        formDiv.appendChild(dividerLine);
+
+        sourceContainer.appendChild(formDiv);
+
       }
 
       function handleGetTranslationsForArticle(data) {
@@ -616,6 +644,9 @@
             addAnotherSource("new_1", blankSource);
             sourcesCounter += 1;
 
+            var sourceListContainer = document.getElementById('sources-list-container');
+            var sourceUnorderedList = document.createElement("ul");
+
             // then loop over existing sources and render the filled-in set of form fields
             if (
               data.data.articles[0] &&
@@ -629,8 +660,15 @@
                   console.log("found source id# " + source.id);
 
                   addAnotherSource(source.id, source);
+
+                  var sourceListItem = document.createElement("li");
+                  sourceListItem.style.cursor = "pointer";
+                  sourceListItem.innerHTML = "<a onClick='expandSource(" + source.id + ")'>" + source.name + "</a>";
+                  sourceUnorderedList.appendChild(sourceListItem)
                 });
             }
+
+            sourceListContainer.appendChild(sourceUnorderedList);
 
             var counterField = document.getElementById("source-tracking-counter");
             counterField.value = sourcesCounter;
@@ -779,7 +817,64 @@
         var searchTitle = document.getElementById('article-search-title');
         var searchDescription = document.getElementById('article-search-description');
 
+        var sources = {};
         if (documentType === "article")  {
+          var elements = formObject.elements;
+
+          // build up an object with source data
+          // keys are source ids
+          for (var i = 0, element; element = elements[i++];) {
+            var elementMatch = element.name.match(/source\[(.*?)\]\.(.*?)$/);
+            if (elementMatch) {
+              var id = elementMatch[1];
+              if (sources[id] === undefined) {
+                sources[id] = {};
+              }
+              var fieldName = elementMatch[2];
+              var value = element.value;
+              console.log(id, fieldName, value);
+
+              sources[id][fieldName] = value
+            }
+          }
+
+          // loop over sources and check that each has either an email or phone specified
+          Object.keys(sources).forEach(id => {
+            var email = sources[id]['email'];
+            var phone = sources[id]['phone'];
+            var name = sources[id]['name'];
+            
+            // name is required
+            if (!/new_/.test(id) && !name) {
+              errorMessage += "<br>'Name' is required on all sources.";
+              delete sources[id];
+              formIsValid = false;
+
+            // new source form that lacks a name, email and phone should be omitted
+            } else if (/new_/.test(id) && (!name && !email && !phone) ) {
+              console.log(id, " has a blank source form; omit")
+              // remove blank source from the list
+              delete sources[id];
+              console.log(sources);
+
+            } else {
+              if (name && (phone || email)) {
+                console.log(name, "has a name + a phone or email:", phone, email);
+              } else if (!name) {
+                errorMessage += "<br>'Name' is required on all sources.";
+                delete sources[id];
+                formIsValid = false;
+              } else {
+                console.log(id, name, "is missing a phone/email")
+                delete sources[id];
+                errorMessage += "<br>All sources must have either a phone or email.";
+                formIsValid = false;
+              }
+            }
+          })
+
+          console.log("sources:", sources);
+
           var selectedAuthors = $('#article-authors').select2('data')
           var customByline = document.getElementById("article-custom-byline").value;
           if ( (selectedAuthors === undefined || selectedAuthors.length <= 0) && ( customByline === null || customByline === undefined || customByline === "") ) {
@@ -801,12 +896,38 @@
           formIsValid = false;
         }
 
+        // assemble the data to submit - unfortunately we can't pass the form object with any additional data here
+        console.log("formObject:", formObject);
+        var submitData = {};
+        var elements = formObject.elements;
+        for (var i = 0, element; element = elements[i++];) {
+          var key = element.name;
+          var value = element.value;
+          console.log(key, typeof(value), value);
+          if ( !(/source/).test(key) ) {
+            submitData[key] = value;
+          }
+        }
+
+        submitData["sources"] = sources;
+        console.log("submitData:", submitData);
+
         if (formIsValid && formObject.submitted === "Preview") {
           loadingDiv.innerHTML = "<p class='gray'>Loading preview...</p>"
-          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePreview(formObject);
+          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePreview(submitData);
         } else if ( formIsValid && (formObject.submitted === "Publish") || (formObject.submitted === "Re-publish") ) {
-          loadingDiv.innerHTML = "<p class='gray'>Publishing article... </p>"
-          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(formObject);
+          if ($.isEmptyObject(sources)) {
+            if (!window.confirm("You're trying to publish an article without any source tracking info: are you sure?")) { 
+              form.style.display = "block";
+              loadingDiv.innerHTML = "Please enter source tracking info, then try publishing again.";
+            } else {
+              loadingDiv.innerHTML = "<p class='gray'>Publishing article without any sources... </p>"
+              google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(submitData);
+            }
+          } else {
+            loadingDiv.innerHTML = "<p class='gray'>Publishing article... </p>"
+            google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(submitData);
+          }
         } else if ( formIsValid) {
           loadingDiv.innerHTML = "<p class='gray'>Unpublishing article... </p>"
           var articleId = document.getElementById('article-id').value;
@@ -983,8 +1104,12 @@
             <textarea id="article-twitter-description" name="article-twitter-description"></textarea>
           </div>
 
-          <div id="sources-container" class="articles-only">
+          <div id="sources-list-container" class="block form-group">
             <h2 class="title">Source Tracking</h2>
+
+          </div>
+
+          <div id="sources-container" class="articles-only">
             <input type="hidden" name="source-tracking-counter" value="0" id="source-tracking-counter" />
           </div>
 
