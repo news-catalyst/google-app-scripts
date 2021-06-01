@@ -415,36 +415,11 @@ function insertArticleGoogleDocs(data) {
     "created_by_email": data['created_by_email'],
   };
 
-  let sources = {};
-  
-  Object.keys(data).forEach(key => {
-    let keyMatch = key.match(/source\[(.*?)\]\.(.*?)$/);
-    if (keyMatch) {
-      var id = keyMatch[1];
-      var fieldName = keyMatch[2];
-      var val = data[key];
-
-      if (/new_/.test(id)) {
-        Logger.log("new source! " + id);
-      }
-      if (sources[id] === null || sources[id] === undefined) {
-        if (id === null || id === "" || id === undefined || /new_/.test(id)) {
-          sources[id] = {};
-        } else { // don't set the id for a new source
-          sources[id] = {id: id};
-        }
-        sources[id][fieldName] = val;
-      }
-      sources[id][fieldName] = val;
-      // Logger.log("id #" + id + ": " + fieldName + " => " + val);
-    }
-  })
-
   var dataSources = [];
-  if (sources !== {} && Object.keys(sources).length > 0) {
-    Object.keys(sources).forEach(id => {
+  if (data['sources'] !== {} && Object.keys(data['sources']).length > 0) {
+    Object.keys(data['sources']).forEach(id => {
       Logger.log("id: " + typeof(id) + " -> " + id)
-      var source = sources[id];
+      var source = data['sources'][id];
 
       var sourceData = {
         name: source['name'],
@@ -848,7 +823,7 @@ async function hasuraHandlePreview(formObject) {
   } else {
     documentType = "article";
     // insert or update article
-    Logger.log("formObject:" + JSON.stringify(formObject));
+    Logger.log("sources:" + JSON.stringify(formObject['sources']));
 
     var data = await insertArticleGoogleDocs(formObject);
     Logger.log("articleResult: " + JSON.stringify(data))

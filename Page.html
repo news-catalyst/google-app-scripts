@@ -817,12 +817,12 @@
         var searchTitle = document.getElementById('article-search-title');
         var searchDescription = document.getElementById('article-search-description');
 
+        var sources = {};
         if (documentType === "article")  {
           var elements = formObject.elements;
 
           // build up an object with source data
           // keys are source ids
-          var sources = {};
           for (var i = 0, element; element = elements[i++];) {
             var elementMatch = element.name.match(/source\[(.*?)\]\.(.*?)$/);
             if (elementMatch) {
@@ -844,22 +844,36 @@
             var phone = sources[id]['phone'];
             var name = sources[id]['name'];
             
-            if (/new_/.test(id) && !name && !email && !phone) {
+            // name is required
+            if (!/new_/.test(id) && !name) {
+              errorMessage += "<br>'Name' is required on all sources.";
+              delete sources[id];
+              formIsValid = false;
+
+            // new source form that lacks a name, email and phone should be omitted
+            } else if (/new_/.test(id) && (!name && !email && !phone) ) {
               console.log(id, " has a blank source form; omit")
               // remove blank source from the list
-              delete sources[id]
+              delete sources[id];
               console.log(sources);
 
             } else {
               if (name && (phone || email)) {
-                console.log(name, "has a phone or email:", phone, email);
+                console.log(name, "has a name + a phone or email:", phone, email);
+              } else if (!name) {
+                errorMessage += "<br>'Name' is required on all sources.";
+                delete sources[id];
+                formIsValid = false;
               } else {
                 console.log(id, name, "is missing a phone/email")
+                delete sources[id];
                 errorMessage += "<br>All sources must have either a phone or email.";
                 formIsValid = false;
               }
             }
           })
+
+          console.log("sources:", sources);
 
           var selectedAuthors = $('#article-authors').select2('data')
           var customByline = document.getElementById("article-custom-byline").value;
@@ -882,12 +896,27 @@
           formIsValid = false;
         }
 
+        // assemble the data to submit - unfortunately we can't pass the form object with any additional data here
+        console.log("formObject:", formObject);
+        var submitData = {};
+        var elements = formObject.elements;
+        for (var i = 0, element; element = elements[i++];) {
+          var key = element.name;
+          var value = element.value;
+          console.log(key, typeof(value), value);
+          if ( !(/source/).test(key) ) {
+            submitData[key] = value;
+          }
+        }
+        submitData["sources"] = sources;
+        console.log("submitData:", submitData);
+
         if (formIsValid && formObject.submitted === "Preview") {
           loadingDiv.innerHTML = "<p class='gray'>Loading preview...</p>"
-          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePreview(formObject);
+          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePreview(submitData);
         } else if ( formIsValid && (formObject.submitted === "Publish") || (formObject.submitted === "Re-publish") ) {
           loadingDiv.innerHTML = "<p class='gray'>Publishing article... </p>"
-          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(formObject);
+          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(submitData);
         } else if ( formIsValid) {
           loadingDiv.innerHTML = "<p class='gray'>Unpublishing article... </p>"
           var articleId = document.getElementById('article-id').value;
