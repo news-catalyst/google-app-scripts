@@ -311,7 +311,7 @@ async function fetchGraphQL(operationsDoc, operationName, variables) {
 function storeArticleIdAndSlug(id, slug) {
   return fetchGraphQL(
     insertArticleSlugVersion,
-    "MyMutation",
+    "AddonInsertArticleSlugVersion",
     {
       article_id: id,
       slug: slug
@@ -322,7 +322,7 @@ function storeArticleIdAndSlug(id, slug) {
 function storePageIdAndSlug(id, slug) {
   return fetchGraphQL(
     insertPageSlugVersion,
-    "MyMutation",
+    "AddonInsertPageSlugVersion",
     {
       page_id: id,
       slug: slug
@@ -356,7 +356,7 @@ function insertPageGoogleDocs(data) {
     Logger.log("page data:" + JSON.stringify(pageData));
     return fetchGraphQL(
       insertPageGoogleDocsMutationWithoutId,
-      "MyMutation",
+      "AddonInsertPageGoogleDocNoID",
       pageData
     );
 
@@ -365,7 +365,7 @@ function insertPageGoogleDocs(data) {
     Logger.log("page data:" + JSON.stringify(pageData));
     return fetchGraphQL(
       insertPageGoogleDocsMutation,
-      "MyMutation",
+      "AddonInsertPageGoogleDocWithID",
       pageData
     );
   }
@@ -374,7 +374,7 @@ function insertPageGoogleDocs(data) {
 function upsertPublishedArticle(articleId, translationId, localeCode) {
   return fetchGraphQL(
     upsertPublishedArticleTranslationMutation,
-    "MyMutation",
+    "AddonUpsertPublishedArticleTranslation",
     {
       article_id: articleId,
       locale_code: localeCode,
@@ -404,7 +404,7 @@ function insertArticleGoogleDocs(data) {
     "locale_code": data['article-locale'],
     "headline": data['article-headline'],
     "published": data['published'],
-    // "content": content,
+    "content": content,
     "search_description": data['article-search-description'],
     "search_title": data['article-search-title'],
     "twitter_title": data['article-twitter-title'],
@@ -459,14 +459,14 @@ function insertArticleGoogleDocs(data) {
   if (data["article-id"] === "") {
     return fetchGraphQL(
       insertArticleGoogleDocMutationWithoutId,
-      "MyMutation",
+      "AddonInsertArticleGoogleDocNoID",
       articleData
     );
   } else {
     articleData['id'] = data['article-id'];
     return fetchGraphQL(
       insertArticleGoogleDocMutation,
-      "MyMutation",
+      "AddonInsertArticleGoogleDocWithID",
       articleData
     );
   }
@@ -475,7 +475,7 @@ function insertArticleGoogleDocs(data) {
 async function hasuraCreateAuthorPage(authorId, pageId) {
   return fetchGraphQL(
     insertAuthorPageMutation,
-    "MyMutation",
+    "AddonInsertAuthorPage",
     {
       page_id: pageId,
       author_id: authorId
@@ -486,7 +486,7 @@ async function hasuraCreateAuthorPage(authorId, pageId) {
 async function hasuraCreateAuthorArticle(authorId, articleId) {
   return fetchGraphQL(
     insertAuthorArticleMutation,
-    "MyMutation",
+    "AddonInsertAuthorArticle",
     {
       article_id: articleId,
       author_id: authorId
@@ -495,10 +495,9 @@ async function hasuraCreateAuthorArticle(authorId, articleId) {
 }
 
 async function linkDocToArticle(data) {
-  Logger.log("linkDoc params: " + JSON.stringify(data))
   return fetchGraphQL(
     linkDocToArticleMutation,
-    "MyMutation",
+    "AddonLinkGoogleDocToArticle",
     {
       article_id: data['article-id'],
       document_id: data['document-id'],
@@ -511,7 +510,7 @@ async function linkDocToArticle(data) {
 async function hasuraInsertGoogleDoc(articleId, docId, localeCode, url) {
   return fetchGraphQL(
     insertGoogleDocMutation,
-    "MyMutation",
+    "AddonInsertGoogleDoc",
     {
       article_id: articleId,
       document_id: docId,
@@ -580,7 +579,7 @@ async function hasuraUnpublishArticle(articleId, localeCode) {
 
   return fetchGraphQL(
     unpublishArticleMutation,
-    "MyMutation",
+    "AddonUnpublishArticle",
     {
       article_id: articleId,
       locale_code: localeCode
@@ -591,7 +590,7 @@ async function hasuraUnpublishArticle(articleId, localeCode) {
 async function hasuraCreateTag(tagData) {
   return fetchGraphQL(
     insertTagMutation,
-    "MyMutation",
+    "AddonInsertTag",
     tagData
   );
 }
@@ -891,7 +890,7 @@ async function hasuraHandlePreview(formObject) {
 function fetchArticleForGoogleDoc(doc_id) {
   return fetchGraphQL(
     getArticleByGoogleDocQuery,
-    "MyQuery",
+    "AddonGetArticleByGoogleDoc",
     {"doc_id": doc_id}
   );
 }
@@ -899,7 +898,7 @@ function fetchArticleForGoogleDoc(doc_id) {
 function fetchPageForGoogleDoc(doc_id) {
   return fetchGraphQL(
     getPageForGoogleDocQuery,
-    "MyQuery",
+    "AddonGetPageForGoogleDoc",
     {"doc_id": doc_id}
   );
 }
@@ -907,7 +906,7 @@ function fetchPageForGoogleDoc(doc_id) {
 function fetchFeaturedArticles() {
   return fetchGraphQL(
     getHomepageFeaturedArticles,
-    "MyQuery"
+    "AddonGetHomepageFeaturedArticles"
   );
 }
 
@@ -952,7 +951,7 @@ function hasuraSearchArticles(formObject) {
   var term = "%" + formObject["article-search"] + "%";
   return fetchGraphQL(
     searchArticlesByHeadlineQuery,
-    "MyQuery",
+    "AddonSearchArticlesByHeadline",
     {"term": term, "locale_code": localeCode}
   );
 }
@@ -974,7 +973,7 @@ async function getPageForGoogleDoc(doc_id) {
 function fetchTranslationDataForPage(docId, pageId, localeCode) {
   return fetchGraphQL(
     getPageTranslationForIdAndLocale,
-    "MyQuery",
+    "AddonGetPageTranslationByLocaleAndID",
     {"doc_id": docId, "page_id": pageId, "locale_code": localeCode}
   );
 }
@@ -982,7 +981,7 @@ function fetchTranslationDataForPage(docId, pageId, localeCode) {
 function fetchTranslationDataForArticle(docId, articleId, localeCode) {
   return fetchGraphQL(
     getArticleTranslationForIdAndLocale,
-    "MyQuery",
+    "AddonGetArticleTranslationByLocaleAndID",
     {"doc_id": docId, "article_id": articleId, "locale_code": localeCode}
   );
 }
