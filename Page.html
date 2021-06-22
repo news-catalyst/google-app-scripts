@@ -50,6 +50,7 @@
             var option = document.createElement("option");
             if (category.category_translations && category.category_translations[0] && category.category_translations[0].title) {
               var optionText = category.category_translations[0].title;
+              console.log(category);
               if (!category.published) {
                 optionText += " (hidden)";
               }

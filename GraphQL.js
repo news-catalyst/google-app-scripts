@@ -344,6 +344,7 @@ const getArticleByGoogleDocQuery = `query AddonGetArticleByGoogleDoc($doc_id: St
   }
   categories {
     id
+    published
     slug
     category_translations(where: {locale_code: {_eq: "en-US"}}) {
       title
