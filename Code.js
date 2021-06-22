@@ -1116,7 +1116,9 @@ async function hasuraGetArticle() {
     data: {}
   };
 
-  var documentID = DocumentApp.getActiveDocument().getId();
+  var document = DocumentApp.getActiveDocument();
+  var documentID = document.getId();
+  var documentTitle = document.getName();
   Logger.log("documentID: " + documentID);
 
   var valid = isValid(documentID);
@@ -1146,7 +1148,7 @@ async function hasuraGetArticle() {
 
   } else {
     data = await getArticleForGoogleDoc(documentID);
-    Logger.log("data: " + JSON.stringify(data));
+    Logger.log("hasuraGetArticle data: " + JSON.stringify(data));
     if (data && data.articles && data.articles[0]) {
       storeArticleSlug(data.articles[0].slug);
       returnValue.status = "success";
@@ -1154,6 +1156,8 @@ async function hasuraGetArticle() {
     } else {
       Logger.log("getArticle notFound data: " + JSON.stringify(data));
       returnValue.status = "notFound";
+      data.headline = documentTitle;
+      data.searchTitle = documentTitle;
       returnValue.message = "Article not found";
     }
     returnValue.documentId = documentID;

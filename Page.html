@@ -102,24 +102,33 @@
 
       function displayLocales(locales, currentLocale) {
         var articleLocaleSelect = document.getElementById('article-locale');
-        locales.forEach(localeData => {
-          // first check if this option already exists; don't add dupes!
-          var selectorString = "#article-locale option[value='" + localeData.locale.code + "']";
-          if ( $(selectorString).length <= 0 ) {
-            var option = document.createElement("option");
-            if (localeData.locale.code) {
-              option.text = localeData.locale.code;
-            } else {
-              option.text = "(BUG) unknown locale";
+        if (locales) {
+          locales.forEach(localeData => {
+            // first check if this option already exists; don't add dupes!
+            var selectorString = "#article-locale option[value='" + localeData.locale.code + "']";
+            if ( $(selectorString).length <= 0 ) {
+              var option = document.createElement("option");
+              if (localeData.locale.code) {
+                option.text = localeData.locale.code;
+              } else {
+                option.text = "(BUG) unknown locale";
+              }
+              // mark this locale as selected if it's the article's locale ID -or- is the default locale
+              if (currentLocale === localeData.locale.code) {
+                option.selected = true;
+              }
+              option.value = localeData.locale.code;
+              articleLocaleSelect.add(option);
             }
-            // mark this locale as selected if it's the article's locale ID -or- is the default locale
-            if (currentLocale === localeData.locale.code) {
-              option.selected = true;
-            }
-            option.value = localeData.locale.code;
-            articleLocaleSelect.add(option);
-          }
-        })
+          })
+
+        } else {
+          var option = document.createElement("option");
+          option.text = currentLocale;
+          option.selected = true;
+          option.value = currentLocale;
+          articleLocaleSelect.add(option);
+        }
       }
 
       function displayAuthors(authors, articleAuthors) {
@@ -225,6 +234,7 @@
           div.innerHTML = '<p style="color: #48C774;">' + contents.message + "</p>";
         }
 
+        console.log("contents onSuccessGetArticle:", contents);
         var typeHiddenField = document.getElementById('document-type');
         var documentType = typeHiddenField.value;
 
@@ -268,9 +278,9 @@
           displayPublishedInfo(publishedInfo, translationData);
         }
 
-        if (contents.data.organization_locales) {
+        // if (contents.data.organization_locales) {
           displayLocales(contents.data.organization_locales, localeCode);
-        }
+        // }
         
         if (documentType === "article") {
           displayCategories(contents.data.categories, data.category);
@@ -610,7 +620,7 @@
         if (data && data.data && data.data.pages) {
           documentType = "page";
         }
-        if (documentType === "article" && data.data.articles[0]) {
+        if (documentType === "article" && data && data.data && data.data.articles && data.data.articles[0]) {
           typeHiddenField.value = documentType;
 
           articleId = data.data.articles[0].id;
@@ -692,6 +702,16 @@
         } else if (pageId && localeCode) {
           google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(pageId, localeCode);
         } else {
+
+          if (data && data.data && data.data.headline) {
+            console.log("setting default article headline to:", data.data.headline)
+            var headline = document.getElementById('article-headline');
+            headline.value = data.data.headline;
+            var searchTitle = document.getElementById('article-search-title');
+            searchTitle.value = data.data.headline;
+          } else {
+            console.log("data.headline is undefined:", data);
+          }
           var configDiv = document.getElementById('config');
           configDiv.style.display = 'none';
 
@@ -706,12 +726,21 @@
           buttonsDivTop.style.display = "block";
           setPublishedFlag(false); // new article is not published, ensure correct action buttons display
 
-          displayLocales(data.data.organization_locales, localeCode);
+          // if (data && data.data && data.data.organization_locales) {
+            displayLocales(data.data.organization_locales, localeCode);
+          // }
 
           if (documentType === "article") {
-            displayCategories(data.data.categories, null);
-            displayTags(data.data.tags, null);
-            displayAuthors(data.data.authors, null);
+            console.log("data:", data);
+            if (data && data.data && data.data.categories) {
+              displayCategories(data.data.categories, null);
+            }
+            if (data && data.data && data.data.tags) {
+              displayTags(data.data.tags, null);
+            }
+            if (data && data.data && data.data.authors) {
+              displayAuthors(data.data.authors, null);
+            }
 
             $('#article-authors').select2({
               width: 'resolve',
