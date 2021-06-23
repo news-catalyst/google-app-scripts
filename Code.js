@@ -1282,7 +1282,7 @@ function getElements() {
       if (subElements.length === 1) {
         var foundLink = subElements.find(subElement => subElement.textRun.textStyle.hasOwnProperty('link'))
         var linkUrl = null;
-        var embeddableUrlRegex = /twitter\.com|youtube\.com|youtu\.be|google\.com|imgur.com|twitch\.tv|vimeo\.com|mixcloud\.com|instagram\.com|facebook\.com|dailymotion\.com/i;
+        var embeddableUrlRegex = /twitter\.com|youtube\.com|youtu\.be|google\.com|imgur.com|twitch\.tv|vimeo\.com|mixcloud\.com|instagram\.com|facebook\.com|dailymotion\.com|spotify.com|apple.com/i;
         if (foundLink) {
           linkUrl = foundLink.textRun.textStyle.link.url;
         // try to find a URL by itself that google hasn't auto-linked
