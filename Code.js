@@ -353,7 +353,7 @@ function insertPageGoogleDocs(data) {
   };
 
   if (data["article-id"] === "") {
-    Logger.log("page data:" + JSON.stringify(pageData));
+    // Logger.log("page data:" + JSON.stringify(pageData));
     return fetchGraphQL(
       insertPageGoogleDocsMutationWithoutId,
       "AddonInsertPageGoogleDocNoID",
@@ -362,7 +362,7 @@ function insertPageGoogleDocs(data) {
 
   } else {
     pageData["id"] = data['article-id'];
-    Logger.log("page data:" + JSON.stringify(pageData));
+    // Logger.log("page data:" + JSON.stringify(pageData));
     return fetchGraphQL(
       insertPageGoogleDocsMutation,
       "AddonInsertPageGoogleDocWithID",
@@ -455,7 +455,7 @@ function insertArticleGoogleDocs(data) {
     articleData['article_sources'] = [];
   }
 
-  Logger.log("article data:" + JSON.stringify(articleData));
+  // Logger.log("article data:" + JSON.stringify(articleData));
   if (data["article-id"] === "") {
     return fetchGraphQL(
       insertArticleGoogleDocMutationWithoutId,
@@ -657,7 +657,7 @@ async function hasuraHandlePublish(formObject) {
     documentType = "page";
     // insert or update page
     var data = await insertPageGoogleDocs(formObject);
-    Logger.log("pageResult: " + JSON.stringify(data))
+    // Logger.log("pageResult: " + JSON.stringify(data))
 
     var pageID = data.data.insert_pages.returning[0].id;
 
@@ -800,7 +800,7 @@ async function hasuraHandlePreview(formObject) {
     documentType = "page";
     // insert or update page
     var data = await insertPageGoogleDocs(formObject);
-    Logger.log("pageResult: " + JSON.stringify(data))
+    // Logger.log("pageResult: " + JSON.stringify(data))
 
     var pageID = data.data.insert_pages.returning[0].id;
 
@@ -828,7 +828,7 @@ async function hasuraHandlePreview(formObject) {
     Logger.log("sources:" + JSON.stringify(formObject['sources']));
 
     var data = await insertArticleGoogleDocs(formObject);
-    Logger.log("articleResult: " + JSON.stringify(data))
+    // Logger.log("articleResult: " + JSON.stringify(data))
     var articleID = data.data.insert_articles.returning[0].id;
 
     // store slug + article ID in slug versions table
@@ -921,7 +921,7 @@ async function isArticleFeatured(articleId) {
   var scriptConfig = getScriptConfig();
   var editorUrl = scriptConfig['EDITOR_URL'];
 
-  Logger.log("data: " + JSON.stringify(data))
+  // Logger.log("data: " + JSON.stringify(data))
   var isFeatured = false;
   if (data && data.homepage_layout_datas) {
     data.homepage_layout_datas.fo
@@ -1237,12 +1237,18 @@ function getElements() {
         if (listElementIndex > 0) {
           var listElement = orderedElements[listElementIndex];
           var listElementChildren = [];
+          
           element.paragraph.elements.forEach(subElement => {
             // append list items to the main list element's children
-            listElementChildren.push({
+            var listItemChild = {
               content: cleanContent(subElement.textRun.content),
               style: cleanStyle(subElement.textRun.textStyle)
-            })
+            };
+            if (subElement.textRun.textStyle && subElement.textRun.textStyle.link) {
+              listItemChild.link = subElement.textRun.textStyle.link.url;
+            }
+            // Logger.log("liChild: " + JSON.stringify(listItemChild));
+            listElementChildren.push(listItemChild)
           });
           listElement.items.push({
             children: listElementChildren,
@@ -1262,10 +1268,15 @@ function getElements() {
           var listElementChildren = [];
           element.paragraph.elements.forEach(subElement => {
             // append list items to the main list element's children
-            listElementChildren.push({
+            var listItemChild = {
               content: cleanContent(subElement.textRun.content),
               style: cleanStyle(subElement.textRun.textStyle)
-            })
+            };
+            if (subElement.textRun.textStyle && subElement.textRun.textStyle.link) {
+              listItemChild.link = subElement.textRun.textStyle.link.url;
+            }
+          //  Logger.log("liChild: " + JSON.stringify(listItemChild));
+            listElementChildren.push(listItemChild)
           });
           eleData.items.push({
             nestingLevel: nestingLevel,
@@ -1282,13 +1293,17 @@ function getElements() {
       if (subElements.length === 1) {
         var foundLink = subElements.find(subElement => subElement.textRun.textStyle.hasOwnProperty('link'))
         var linkUrl = null;
-        var embeddableUrlRegex = /twitter\.com|youtube\.com|youtu\.be|google\.com|imgur.com|twitch\.tv|vimeo\.com|mixcloud\.com|instagram\.com|facebook\.com|dailymotion\.com|spotify.com|apple.com/i;
+        // var embeddableUrlRegex = /twitter\.com|youtube\.com|youtu\.be|google\.com|imgur.com|twitch\.tv|vimeo\.com|mixcloud\.com|instagram\.com|facebook\.com|dailymotion\.com|spotify.com|apple.com/i;
+        var embeddableUrlRegex = /twitter\.com|youtube\.com|youtu\.be|instagram\.com|facebook\.com|spotify\.com|vimeo\.com|apple\.com/i;
         if (foundLink) {
           linkUrl = foundLink.textRun.textStyle.link.url;
+          Logger.log("found link: " + linkUrl + " type: " + eleData.type);
+
         // try to find a URL by itself that google hasn't auto-linked
         } else if(embeddableUrlRegex.test(subElements[0].textRun.content.trim())) {
           linkUrl = subElements[0].textRun.content.trim();
         }
+
         if ( linkUrl !== null) {
           var embeddableUrl = embeddableUrlRegex.test(linkUrl);
           if (embeddableUrl) {
