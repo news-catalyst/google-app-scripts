@@ -396,6 +396,8 @@ function insertArticleGoogleDocs(data) {
   }
   var content = getCurrentDocContents();
 
+  var mainImageContent = getMainImage(content);
+
   let articleData = {
     "slug": data['article-slug'],
     "document_id": documentID,
@@ -413,6 +415,7 @@ function insertArticleGoogleDocs(data) {
     "facebook_description": data['article-facebook-description'],
     "custom_byline": data['article-custom-byline'],
     "created_by_email": data['created_by_email'],
+    "main_image": mainImageContent,
   };
 
   var dataSources = [];
@@ -1205,7 +1208,7 @@ function getElements() {
   })
 
   var foundMainImage = false;
-
+ 
   // used to track which images have already been uploaded
   var imageList = getImageList();
 
@@ -1350,7 +1353,6 @@ function getElements() {
 
             var fullImageData = inlineObjects[imageID];
             if (fullImageData) {
-
               var s3Url = imageList[imageID];
               if (s3Url === null || s3Url === undefined) {
                 Logger.log(imageID + " has not been uploaded yet, uploading now...")
@@ -1391,7 +1393,7 @@ function getElements() {
 .*/
 function formatElements() {
   var elements = getElements();
-
+  
   var formattedElements = [];
   elements.sort(function (a, b) {
     if (a.index > b.index) {
@@ -1414,9 +1416,22 @@ function formatElements() {
     }
     formattedElements.push(formattedElement);
   })
+
   return formattedElements;
 }
 
+function getMainImage(elements) {
+  var mainImageContent;
+
+  elements.forEach(element => {
+    if (element.type === "mainImage") {
+      mainImageContent = element;
+      Logger.log("main image content: " + JSON.stringify(mainImageContent))
+    }
+  })
+
+  return mainImageContent;
+}
 /**
  * Rebuilds the site by POSTing to deploy hook
  */
