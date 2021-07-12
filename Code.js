@@ -1278,7 +1278,7 @@ function getElements() {
             if (subElement.textRun.textStyle && subElement.textRun.textStyle.link) {
               listItemChild.link = subElement.textRun.textStyle.link.url;
             }
-          //  Logger.log("liChild: " + JSON.stringify(listItemChild));
+            // Logger.log("liChild: " + JSON.stringify(listItemChild));
             listElementChildren.push(listItemChild)
           });
           eleData.items.push({
@@ -1307,7 +1307,7 @@ function getElements() {
           linkUrl = subElements[0].textRun.content.trim();
         }
 
-        if ( linkUrl !== null) {
+        if ( linkUrl !== null && eleData.type !== "list") {
           var embeddableUrl = embeddableUrlRegex.test(linkUrl);
           if (embeddableUrl) {
             eleData.type = "embed";
