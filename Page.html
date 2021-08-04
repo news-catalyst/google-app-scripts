@@ -50,7 +50,6 @@
             var option = document.createElement("option");
             if (category.category_translations && category.category_translations[0] && category.category_translations[0].title) {
               var optionText = category.category_translations[0].title;
-              console.log(category);
               if (!category.published) {
                 optionText += " (hidden)";
               }
@@ -268,7 +267,7 @@
           documentType = "page"
           if (contents.data.pages[0]) {
             data = contents.data.pages[0]
-            console.log("get translations data.pages[0]:", data);
+            
           }
           if (contents.data.page_translations) {
             translationData = contents.data.page_translations[0];
@@ -295,7 +294,7 @@
 
           var idHiddenField = document.getElementById('article-id');
           idHiddenField.value = data.id;
-          console.log("idHiddenField value:", idHiddenField.value);
+          
         }
 
         // var selectedLocale = document.getElementById('selected-locale');
@@ -347,7 +346,7 @@
       
       function onSuccessFeatured(result) {
         if (result && result.featured) {
-          console.log("result: ", result);
+          
           var div = document.getElementById('featured');
           div.style.display = "block";
           var message = "<b>This article is featured on the homepage</b>";
@@ -451,16 +450,14 @@
       }
 
       function expandSource(sourceId) {
-        console.log("expanding source: ", sourceId);
+        
         var sourceContainer = document.getElementById('sources-container');
-        console.log(sourceContainer.children);
         // first hide all source forms
         var i;
         for (i = 0; i < sourceContainer.children.length; i++) {
         // sourceContainer.children.forEach(el => {
           var el = sourceContainer.children[i];
           if (/source-form-/.test(el.id)) {
-            console.log("hiding source form: ", el.id, el.style.display);
             el.style.display = "none";
           }
         }
@@ -487,11 +484,11 @@
         }
 
         var counterField = document.getElementById("source-tracking-counter");
-        console.log("counter is currently: ", counterField.value, parseInt(counterField.value));
+        // console.log("counter is currently: ", counterField.value, parseInt(counterField.value));
         var newCount = parseInt(counterField.value) + 1;
         counterField.value = newCount;
         var newId = "new_" + newCount;
-        console.log("adding new source with id", newId)
+        // console.log("adding new source with id", newId)
         addAnotherSource(newId, blankSource, true);
 
       }
@@ -664,11 +661,11 @@
               data.data.articles[0].article_sources
               ) {
                 var sources = data.data.articles[0].article_sources;
-                console.log("found " + sources.length + " sources");
+                // console.log("found " + sources.length + " sources");
                 sources.forEach(sourceData => {
                   sourcesCounter += 1;
                   var source = sourceData.source;
-                  console.log("found source id# " + source.id);
+                  // console.log("found source id# " + source.id);
 
                   addAnotherSource(source.id, source);
 
@@ -688,7 +685,7 @@
         if (documentType === "page" && data.data.pages[0]) {
           typeHiddenField.value = documentType;
           pageId = data.data.pages[0].id;
-          console.log("hasuraGetPage id:", pageId);
+          // console.log("hasuraGetPage id:", pageId);
           if (
             data.data.pages[0] && 
             data.data.pages[0].page_google_documents && 
@@ -705,13 +702,13 @@
         } else {
 
           if (data && data.data && data.data.headline) {
-            console.log("setting default article headline to:", data.data.headline)
+            // console.log("setting default article headline to:", data.data.headline)
             var headline = document.getElementById('article-headline');
             headline.value = data.data.headline;
             var searchTitle = document.getElementById('article-search-title');
             searchTitle.value = data.data.headline;
           } else {
-            console.log("data.headline is undefined:", data);
+            // console.log("data.headline is undefined:", data);
           }
           var configDiv = document.getElementById('config');
           configDiv.style.display = 'none';
@@ -732,7 +729,7 @@
           // }
 
           if (documentType === "article") {
-            console.log("data:", data);
+            // console.log("data:", data);
             if (data && data.data && data.data.categories) {
               displayCategories(data.data.categories, null);
             }
@@ -810,12 +807,12 @@
 
           } else if (response.data && response.data.data && response.data.data.insert_pages) {
             var pageID = response.data.data.insert_pages.returning[0].id;
-            console.log("page ID:", pageID)
+            // console.log("page ID:", pageID)
             var idHiddenField = document.getElementById('article-id');
             idHiddenField.value = pageID;
 
           } else if (response.data && response.data.data && response.data.data.update_article_translations) {
-            console.log("unpublished article:", response.data);
+            // console.log("unpublished article:", response.data);
             setPublishedFlag(false);
           } else {
             console.log("unknown: ", response);
@@ -862,7 +859,7 @@
               }
               var fieldName = elementMatch[2];
               var value = element.value;
-              console.log(id, fieldName, value);
+              // console.log(id, fieldName, value);
 
               sources[id][fieldName] = value
             }
@@ -882,20 +879,20 @@
 
             // new source form that lacks a name, email and phone should be omitted
             } else if (/new_/.test(id) && (!name && !email && !phone) ) {
-              console.log(id, " has a blank source form; omit")
+              // console.log(id, " has a blank source form; omit")
               // remove blank source from the list
               delete sources[id];
-              console.log(sources);
+              // console.log(sources);
 
             } else {
               if (name && (phone || email)) {
-                console.log(name, "has a name + a phone or email:", phone, email);
+                // console.log(name, "has a name + a phone or email:", phone, email);
               } else if (!name) {
                 errorMessage += "<br>'Name' is required on all sources.";
                 delete sources[id];
                 formIsValid = false;
               } else {
-                console.log(id, name, "is missing a phone/email")
+                // console.log(id, name, "is missing a phone/email")
                 delete sources[id];
                 errorMessage += "<br>All sources must have either a phone or email.";
                 formIsValid = false;
@@ -903,25 +900,28 @@
             }
           })
 
-          console.log("sources:", sources);
+          // console.log("sources:", sources);
 
           var selectedAuthors = $('#article-authors').select2('data')
           var customByline = document.getElementById("article-custom-byline").value;
           if ( (selectedAuthors === undefined || selectedAuthors.length <= 0) && ( customByline === null || customByline === undefined || customByline === "") ) {
-            console.log("selectedAuthors:", selectedAuthors, "customByline:", customByline)
+            // console.log("selectedAuthors:", selectedAuthors, "customByline:", customByline)
             errorMessage += "<br>Author or custom byline is required.";
             formIsValid = false;
           }
         }
-        if (headline.value === "" || headline.value === undefined || headline.value === "") {
+        if (!headline.value) {
+          console.log("headline is missing:", headline.value, typeof(headline.value));
           errorMessage += "<br>Headline is required.";
           formIsValid = false;
         }
-        if (searchTitle.value === "" || searchTitle.value === undefined || searchTitle.value === "") {
+        if (!searchTitle.value) {
+          console.log("search title is missing:", searchTitle.value, typeof(searchTitle.value));
           errorMessage += "<br>Search title is required.";
           formIsValid = false;
         }
-        if (searchDescription.value === "" || searchDescription.value === undefined || searchDescription.value === "") {
+        if (!searchDescription.value) {
+          console.log("searchDescription is missing:", searchDescription.value, typeof(searchDescription.value));
           errorMessage += "<br>Search description is required.";
           formIsValid = false;
         }
@@ -933,19 +933,21 @@
         for (var i = 0, element; element = elements[i++];) {
           var key = element.name;
           var value = element.value;
-          console.log(key, typeof(value), value);
+          // console.log(key, typeof(value), value);
           if ( !(/source/).test(key) ) {
             submitData[key] = value;
           }
         }
 
         submitData["sources"] = sources;
-        console.log("submitData:", submitData);
+        // console.log("submitData:", submitData);
 
         if (formIsValid && formObject.submitted === "Preview") {
+          // console.log("valid form + preview")
           loadingDiv.innerHTML = "<p class='gray'>Loading preview...</p>"
           google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePreview(submitData);
-        } else if ( formIsValid && (formObject.submitted === "Publish") || (formObject.submitted === "Re-publish") ) {
+        } else if ( formIsValid && (formObject.submitted === "Publish" || formObject.submitted === "Re-publish") ) {
+          // console.log("valid form + ", formIsValid, formObject.submitted)
           if ($.isEmptyObject(sources)) {
             if (!window.confirm("You're trying to publish an article without any source tracking info: are you sure?")) { 
               form.style.display = "block";
@@ -959,12 +961,14 @@
             google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(submitData);
           }
         } else if ( formIsValid) {
+          // console.log("valid form + unpublish")
           loadingDiv.innerHTML = "<p class='gray'>Unpublishing article... </p>"
           var articleId = document.getElementById('article-id').value;
           var selectedLocale = document.getElementById('article-locale').value;
 
           google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublish(formObject);
         } else {
+          // console.log("invalid form")
           if (errorMessage !== "") {
             loadingDiv.innerHTML = "<p class='error'>" + errorMessage + "</p>"
           } else {
