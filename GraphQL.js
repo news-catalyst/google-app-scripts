@@ -12,6 +12,12 @@ const insertPageSlugVersion = `mutation AddonInsertPageSlugVersion($slug: String
   }
 }`;
 
+const deleteAuthorArticlesMutation = `mutation AddonDeleteAuthorArticles($article_id: Int) {
+  delete_author_articles(where: {article_id: {_eq: $article_id}}) {
+    affected_rows
+  }
+}`;
+
 const insertAuthorArticleMutation = `mutation AddonInsertAuthorArticle($article_id: Int!, $author_id: Int!) {
   insert_author_articles(objects: {article_id: $article_id, author_id: $author_id}, on_conflict: {constraint: author_articles_article_id_author_id_key, update_columns: article_id}) {
     affected_rows
@@ -246,6 +252,12 @@ const insertPageGoogleDocsMutation = `mutation AddonInsertPageGoogleDocWithID($i
         }
       }
     }
+  }
+}`;
+
+const deleteTagArticlesMutation = `mutation AddonDeleteTagArticles($article_id: Int) {
+  delete_tag_articles(where: {article_id: {_eq: $article_id}}) {
+    affected_rows
   }
 }`;
 
