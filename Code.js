@@ -486,6 +486,26 @@ async function hasuraCreateAuthorPage(authorId, pageId) {
   );
 }
 
+async function hasuraDeleteTagArticles(articleId) {
+  return fetchGraphQL(
+    deleteTagArticlesMutation,
+    "AddonDeleteTagArticles",
+    {
+      article_id: articleId
+    }
+  );
+}
+
+async function hasuraDeleteAuthorArticles(articleId) {
+  return fetchGraphQL(
+    deleteAuthorArticlesMutation,
+    "AddonDeleteAuthorArticles",
+    {
+      article_id: articleId
+    }
+  );
+}
+
 async function hasuraCreateAuthorArticle(authorId, articleId) {
   return fetchGraphQL(
     insertAuthorArticleMutation,
@@ -699,6 +719,14 @@ async function hasuraHandlePublish(formObject) {
     var articleSlug = data.data.insert_articles.returning[0].slug;
     var translationID = data.data.insert_articles.returning[0].article_translations[0].id;
 
+    // first delete any previously set authors
+    var deleteAuthorsResult = await hasuraDeleteAuthorArticles(articleID);
+    Logger.log("Deleted article authors: " + JSON.stringify(deleteAuthorsResult))
+    
+    // and delete any previously set tags
+    var deleteTagsResult = await hasuraDeleteTagArticles(articleID);
+    Logger.log("Deleted article tags: " + JSON.stringify(deleteTagsResult))
+
     if (articleID) {
       // store slug + article ID in slug versions table
       var result = await storeArticleIdAndSlug(articleID, slug);
@@ -709,6 +737,7 @@ async function hasuraHandlePublish(formObject) {
         data.data.insert_articles.returning[0].published_article_translations = publishedArticleData.data.insert_published_article_translations.returning;
       }
     }
+
     if (articleID && formObject['article-tags']) {
       var tags;
       // ensure this is an array; selecting one in the UI results in a string being sent
@@ -838,6 +867,14 @@ async function hasuraHandlePreview(formObject) {
     var result = await storeArticleIdAndSlug(articleID, slug);
     Logger.log("stored article id + slug: " + JSON.stringify(result));
 
+    // first delete any previously set authors
+    var deleteAuthorsResult = await hasuraDeleteAuthorArticles(articleID);
+    Logger.log("Deleted article authors: " + JSON.stringify(deleteAuthorsResult))
+
+    // and delete any previously set tags
+    var deleteTagsResult = await hasuraDeleteTagArticles(articleID);
+    Logger.log("Deleted article tags: " + JSON.stringify(deleteTagsResult))
+    
     if (articleID && formObject['article-tags']) {
       var tags;
       // ensure this is an array; selecting one in the UI results in a string being sent
