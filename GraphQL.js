@@ -594,3 +594,48 @@ const getHomepageFeaturedArticles = `query AddonGetHomepageFeaturedArticles {
     article_priority_3
   }
 }`
+
+const getPublishedArticles = `query AddonGetPublishedArticles($locale_code: String) {
+  articles_aggregate(where: {article_translations: {locale_code: {_eq: $locale_code}, published: {_eq: true}}}) {
+    aggregate {
+      count
+    }
+  }
+  articles(where: {article_translations: {locale_code: {_eq: $locale_code}, published: {_eq: true}}}, order_by: {article_translations_aggregate: {min: {first_published_at: desc}}}) {
+    id
+    slug
+    article_google_documents {
+      google_document {
+        document_id
+      }
+    }
+    article_translations(where: {locale_code: {_eq: $locale_code}, published: {_eq: true}}, order_by: {id: desc}, limit: 1) {
+      custom_byline
+      first_published_at
+      headline
+      last_published_at
+      main_image
+      published
+      search_description
+      updated_at
+    }
+    author_articles {
+      author {
+        name
+        photoUrl
+        slug
+        twitter
+        author_translations(where: {locale_code: {_eq: $locale_code}}, order_by: {id: desc}, limit: 1) {
+          bio
+          title
+        }
+      }
+    }
+    category {
+      slug
+      category_translations(where: {locale_code: {_eq: $locale_code}}) {
+        title
+      }
+    }
+  }
+}`;

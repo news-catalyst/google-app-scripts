@@ -639,6 +639,48 @@ async function hasuraHandleUnpublish(formObject) {
   return returnValue;
 }
 
+
+async function hasuraGetPublishedArticles(localeCode) {
+  return fetchGraphQL(
+    getPublishedArticles,
+    "AddonGetPublishedArticles",
+    {
+      locale_code: localeCode
+    }
+  );  
+}
+
+async function republishArticles(localeCode) {
+  if (localeCode === undefined || localeCode === null) {
+    localeCode = "en-US" // TODO should we default this way?
+  }
+  var response = await hasuraGetPublishedArticles(localeCode);
+  var returnValue = {
+    status: "success",
+    message: "Republishing all articles",
+    data: response
+  };
+
+  var googleDocIDs = [];
+  if (response.errors) {
+    returnValue.status = "error";
+    returnValue.message = "An unexpected error occurred trying to republish all articles";
+    returnValue.data = response.errors;
+  } else {  
+    response.data.articles.forEach(article => {
+      var googleDocID = article.article_google_documents[0].google_document.document_id;
+      googleDocIDs.push(googleDocID);
+      var activeDoc = DocumentApp.openById(googleDocID);
+      Logger.log(googleDocID + " doc:" + JSON.stringify(activeDoc));
+      var document = Docs.Documents.get(googleDocID);
+      var orderedElements = processDocumentContents(activeDoc, document);
+      Logger.log("ordered elements:" + JSON.stringify(orderedElements));
+    });
+    returnValue.data = googleDocIDs;
+  }  
+  return returnValue;
+}
+
 async function hasuraHandlePublish(formObject) {
   var scriptConfig = getScriptConfig();
 
@@ -1218,19 +1260,13 @@ async function hasuraGetArticle() {
 . * Gets the current document's contents
 . */
 function getCurrentDocContents() {
-  var formattedElements = formatElements();
+  var elements = getElements();
+
+  var formattedElements = formatElements(elements);
   return formattedElements;
 }
 
-/*
-.* Retrieves "elements" from the google doc - which are headings, images, paragraphs, lists
-.* Preserves order, indicates that order with `index` attribute
-.*/
-function getElements() {
-  var activeDoc = DocumentApp.getActiveDocument();
-  var documentID = activeDoc.getId();
-  var document = Docs.Documents.get(documentID);
-
+function processDocumentContents(activeDoc, document) {
   var elements = document.body.content;
   var inlineObjects = document.inlineObjects;
 
@@ -1418,9 +1454,21 @@ function getElements() {
       }
     }
   });
-
   Logger.log("storing image list: " + JSON.stringify(imageList))
   storeImageList(imageList);
+  return orderedElements;
+}
+/*
+.* Retrieves "elements" from the google doc - which are headings, images, paragraphs, lists
+.* Preserves order, indicates that order with `index` attribute
+.*/
+function getElements() {
+  var activeDoc = DocumentApp.getActiveDocument();
+  var documentID = activeDoc.getId();
+  var document = Docs.Documents.get(documentID);
+
+  var orderedElements = processDocumentContents(activeDoc, document);
+
   return orderedElements;
 }
 
@@ -1428,9 +1476,7 @@ function getElements() {
 /*
 .* Gets elements and formats them into JSON structure for us to work with on the front-end
 .*/
-function formatElements() {
-  var elements = getElements();
-  
+function formatElements(elements) {
   var formattedElements = [];
   elements.sort(function (a, b) {
     if (a.index > b.index) {

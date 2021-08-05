@@ -47,7 +47,8 @@
       }
 
       function handleGetArticle() {
-         google.script.run.withFailureHandler(onFailure).withSuccessHandler(handleGetTranslationsForArticle).hasuraGetArticle();
+        var localeCode = document.getElementById("current-article-locale").innerText;
+         google.script.run.withFailureHandler(onFailure).withSuccessHandler(handleGetTranslationsForArticle).hasuraGetArticle(localeCode);
       }
 
       function onSuccessCreateDoc(contents) {
@@ -179,15 +180,9 @@
         }
       }
 
-      function onSuccessClear(contents) {
+      function onSuccessRepublish(contents) {
         // hideLoading();
-        var div = document.getElementById('loading');
-        div.style.display = 'block';
-        div.innerHTML = JSON.stringify(contents);
-      }
-      function onFailureClear(contents) {
-        // hideLoading();
-        var div = document.getElementById('loading');
+        var div = document.getElementById('republish-info');
         div.style.display = 'block';
         div.innerHTML = JSON.stringify(contents);
       }
@@ -400,9 +395,9 @@
 
         google.script.run.withSuccessHandler(onSuccessSearch).withFailureHandler(onFailure).hasuraSearchArticles(formObject);
       }
-      
-      function clearCache() {
-         google.script.run.withFailureHandler(onFailureClear).withSuccessHandler(onSuccessClear).clearCache();
+
+      function republishArticles() {
+         google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessRepublish).republishArticles();
       }
 
       function handleAssociate(formObject) {
@@ -579,9 +574,10 @@
         <hr/>
         <button onclick="toggleConfigForm()">Toggle Config Form</button>
         <hr/>
-        <button onclick="clearCache()">Clear Cache</button>
-        <br/>
+        <button onclick="republishArticles()">Republish All</button>
+        <div id="republish-info"></div>
         <hr/>
+        <br/>
         <br/>
         <h3 class="gray">Debugging Info:</h3>
           <p class="gray">
