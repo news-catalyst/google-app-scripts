@@ -397,7 +397,11 @@
       }
 
       function republishArticles() {
-         google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessRepublish).republishArticles();
+        if (window.confirm("This will process all published article google docs and republish to the web: are you sure?")) { 
+          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessRepublish).republishArticles();
+        } else {
+          console.log("cancelled republish all")
+        }
       }
 
       function handleAssociate(formObject) {
