@@ -95,7 +95,7 @@ function slugify(value) {
 .* This uploads an image in the Google Doc to S3
 .* destination URL determined by: Organization Name, Article Title, and image ID
 .*/
-function uploadImageToS3(imageID, contentUri) {
+function uploadImageToS3(imageID, contentUri, slug) {
   var scriptConfig = getScriptConfig();
   var AWS_ACCESS_KEY_ID = scriptConfig['AWS_ACCESS_KEY_ID'];
   var AWS_SECRET_KEY = scriptConfig['AWS_SECRET_KEY'];
@@ -103,7 +103,15 @@ function uploadImageToS3(imageID, contentUri) {
 
   var orgName = getOrganizationName();
   var orgNameSlug = slugify(orgName);
-  var articleSlug = getArticleSlug();
+  var articleSlug;
+  
+  if (slug) {
+    articleSlug = slug;
+  } else {
+    articleSlug = getArticleSlug();
+  }
+
+  Logger.log("uploading image for org " + orgNameSlug + "and article " + articleSlug);
 
   var objectName = "image" + imageID + ".png";
 
@@ -266,12 +274,14 @@ function deleteArticleSlug() {
   deleteValue('ARTICLE_SLUG');
 }
 
-function storeImageList(imageList) {
-  storeValue("IMAGE_LIST", JSON.stringify(imageList));
+function storeImageList(slug, imageList) {
+  var key = "IMAGE_LIST_" + slug;
+  storeValue(key, JSON.stringify(imageList));
 }
 
-function getImageList() {
-  var imageList = JSON.parse(getValue("IMAGE_LIST"));
+function getImageList(slug) {
+  var key = "IMAGE_LIST_" + slug;
+  var imageList = JSON.parse(getValue(key));
   if (imageList === null) {
     imageList = {};
   }
@@ -670,11 +680,13 @@ async function republishArticles(localeCode) {
     response.data.articles.forEach(article => {
       var googleDocID = article.article_google_documents[0].google_document.document_id;
       googleDocIDs.push(googleDocID);
+      var slug = article.slug;
       var activeDoc = DocumentApp.openById(googleDocID);
-      Logger.log(googleDocID + " doc:" + JSON.stringify(activeDoc));
+      Logger.log("processing google doc ID#" + googleDocID);
       var document = Docs.Documents.get(googleDocID);
-      var orderedElements = processDocumentContents(activeDoc, document);
-      Logger.log("ordered elements:" + JSON.stringify(orderedElements));
+      processDocumentContents(activeDoc, document, slug).then(orderedElements => {
+        Logger.log(googleDocID +  " ordered elements:" + JSON.stringify(orderedElements));
+      }) 
     });
     returnValue.data = googleDocIDs;
   }  
@@ -1266,7 +1278,7 @@ function getCurrentDocContents() {
   return formattedElements;
 }
 
-function processDocumentContents(activeDoc, document) {
+async function processDocumentContents(activeDoc, document, slug) {
   var elements = document.body.content;
   var inlineObjects = document.inlineObjects;
 
@@ -1283,9 +1295,13 @@ function processDocumentContents(activeDoc, document) {
   var foundMainImage = false;
  
   // used to track which images have already been uploaded
-  var imageList = getImageList();
+  var imageList = getImageList(slug);
 
+  // keeping a count of all elements processed so we can store the full image list at the end
+  // and properly return the full list of ordered elements
+  var elementsProcessed = 0;
   elements.forEach(element => {
+    
     if (element.paragraph && element.paragraph.elements) {
       var eleData = {
         children: [],
@@ -1427,12 +1443,17 @@ function processDocumentContents(activeDoc, document) {
             var fullImageData = inlineObjects[imageID];
             if (fullImageData) {
               var s3Url = imageList[imageID];
-              if (s3Url === null || s3Url === undefined) {
+
+              var articleSlugMatches = false;
+              if (s3Url && s3Url.match(slug)) {
+                articleSlugMatches = true;
+              }
+              if (s3Url === null || s3Url === undefined || !articleSlugMatches) {
                 Logger.log(imageID + " has not been uploaded yet, uploading now...")
-                s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri);
+                s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri, slug);
                 imageList[imageID] = s3Url;
               } else {
-                Logger.log(imageID + " has already been uploaded");
+                Logger.log(slug + " " + imageID + " has already been uploaded: " + articleSlugMatches + " " + s3Url);
               }
 
               var childImage = {
@@ -1453,10 +1474,21 @@ function processDocumentContents(activeDoc, document) {
         orderedElements.push(eleData);
       }
     }
+    elementsProcessed++;
   });
-  Logger.log("storing image list: " + JSON.stringify(imageList))
-  storeImageList(imageList);
-  return orderedElements;
+
+  if (elementsProcessed === elements.length) {
+    Logger.log("done processing " + elementsProcessed + " elements; storing imageList: " + JSON.stringify(imageList))
+    storeImageList(slug, imageList);
+    Logger.log("orderedElements count: " + orderedElements.length)
+    return orderedElements;
+
+  } else {
+    Logger.log("processed " + elementsProcessed + " elements of " + elements.length + " total")
+    return [];
+  }
+
+
 }
 /*
 .* Retrieves "elements" from the google doc - which are headings, images, paragraphs, lists
