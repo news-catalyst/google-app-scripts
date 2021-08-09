@@ -180,11 +180,18 @@
         }
       }
 
-      function onSuccessRepublish(contents) {
+      function onSuccessRepublish(response) {
         // hideLoading();
+        console.log(response.data[0].data.insert_articles.returning[0])
         var div = document.getElementById('republish-info');
         div.style.display = 'block';
-        div.innerHTML = JSON.stringify(contents);
+        var republishedArticleSlugs = response.data.map((d) => d.data.insert_articles.returning[0].slug);
+        
+        var slugListItems = republishedArticleSlugs.map( (slug) => {
+          return "<li>" + slug + "</li>";
+        }).join("\n");
+        console.log("slugListItems", slugListItems)
+        div.innerHTML = "<p><b>Republished the following articles:</b><br/><ul>" + slugListItems + "</ul></p>";
       }
 
       function onSuccessSearch(contents) {
@@ -398,6 +405,9 @@
 
       function republishArticles() {
         if (window.confirm("This will process all published article google docs and republish to the web: are you sure?")) { 
+          var div = document.getElementById('republish-info');
+          div.style.display = 'block';
+          div.innerHTML = "<p><i>Republishing all articles now, this may take a few minutes...</i></p>";
           google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessRepublish).republishArticles();
         } else {
           console.log("cancelled republish all")

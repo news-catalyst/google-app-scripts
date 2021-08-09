@@ -671,24 +671,71 @@ async function republishArticles(localeCode) {
     data: response
   };
 
+  var currentUserEmail = Session.getActiveUser().getEmail();
+
   var googleDocIDs = [];
+  var results = [];
   if (response.errors) {
     returnValue.status = "error";
     returnValue.message = "An unexpected error occurred trying to republish all articles";
     returnValue.data = response.errors;
   } else {  
     response.data.articles.forEach(article => {
+      
       var googleDocID = article.article_google_documents[0].google_document.document_id;
       googleDocIDs.push(googleDocID);
+
+      var googleDocURL = article.article_google_documents[0].google_document.url;
+
+      var id = article.id;
       var slug = article.slug;
+      
       var activeDoc = DocumentApp.openById(googleDocID);
-      Logger.log("processing google doc ID#" + googleDocID);
+      // Logger.log("processing google doc ID#" + googleDocID);
+      
       var document = Docs.Documents.get(googleDocID);
+      
       processDocumentContents(activeDoc, document, slug).then(orderedElements => {
-        Logger.log(googleDocID +  " ordered elements:" + JSON.stringify(orderedElements));
+        // Logger.log(googleDocID +  " ordered elements:" + orderedElements.length);
+        var formattedElements = formatElements(orderedElements);
+        var mainImageContent = getMainImage(formattedElements);
+        // Logger.log(googleDocID + " mainImageContent: " + JSON.stringify(mainImageContent));
+
+        var categoryID = article.category.id;
+        var translation = article.article_translations[0];
+
+        var articleData = {
+          "id": id,
+          "slug": slug,
+          "document_id": googleDocID,
+          "url": googleDocURL,
+          "category_id": categoryID,
+          "locale_code": localeCode,
+          "headline": translation.headline,
+          "published": true,
+          "content": formattedElements,
+          "search_description": translation.search_description,
+          "search_title": translation.search_title,
+          "twitter_title": translation.twitter_title,
+          "twitter_description": translation.twitter_description,
+          "facebook_title": translation.facebook_title,
+          "facebook_description": translation.facebook_description,
+          "custom_byline": translation.custom_byline,
+          "created_by_email": currentUserEmail,
+          "main_image": mainImageContent,
+        }
+        // Logger.log(googleDocID + " articleData: " + JSON.stringify(articleData))
+        fetchGraphQL(
+          insertArticleGoogleDocMutationWithoutSources,
+          "AddonInsertArticleGoogleDocWithoutSources",
+          articleData
+        ).then( (data) => {
+          results.push(data);
+        })
+        
       }) 
     });
-    returnValue.data = googleDocIDs;
+    returnValue.data = results;
   }  
   return returnValue;
 }
@@ -1389,7 +1436,7 @@ async function processDocumentContents(activeDoc, document, slug) {
         var embeddableUrlRegex = /twitter\.com|youtube\.com|youtu\.be|instagram\.com|facebook\.com|spotify\.com|vimeo\.com|apple\.com/i;
         if (foundLink) {
           linkUrl = foundLink.textRun.textStyle.link.url;
-          Logger.log("found link: " + linkUrl + " type: " + eleData.type);
+          // Logger.log("found link: " + linkUrl + " type: " + eleData.type);
 
         // try to find a URL by itself that google hasn't auto-linked
         } else if(embeddableUrlRegex.test(subElements[0].textRun.content.trim())) {
@@ -1452,8 +1499,8 @@ async function processDocumentContents(activeDoc, document, slug) {
                 Logger.log(imageID + " has not been uploaded yet, uploading now...")
                 s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri, slug);
                 imageList[imageID] = s3Url;
-              } else {
-                Logger.log(slug + " " + imageID + " has already been uploaded: " + articleSlugMatches + " " + s3Url);
+              // } else {
+              //   Logger.log(slug + " " + imageID + " has already been uploaded: " + articleSlugMatches + " " + s3Url);
               }
 
               var childImage = {
@@ -1478,13 +1525,13 @@ async function processDocumentContents(activeDoc, document, slug) {
   });
 
   if (elementsProcessed === elements.length) {
-    Logger.log("done processing " + elementsProcessed + " elements; storing imageList: " + JSON.stringify(imageList))
+    // Logger.log("done processing " + elementsProcessed + " elements; storing imageList: " + JSON.stringify(imageList))
     storeImageList(slug, imageList);
-    Logger.log("orderedElements count: " + orderedElements.length)
+    // Logger.log("orderedElements count: " + orderedElements.length)
     return orderedElements;
 
   } else {
-    Logger.log("processed " + elementsProcessed + " elements of " + elements.length + " total")
+    Logger.log("count mismatch: processed " + elementsProcessed + " elements of " + elements.length + " total")
     return [];
   }
 
@@ -1535,13 +1582,13 @@ function formatElements(elements) {
   return formattedElements;
 }
 
-function getMainImage(elements) {
+async function getMainImage(elements) {
   var mainImageContent;
 
   elements.forEach(element => {
     if (element.type === "mainImage") {
       mainImageContent = element;
-      Logger.log("main image content: " + JSON.stringify(mainImageContent))
+      // Logger.log("main image content: " + JSON.stringify(mainImageContent))
     }
   })
 

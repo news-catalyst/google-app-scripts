@@ -129,6 +129,7 @@ const insertArticleGoogleDocMutationWithoutId = `mutation AddonInsertArticleGoog
     }
   }
 }`;
+
 const insertArticleGoogleDocMutation = `mutation AddonInsertArticleGoogleDocWithID($id: Int!, $locale_code: String!, $headline: String!, $created_by_email: String, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $main_image: jsonb, 
   $article_sources: [article_source_insert_input!]!) {
   insert_articles(
@@ -212,6 +213,44 @@ const insertArticleGoogleDocMutation = `mutation AddonInsertArticleGoogleDocWith
           locale_code
         }
       }
+    }
+  }
+}`;
+
+const insertArticleGoogleDocMutationWithoutSources = `mutation AddonInsertArticleGoogleDocWithoutSources($id: Int!, $locale_code: String!, $headline: String!, $created_by_email: String, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $main_image: jsonb) {
+  insert_articles(
+    objects: {
+      article_translations: {
+        data: {
+          created_by_email: $created_by_email, headline: $headline, locale_code: $locale_code, published: $published, content: $content, custom_byline: $custom_byline, facebook_description: $facebook_description, facebook_title: $facebook_title, search_description: $search_description, search_title: $search_title, twitter_description: $twitter_description, twitter_title: $twitter_title, main_image: $main_image
+        }
+      }, 
+      category_id: $category_id, 
+      id: $id, 
+      slug: $slug, 
+      article_google_documents: {
+        data: {
+          google_document: {
+            data: {
+              document_id: $document_id, locale_code: $locale_code, url: $url
+            }, 
+            on_conflict: {
+              constraint: google_documents_organization_id_document_id_key, update_columns: locale_code
+            }
+          }
+        }, 
+        on_conflict: {
+          constraint: article_google_documents_article_id_google_document_id_key, update_columns: google_document_id
+        }
+      }
+    }, 
+    on_conflict: {
+      constraint: articles_pkey, update_columns: [category_id, slug, updated_at]
+    }
+  ) {
+    returning {
+      id
+      slug
     }
   }
 }`;
@@ -607,6 +646,7 @@ const getPublishedArticles = `query AddonGetPublishedArticles($locale_code: Stri
     article_google_documents {
       google_document {
         document_id
+        url
       }
     }
     article_translations(where: {locale_code: {_eq: $locale_code}, published: {_eq: true}}, order_by: {id: desc}, limit: 1) {
@@ -617,6 +657,11 @@ const getPublishedArticles = `query AddonGetPublishedArticles($locale_code: Stri
       main_image
       published
       search_description
+      search_title
+      twitter_description
+      twitter_title
+      facebook_description
+      facebook_title
       updated_at
     }
     author_articles {
@@ -632,6 +677,7 @@ const getPublishedArticles = `query AddonGetPublishedArticles($locale_code: Stri
       }
     }
     category {
+      id
       slug
       category_translations(where: {locale_code: {_eq: $locale_code}}) {
         title
