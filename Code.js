@@ -95,7 +95,7 @@ function slugify(value) {
 .* This uploads an image in the Google Doc to S3
 .* destination URL determined by: Organization Name, Article Title, and image ID
 .*/
-function uploadImageToS3(imageID, contentUri) {
+function uploadImageToS3(imageID, contentUri, slug) {
   var scriptConfig = getScriptConfig();
   var AWS_ACCESS_KEY_ID = scriptConfig['AWS_ACCESS_KEY_ID'];
   var AWS_SECRET_KEY = scriptConfig['AWS_SECRET_KEY'];
@@ -103,7 +103,15 @@ function uploadImageToS3(imageID, contentUri) {
 
   var orgName = getOrganizationName();
   var orgNameSlug = slugify(orgName);
-  var articleSlug = getArticleSlug();
+  var articleSlug;
+  
+  if (slug) {
+    articleSlug = slug;
+  } else {
+    articleSlug = getArticleSlug();
+  }
+
+  Logger.log("uploading image for org " + orgNameSlug + "and article " + articleSlug);
 
   var objectName = "image" + imageID + ".png";
 
@@ -266,12 +274,14 @@ function deleteArticleSlug() {
   deleteValue('ARTICLE_SLUG');
 }
 
-function storeImageList(imageList) {
-  storeValue("IMAGE_LIST", JSON.stringify(imageList));
+function storeImageList(slug, imageList) {
+  var key = "IMAGE_LIST_" + slug;
+  storeValue(key, JSON.stringify(imageList));
 }
 
-function getImageList() {
-  var imageList = JSON.parse(getValue("IMAGE_LIST"));
+function getImageList(slug) {
+  var key = "IMAGE_LIST_" + slug;
+  var imageList = JSON.parse(getValue(key));
   if (imageList === null) {
     imageList = {};
   }
@@ -636,6 +646,97 @@ async function hasuraHandleUnpublish(formObject) {
     // trigger republish of the site to reflect this article no longer being live
     rebuildSite();
   }
+  return returnValue;
+}
+
+
+async function hasuraGetPublishedArticles(localeCode) {
+  return fetchGraphQL(
+    getPublishedArticles,
+    "AddonGetPublishedArticles",
+    {
+      locale_code: localeCode
+    }
+  );  
+}
+
+async function republishArticles(localeCode) {
+  if (localeCode === undefined || localeCode === null) {
+    localeCode = "en-US" // TODO should we default this way?
+  }
+  var response = await hasuraGetPublishedArticles(localeCode);
+  var returnValue = {
+    status: "success",
+    message: "Republishing all articles",
+    data: response
+  };
+
+  var currentUserEmail = Session.getActiveUser().getEmail();
+
+  var googleDocIDs = [];
+  var results = [];
+  if (response.errors) {
+    returnValue.status = "error";
+    returnValue.message = "An unexpected error occurred trying to republish all articles";
+    returnValue.data = response.errors;
+  } else {  
+    response.data.articles.forEach(article => {
+      
+      var googleDocID = article.article_google_documents[0].google_document.document_id;
+      googleDocIDs.push(googleDocID);
+
+      var googleDocURL = article.article_google_documents[0].google_document.url;
+
+      var id = article.id;
+      var slug = article.slug;
+      
+      var activeDoc = DocumentApp.openById(googleDocID);
+      // Logger.log("processing google doc ID#" + googleDocID);
+      
+      var document = Docs.Documents.get(googleDocID);
+      
+      processDocumentContents(activeDoc, document, slug).then(orderedElements => {
+        // Logger.log(googleDocID +  " ordered elements:" + orderedElements.length);
+        var formattedElements = formatElements(orderedElements);
+        var mainImageContent = getMainImage(formattedElements);
+        // Logger.log(googleDocID + " mainImageContent: " + JSON.stringify(mainImageContent));
+
+        var categoryID = article.category.id;
+        var translation = article.article_translations[0];
+
+        var articleData = {
+          "id": id,
+          "slug": slug,
+          "document_id": googleDocID,
+          "url": googleDocURL,
+          "category_id": categoryID,
+          "locale_code": localeCode,
+          "headline": translation.headline,
+          "published": true,
+          "content": formattedElements,
+          "search_description": translation.search_description,
+          "search_title": translation.search_title,
+          "twitter_title": translation.twitter_title,
+          "twitter_description": translation.twitter_description,
+          "facebook_title": translation.facebook_title,
+          "facebook_description": translation.facebook_description,
+          "custom_byline": translation.custom_byline,
+          "created_by_email": currentUserEmail,
+          "main_image": mainImageContent,
+        }
+        // Logger.log(googleDocID + " articleData: " + JSON.stringify(articleData))
+        fetchGraphQL(
+          insertArticleGoogleDocMutationWithoutSources,
+          "AddonInsertArticleGoogleDocWithoutSources",
+          articleData
+        ).then( (data) => {
+          results.push(data);
+        })
+        
+      }) 
+    });
+    returnValue.data = results;
+  }  
   return returnValue;
 }
 
@@ -1218,19 +1319,13 @@ async function hasuraGetArticle() {
 . * Gets the current document's contents
 . */
 function getCurrentDocContents() {
-  var formattedElements = formatElements();
+  var elements = getElements();
+
+  var formattedElements = formatElements(elements);
   return formattedElements;
 }
 
-/*
-.* Retrieves "elements" from the google doc - which are headings, images, paragraphs, lists
-.* Preserves order, indicates that order with `index` attribute
-.*/
-function getElements() {
-  var activeDoc = DocumentApp.getActiveDocument();
-  var documentID = activeDoc.getId();
-  var document = Docs.Documents.get(documentID);
-
+async function processDocumentContents(activeDoc, document, slug) {
   var elements = document.body.content;
   var inlineObjects = document.inlineObjects;
 
@@ -1247,9 +1342,13 @@ function getElements() {
   var foundMainImage = false;
  
   // used to track which images have already been uploaded
-  var imageList = getImageList();
+  var imageList = getImageList(slug);
 
+  // keeping a count of all elements processed so we can store the full image list at the end
+  // and properly return the full list of ordered elements
+  var elementsProcessed = 0;
   elements.forEach(element => {
+    
     if (element.paragraph && element.paragraph.elements) {
       var eleData = {
         children: [],
@@ -1337,7 +1436,7 @@ function getElements() {
         var embeddableUrlRegex = /twitter\.com|youtube\.com|youtu\.be|instagram\.com|facebook\.com|spotify\.com|vimeo\.com|apple\.com/i;
         if (foundLink) {
           linkUrl = foundLink.textRun.textStyle.link.url;
-          Logger.log("found link: " + linkUrl + " type: " + eleData.type);
+          // Logger.log("found link: " + linkUrl + " type: " + eleData.type);
 
         // try to find a URL by itself that google hasn't auto-linked
         } else if(embeddableUrlRegex.test(subElements[0].textRun.content.trim())) {
@@ -1391,12 +1490,17 @@ function getElements() {
             var fullImageData = inlineObjects[imageID];
             if (fullImageData) {
               var s3Url = imageList[imageID];
-              if (s3Url === null || s3Url === undefined) {
+
+              var articleSlugMatches = false;
+              if (s3Url && s3Url.match(slug)) {
+                articleSlugMatches = true;
+              }
+              if (s3Url === null || s3Url === undefined || !articleSlugMatches) {
                 Logger.log(imageID + " has not been uploaded yet, uploading now...")
-                s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri);
+                s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri, slug);
                 imageList[imageID] = s3Url;
-              } else {
-                Logger.log(imageID + " has already been uploaded");
+              // } else {
+              //   Logger.log(slug + " " + imageID + " has already been uploaded: " + articleSlugMatches + " " + s3Url);
               }
 
               var childImage = {
@@ -1417,10 +1521,33 @@ function getElements() {
         orderedElements.push(eleData);
       }
     }
+    elementsProcessed++;
   });
 
-  Logger.log("storing image list: " + JSON.stringify(imageList))
-  storeImageList(imageList);
+  if (elementsProcessed === elements.length) {
+    // Logger.log("done processing " + elementsProcessed + " elements; storing imageList: " + JSON.stringify(imageList))
+    storeImageList(slug, imageList);
+    // Logger.log("orderedElements count: " + orderedElements.length)
+    return orderedElements;
+
+  } else {
+    Logger.log("count mismatch: processed " + elementsProcessed + " elements of " + elements.length + " total")
+    return [];
+  }
+
+
+}
+/*
+.* Retrieves "elements" from the google doc - which are headings, images, paragraphs, lists
+.* Preserves order, indicates that order with `index` attribute
+.*/
+function getElements() {
+  var activeDoc = DocumentApp.getActiveDocument();
+  var documentID = activeDoc.getId();
+  var document = Docs.Documents.get(documentID);
+
+  var orderedElements = processDocumentContents(activeDoc, document);
+
   return orderedElements;
 }
 
@@ -1428,9 +1555,7 @@ function getElements() {
 /*
 .* Gets elements and formats them into JSON structure for us to work with on the front-end
 .*/
-function formatElements() {
-  var elements = getElements();
-  
+function formatElements(elements) {
   var formattedElements = [];
   elements.sort(function (a, b) {
     if (a.index > b.index) {
@@ -1457,13 +1582,13 @@ function formatElements() {
   return formattedElements;
 }
 
-function getMainImage(elements) {
+async function getMainImage(elements) {
   var mainImageContent;
 
   elements.forEach(element => {
     if (element.type === "mainImage") {
       mainImageContent = element;
-      Logger.log("main image content: " + JSON.stringify(mainImageContent))
+      // Logger.log("main image content: " + JSON.stringify(mainImageContent))
     }
   })
 
