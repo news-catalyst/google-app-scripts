@@ -759,7 +759,11 @@ async function hasuraHandlePublish(formObject) {
   }
 
   if (slug === "" || slug === null || slug === undefined) {
-    slug = slugify(headline)
+    slug = slugify(headline);
+    formObject['article-slug'] = slug;
+  } else {
+    // always ensure the slug is valid, no spaces etc
+    slug = slugify(slug);
     formObject['article-slug'] = slug;
   }
 
@@ -916,6 +920,9 @@ async function hasuraHandlePreview(formObject) {
   if (slug === "" || slug === null || slug === undefined) {
     slug = slugify(headline)
     Logger.log("no slug found, generated from headline: " + headline + " -> " + slug)
+    formObject['article-slug'] = slug;
+  } else {
+    slug = slugify(slug)
     formObject['article-slug'] = slug;
   }
 
@@ -1318,8 +1325,8 @@ async function hasuraGetArticle() {
 /**
 . * Gets the current document's contents
 . */
-function getCurrentDocContents() {
-  var elements = getElements();
+async function getCurrentDocContents() {
+  var elements = await getElements();
 
   var formattedElements = formatElements(elements);
   return formattedElements;
@@ -1541,13 +1548,12 @@ async function processDocumentContents(activeDoc, document, slug) {
 .* Retrieves "elements" from the google doc - which are headings, images, paragraphs, lists
 .* Preserves order, indicates that order with `index` attribute
 .*/
-function getElements() {
+async function getElements() {
   var activeDoc = DocumentApp.getActiveDocument();
   var documentID = activeDoc.getId();
   var document = Docs.Documents.get(documentID);
 
-  var orderedElements = processDocumentContents(activeDoc, document);
-
+  var orderedElements = await processDocumentContents(activeDoc, document);
   return orderedElements;
 }
 
