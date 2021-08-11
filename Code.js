@@ -1325,8 +1325,8 @@ async function hasuraGetArticle() {
 /**
 . * Gets the current document's contents
 . */
-function getCurrentDocContents() {
-  var elements = getElements();
+async function getCurrentDocContents() {
+  var elements = await getElements();
 
   var formattedElements = formatElements(elements);
   return formattedElements;
@@ -1548,13 +1548,12 @@ async function processDocumentContents(activeDoc, document, slug) {
 .* Retrieves "elements" from the google doc - which are headings, images, paragraphs, lists
 .* Preserves order, indicates that order with `index` attribute
 .*/
-function getElements() {
+async function getElements() {
   var activeDoc = DocumentApp.getActiveDocument();
   var documentID = activeDoc.getId();
   var document = Docs.Documents.get(documentID);
 
-  var orderedElements = processDocumentContents(activeDoc, document);
-
+  var orderedElements = await processDocumentContents(activeDoc, document);
   return orderedElements;
 }
 
