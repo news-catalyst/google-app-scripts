@@ -340,11 +340,11 @@ function storePageIdAndSlug(id, slug) {
   );
 }
 
-function insertPageGoogleDocs(data) {
+async function insertPageGoogleDocs(data) {
   var documentID = DocumentApp.getActiveDocument().getId();
   var documentURL = DocumentApp.getActiveDocument().getUrl();
-  var content = getCurrentDocContents();
-
+  var content = await getCurrentDocContents();
+  
   let pageData = {
     "slug": data['article-slug'],
     "document_id": documentID,
@@ -393,7 +393,7 @@ function upsertPublishedArticle(articleId, translationId, localeCode) {
   );
 }
 
-function insertArticleGoogleDocs(data) {
+async function insertArticleGoogleDocs(data) {
 
   var documentID;
   var documentUrl;
@@ -404,7 +404,8 @@ function insertArticleGoogleDocs(data) {
     documentID = DocumentApp.getActiveDocument().getId();
     documentUrl = DocumentApp.getActiveDocument().getUrl();
   }
-  var content = getCurrentDocContents();
+  var content = await getCurrentDocContents();
+  Logger.log("insertArticleGoogleDocs content length: " + content.length)
 
   var mainImageContent = getMainImage(content);
 
@@ -1328,7 +1329,10 @@ async function hasuraGetArticle() {
 async function getCurrentDocContents() {
   var elements = await getElements();
 
+  Logger.log("getCurrentDocContents number of elements: " + elements.length)
   var formattedElements = formatElements(elements);
+  Logger.log("getCurrentDocContents number of formatted elements: " + formattedElements.length)
+
   return formattedElements;
 }
 
@@ -1534,7 +1538,7 @@ async function processDocumentContents(activeDoc, document, slug) {
   if (elementsProcessed === elements.length) {
     // Logger.log("done processing " + elementsProcessed + " elements; storing imageList: " + JSON.stringify(imageList))
     storeImageList(slug, imageList);
-    // Logger.log("orderedElements count: " + orderedElements.length)
+    Logger.log("orderedElements count: " + orderedElements.length)
     return orderedElements;
 
   } else {
