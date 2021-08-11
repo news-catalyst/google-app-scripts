@@ -759,7 +759,11 @@ async function hasuraHandlePublish(formObject) {
   }
 
   if (slug === "" || slug === null || slug === undefined) {
-    slug = slugify(headline)
+    slug = slugify(headline);
+    formObject['article-slug'] = slug;
+  } else {
+    // always ensure the slug is valid, no spaces etc
+    slug = slugify(slug);
     formObject['article-slug'] = slug;
   }
 
@@ -916,6 +920,9 @@ async function hasuraHandlePreview(formObject) {
   if (slug === "" || slug === null || slug === undefined) {
     slug = slugify(headline)
     Logger.log("no slug found, generated from headline: " + headline + " -> " + slug)
+    formObject['article-slug'] = slug;
+  } else {
+    slug = slugify(slug)
     formObject['article-slug'] = slug;
   }
 
