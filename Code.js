@@ -139,7 +139,8 @@ function uploadImageToS3(imageID, contentUri, slug) {
   } catch (e) {
     Logger.log("Failed putting object: ", e)
   }
-  var s3Url = "http://" + AWS_BUCKET + ".s3.amazonaws.com/" + destinationPath;
+  var s3Url = "http://assets.tinynewsco.org/" + destinationPath;
+  Logger.log("s3Url: " + s3Url)
   return s3Url;
 }
 
@@ -1503,11 +1504,18 @@ async function processDocumentContents(activeDoc, document, slug) {
               var s3Url = imageList[imageID];
 
               var articleSlugMatches = false;
+              var assetDomainMatches = false;
               if (s3Url && s3Url.match(slug)) {
                 articleSlugMatches = true;
               }
-              if (s3Url === null || s3Url === undefined || !articleSlugMatches) {
-                Logger.log(imageID + " has not been uploaded yet, uploading now...")
+
+              // image URL should be stored as assets.tinynewsco.org not the s3 bucket domain
+              if (s3Url && s3Url.match(/assets\.tinynewsco\.org/)) {
+                assetDomainMatches = true;
+              }
+
+              if (s3Url === null || s3Url === undefined || !articleSlugMatches || !assetDomainMatches) {
+                Logger.log(imageID + " " + slug + " has not been uploaded yet, uploading now...")
                 s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri, slug);
                 imageList[imageID] = s3Url;
               // } else {
@@ -1557,7 +1565,9 @@ async function getElements() {
   var documentID = activeDoc.getId();
   var document = Docs.Documents.get(documentID);
 
-  var orderedElements = await processDocumentContents(activeDoc, document);
+  var slug = getArticleSlug();
+  
+  var orderedElements = await processDocumentContents(activeDoc, document, slug);
   return orderedElements;
 }
 
