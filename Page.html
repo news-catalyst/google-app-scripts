@@ -927,21 +927,22 @@
         }
 
         // assemble the data to submit - unfortunately we can't pass the form object with any additional data here
-        console.log("formObject:", formObject);
         var submitData = {};
         var elements = formObject.elements;
         for (var i = 0, element; element = elements[i++];) {
           var key = element.name;
           var value = element.value;
-          // console.log(key, typeof(value), value);
           if ( !(/source/).test(key) ) {
             submitData[key] = value;
           }
         }
-
+        var selectedTags = $('#article-tags').select2('data');
+        submitData["article-tags"] = [];
+        for (var i = 0, tag; tag = selectedTags[i++];) {
+          submitData["article-tags"].push(tag.text);
+        }
         submitData["sources"] = sources;
-        // console.log("submitData:", submitData);
-
+        
         if (formIsValid && formObject.submitted === "Preview") {
           // console.log("valid form + preview")
           loadingDiv.innerHTML = "<p class='gray'>Loading preview...</p>"
