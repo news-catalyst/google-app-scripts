@@ -967,7 +967,7 @@ async function hasuraHandlePreview(formObject) {
   } else {
     documentType = "article";
     // insert or update article
-    Logger.log("sources:" + JSON.stringify(formObject['sources']));
+    // Logger.log("sources:" + JSON.stringify(formObject['sources']));
 
     var data = await insertArticleGoogleDocs(formObject);
     // Logger.log("articleResult: " + JSON.stringify(data))
@@ -975,11 +975,11 @@ async function hasuraHandlePreview(formObject) {
 
     // store slug + article ID in slug versions table
     var result = await storeArticleIdAndSlug(articleID, slug);
-    Logger.log("stored article id + slug: " + JSON.stringify(result));
+    // Logger.log("stored article id + slug: " + JSON.stringify(result));
 
     // first delete any previously set authors
     var deleteAuthorsResult = await hasuraDeleteAuthorArticles(articleID);
-    Logger.log("Deleted article authors: " + JSON.stringify(deleteAuthorsResult))
+    // Logger.log("Deleted article authors: " + JSON.stringify(deleteAuthorsResult))
 
     // and delete any previously set tags
     var deleteTagsResult = await hasuraDeleteTagArticles(articleID);
@@ -993,7 +993,7 @@ async function hasuraHandlePreview(formObject) {
       } else {
         tags = formObject['article-tags'];
       }
-      Logger.log("Found tags: " + JSON.stringify(tags));
+
       for (var index = 0; index < tags.length; index++) {
         var tag = tags[index];
         var slug = slugify(tag);
