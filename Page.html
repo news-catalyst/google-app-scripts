@@ -845,7 +845,7 @@
         var searchDescription = document.getElementById('article-search-description');
 
         var sources = {};
-        if (documentType === "article")  {
+        if (documentType !== "page")  {
           var elements = formObject.elements;
 
           // build up an object with source data
@@ -859,12 +859,9 @@
               }
               var fieldName = elementMatch[2];
               var value = element.value;
-              // console.log(id, fieldName, value);
-
               sources[id][fieldName] = value
             }
           }
-
           // loop over sources and check that each has either an email or phone specified
           Object.keys(sources).forEach(id => {
             var email = sources[id]['email'];
@@ -879,7 +876,6 @@
 
             // new source form that lacks a name, email and phone should be omitted
             } else if (/new_/.test(id) && (!name && !email && !phone) ) {
-              // console.log(id, " has a blank source form; omit")
               // remove blank source from the list
               delete sources[id];
               // console.log(sources);
@@ -888,6 +884,7 @@
               if (name && (phone || email)) {
                 // console.log(name, "has a name + a phone or email:", phone, email);
               } else if (!name) {
+                // console.log("source is missing a name")
                 errorMessage += "<br>'Name' is required on all sources.";
                 delete sources[id];
                 formIsValid = false;
@@ -900,8 +897,6 @@
             }
           })
 
-          // console.log("sources:", sources);
-
           var selectedAuthors = $('#article-authors').select2('data')
           var customByline = document.getElementById("article-custom-byline").value;
           if ( (selectedAuthors === undefined || selectedAuthors.length <= 0) && ( customByline === null || customByline === undefined || customByline === "") ) {
@@ -911,17 +906,17 @@
           }
         }
         if (!headline.value) {
-          console.log("headline is missing:", headline.value, typeof(headline.value));
+          // console.log("headline is missing:", headline.value, typeof(headline.value));
           errorMessage += "<br>Headline is required.";
           formIsValid = false;
         }
         if (!searchTitle.value) {
-          console.log("search title is missing:", searchTitle.value, typeof(searchTitle.value));
+          // console.log("search title is missing:", searchTitle.value, typeof(searchTitle.value));
           errorMessage += "<br>Search title is required.";
           formIsValid = false;
         }
         if (!searchDescription.value) {
-          console.log("searchDescription is missing:", searchDescription.value, typeof(searchDescription.value));
+          // console.log("searchDescription is missing:", searchDescription.value, typeof(searchDescription.value));
           errorMessage += "<br>Search description is required.";
           formIsValid = false;
         }
