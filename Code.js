@@ -406,9 +406,10 @@ async function insertArticleGoogleDocs(data) {
     documentUrl = DocumentApp.getActiveDocument().getUrl();
   }
   var content = await getCurrentDocContents();
-  Logger.log("insertArticleGoogleDocs content length: " + content.length)
+  // Logger.log("insertArticleGoogleDocs content length: " + content.length)
 
-  var mainImageContent = getMainImage(content);
+  var mainImageContent = await getMainImage(content);
+  console.log("*mainImageContent: " + JSON.stringify(mainImageContent))
 
   let articleData = {
     "slug": data['article-slug'],
@@ -429,6 +430,8 @@ async function insertArticleGoogleDocs(data) {
     "created_by_email": data['created_by_email'],
     "main_image": mainImageContent,
   };
+
+  console.log("*articleData.main_image: " + JSON.stringify(articleData['main_image']))
 
   var dataSources = [];
   if (data['sources'] !== {} && Object.keys(data['sources']).length > 0) {
@@ -1518,8 +1521,9 @@ async function processDocumentContents(activeDoc, document, slug) {
                 Logger.log(imageID + " " + slug + " has not been uploaded yet, uploading now...")
                 s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri, slug);
                 imageList[imageID] = s3Url;
-              // } else {
-              //   Logger.log(slug + " " + imageID + " has already been uploaded: " + articleSlugMatches + " " + s3Url);
+              } else {
+                Logger.log(slug + " " + imageID + " has already been uploaded: " + articleSlugMatches + " " + s3Url);
+                imageList[imageID] = s3Url;
               }
 
               var childImage = {
@@ -1603,16 +1607,12 @@ function formatElements(elements) {
 }
 
 async function getMainImage(elements) {
-  var mainImageContent;
-
-  elements.forEach(element => {
-    if (element.type === "mainImage") {
-      mainImageContent = element;
-      // Logger.log("main image content: " + JSON.stringify(mainImageContent))
-    }
-  })
-
-  return mainImageContent;
+  var mainImageNodes = elements.filter(element => element.type === 'mainImage');
+  if (!mainImageNodes[0]) {
+    return {}
+  }
+  Logger.log("mainImageNodes[0]: " + JSON.stringify(mainImageNodes[0]));
+  return mainImageNodes[0];
 }
 /**
  * Rebuilds the site by POSTing to deploy hook
