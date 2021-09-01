@@ -180,6 +180,18 @@
         }
       }
 
+      function onSuccessDelete(response) {
+        // hideLoading();
+        console.log("outcome", response)
+        var div = document.getElementById('republish-info');
+        div.style.display = 'block';
+        if (response && !response.errors) {
+          div.innerHTML = "<p><b>Delete article result:</b><br/><ul>" + JSON.stringify(response) + "</ul></p>";
+        } else {
+          div.innerHTML = "<p><b>Delete article errors:</b><br/><ul>" + JSON.stringify(response.errors) + "</ul></p>";
+        }
+      }
+
       function onSuccessRepublish(response) {
         // hideLoading();
         console.log(response.data[0].data.insert_articles.returning[0])
@@ -413,6 +425,18 @@
           console.log("cancelled republish all")
         }
       }
+      function deleteArticle() {
+        if (window.confirm("Are you sure that you want to completely delete this article? There is no undo!")) { 
+          var articleIdEl = document.getElementById('current-data-id');
+          var articleId = articleIdEl.innerText;
+          var div = document.getElementById('republish-info');
+          div.style.display = 'block';
+          div.innerHTML = "<p><i>Removing article data...</i></p>";
+          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessDelete).hasuraDeleteArticle(articleId);
+        } else {
+          console.log("cancelled delete article")
+        }
+      }
 
       function handleAssociate(formObject) {
         if (window.confirm("Are you sure you want to do this? Any content in the linked article in this locale will be replaced by your document!")) { 
@@ -590,6 +614,8 @@
         <hr/>
         <button onclick="republishArticles()">Republish All</button>
         <div id="republish-info"></div>
+        <hr/>
+        <button onclick="deleteArticle()">Delete Article</button>
         <hr/>
         <br/>
         <br/>

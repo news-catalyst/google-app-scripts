@@ -557,6 +557,19 @@ async function hasuraInsertGoogleDoc(articleId, docId, localeCode, url) {
     }
   );
 }
+
+
+async function hasuraDeleteArticle(articleId) {
+  Logger.log("deleting article ID#" + articleId);
+  return fetchGraphQL(
+    deleteArticleMutation,
+    "AddonDeleteArticleMutation",
+    {
+      article_id: articleId
+    }
+  )
+}
+
 async function hasuraCreateDoc(articleId, newLocale, headline) {
   Logger.log("create new doc for article " + articleId + " and locale " + newLocale);
   // create new document in google docs
