@@ -685,3 +685,30 @@ const getPublishedArticles = `query AddonGetPublishedArticles($locale_code: Stri
     }
   }
 }`;
+
+const deleteArticleMutation = `mutation AddonDeleteArticleMutation($article_id: Int) {
+  delete_published_article_translations(where: {article_id: {_eq: $article_id}}) {
+    affected_rows
+  }
+  delete_article_translations(where: {article_id: {_eq: $article_id}}) {
+    affected_rows
+  }
+  delete_article_slug_versions(where: {article_id: {_eq: $article_id}}) {
+    affected_rows
+  }
+  delete_article_google_documents(where: {article_id: {_eq: $article_id}}) {
+    affected_rows
+  }
+  delete_article_source(where: {article_id: {_eq: $article_id}}) {
+    affected_rows
+  }
+  delete_author_articles(where: {article_id: {_eq: $article_id}}) {
+    affected_rows
+  }
+  delete_tag_articles(where: {article_id: {_eq: $article_id}}) {
+    affected_rows
+  }
+  delete_articles(where: {id: {_eq: $article_id}}) {
+    affected_rows
+  }
+}`;
