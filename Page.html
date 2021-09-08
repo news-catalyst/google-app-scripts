@@ -619,8 +619,10 @@
         if (data && data.data && data.data.pages) {
           documentType = "page";
         }
+
+        typeHiddenField.value = documentType;
+
         if (documentType === "article" && data && data.data && data.data.articles && data.data.articles[0]) {
-          typeHiddenField.value = documentType;
 
           articleId = data.data.articles[0].id;
           if (
@@ -684,6 +686,12 @@
         }
 
         if (documentType === "page" && data.data.pages[0]) {
+          // hide the source tracking form
+          var sourceListContainer = document.getElementById('sources-list-container');
+          sourceListContainer.style.display = "none";
+          var addSourceButton = document.getElementById('add-another-source');
+          addSourceButton.style.display = "none";
+
           typeHiddenField.value = documentType;
           pageId = data.data.pages[0].id;
           // console.log("hasuraGetPage id:", pageId);
@@ -699,9 +707,11 @@
         if (articleId && localeCode) {
           google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(articleId, localeCode);
         } else if (pageId && localeCode) {
+          console.log("page id found, getting translations...")
           google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(pageId, localeCode);
         } else {
 
+          console.log("no article or page ID found, locale is " + localeCode)
           if (data && data.data && data.data.headline) {
             // console.log("setting default article headline to:", data.data.headline)
             var headline = document.getElementById('article-headline');
@@ -846,6 +856,8 @@
         var searchDescription = document.getElementById('article-search-description');
 
         var sources = {};
+
+        console.log("handling click - doc type is " + documentType);
         if (documentType !== "page")  {
           var elements = formObject.elements;
 
@@ -932,12 +944,14 @@
             submitData[key] = value;
           }
         }
-        var selectedTags = $('#article-tags').select2('data');
-        submitData["article-tags"] = [];
-        for (var i = 0, tag; tag = selectedTags[i++];) {
-          submitData["article-tags"].push(tag.text);
+        if (documentType === "article") {
+          var selectedTags = $('#article-tags').select2('data');
+          submitData["article-tags"] = [];
+          for (var i = 0, tag; tag = selectedTags[i++];) {
+            submitData["article-tags"].push(tag.text);
+          }
+          submitData["sources"] = sources;
         }
-        submitData["sources"] = sources;
         
         if (formIsValid && formObject.submitted === "Preview") {
           // console.log("valid form + preview")
@@ -945,19 +959,19 @@
           google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePreview(submitData);
         } else if ( formIsValid && (formObject.submitted === "Publish" || formObject.submitted === "Re-publish") ) {
           // console.log("valid form + ", formIsValid, formObject.submitted)
-          if ($.isEmptyObject(sources)) {
+          if (documentType === "article" && $.isEmptyObject(sources)) {
             if (!window.confirm("You're trying to publish an article without any source tracking info: are you sure?")) { 
               form.style.display = "block";
               loadingDiv.innerHTML = "Please enter source tracking info, then try publishing again.";
             } else {
-              loadingDiv.innerHTML = "<p class='gray'>Publishing article without any sources... </p>"
+              loadingDiv.innerHTML = "<p class='gray'>Publishing without any sources... </p>"
               google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(submitData);
             }
           } else {
-            loadingDiv.innerHTML = "<p class='gray'>Publishing article... </p>"
+            loadingDiv.innerHTML = "<p class='gray'>Publishing... </p>"
             google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(submitData);
           }
-        } else if ( formIsValid) {
+        } else if ( documentType === "article" && formIsValid) {
           // console.log("valid form + unpublish")
           loadingDiv.innerHTML = "<p class='gray'>Unpublishing article... </p>"
           var articleId = document.getElementById('article-id').value;
