@@ -1237,6 +1237,8 @@ async function hasuraGetTranslations(pageOrArticleId, localeCode) {
   var data;
   try {
     if (isStaticPage) {
+      returnValue.docType = "page";
+
       data = await getTranslationDataForPage(documentID, pageOrArticleId, localeCode);
       if (data && data.page_translations && data.page_translations[0]) {
         returnValue.status = "success";
@@ -1249,6 +1251,8 @@ async function hasuraGetTranslations(pageOrArticleId, localeCode) {
       returnValue.data = data;
 
     } else {
+      returnValue.docType = "article";
+
       data = await getTranslationDataForArticle(documentID, pageOrArticleId, localeCode);
       if (data && data.article_translations && data.article_translations[0]) {
         returnValue.status = "success";
