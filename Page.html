@@ -295,69 +295,71 @@
           }
         }
 
-        var existingDocsOtherLocales = [];
-        var availableLocales = [];
+        // displayTranslationTools(id, headline, googleDocs, organization_locales)
+        displayTranslationTools(data.id, contents.documentId, translationData.headline, googleDocs, contents.data.organization_locales);
+        // var existingDocsOtherLocales = [];
+        // var availableLocales = [];
 
-        if (googleDocs) {
-          contents.data.organization_locales.forEach( (orgLocale) => {
-            var foundLocaleDoc = false;
-            // loop over each google doc associated with this article
-            googleDocs.forEach( (doc) => {
-              // if google doc is not the current one we have open...
-              if (doc.google_document.document_id !== contents.documentId) {
-                // ... and this org locale is equal to the google doc's locale
-                if (orgLocale.locale.code === doc.google_document.locale_code) {
-                  // add it to the list of documents available that are translations of this article
-                  existingDocsOtherLocales.push(doc.google_document);
-                  foundLocaleDoc = true;
-                }
-              // current document
-              } else {
-                if (orgLocale.locale.code === doc.google_document.locale_code) {
-                  foundLocaleDoc = true;
-                }
-              }
-            });
-            // if we didn't find a google document for this org locale, mark it as available
-            if (!foundLocaleDoc) {
-              availableLocales.push(orgLocale.locale);
-            }
-          })
+        // if (googleDocs) {
+        //   contents.data.organization_locales.forEach( (orgLocale) => {
+        //     var foundLocaleDoc = false;
+        //     // loop over each google doc associated with this article
+        //     googleDocs.forEach( (doc) => {
+        //       // if google doc is not the current one we have open...
+        //       if (doc.google_document.document_id !== contents.documentId) {
+        //         // ... and this org locale is equal to the google doc's locale
+        //         if (orgLocale.locale.code === doc.google_document.locale_code) {
+        //           // add it to the list of documents available that are translations of this article
+        //           existingDocsOtherLocales.push(doc.google_document);
+        //           foundLocaleDoc = true;
+        //         }
+        //       // current document
+        //       } else {
+        //         if (orgLocale.locale.code === doc.google_document.locale_code) {
+        //           foundLocaleDoc = true;
+        //         }
+        //       }
+        //     });
+        //     // if we didn't find a google document for this org locale, mark it as available
+        //     if (!foundLocaleDoc) {
+        //       availableLocales.push(orgLocale.locale);
+        //     }
+        //   })
 
-          console.log("availableLocales:", availableLocales, "existingDocsOtherLocales:", existingDocsOtherLocales);
+        //   console.log("availableLocales:", availableLocales, "existingDocsOtherLocales:", existingDocsOtherLocales);
 
-          if (availableLocales && availableLocales.length > 0) {
-            availableLocales.forEach(availableLocale => {
-              // TODO: make another version of this button for the bottom of the sidebar?
-              var button = document.createElement("button");
-              button.setAttribute("class", "blue");
-              button.setAttribute("type", "button");
-              button.setAttribute("id", "translate-button-top"); // TODO: figure out how this will work with multiple buttons?
-              button.setAttribute("data-headline", translationData.headline);
-              button.setAttribute("data-article-id", data.id);
-              button.setAttribute("data-locale", availableLocale.code);
-              button.setAttribute("onClick", "handleCreateDoc(this)");
-              button.innerHTML = 'Translate to ' + availableLocale.name;
-              console.log(availableLocale, "button:", button);
-              var buttonsTopContainer = document.getElementById('action-buttons-top');
-              buttonsTopContainer.appendChild(button);
-            })
-          }
+        //   if (availableLocales && availableLocales.length > 0) {
+        //     availableLocales.forEach(availableLocale => {
+        //       // TODO: make another version of this button for the bottom of the sidebar?
+        //       var button = document.createElement("button");
+        //       button.setAttribute("class", "blue");
+        //       button.setAttribute("type", "button");
+        //       button.setAttribute("id", "translate-button-top"); // TODO: figure out how this will work with multiple buttons?
+        //       button.setAttribute("data-headline", translationData.headline);
+        //       button.setAttribute("data-article-id", data.id);
+        //       button.setAttribute("data-locale", availableLocale.code);
+        //       button.setAttribute("onClick", "handleCreateDoc(this)");
+        //       button.innerHTML = 'Translate to ' + availableLocale.name;
+        //       console.log(availableLocale, "button:", button);
+        //       var buttonsTopContainer = document.getElementById('action-buttons-top');
+        //       buttonsTopContainer.appendChild(button);
+        //     })
+        //   }
 
-          if (existingDocsOtherLocales.length > 0) {
-            existingDocsOtherLocales.forEach(doc => {
-              var button = document.createElement("button");
-              button.setAttribute("id", "translate-button-top"); // TODO: figure out how this will work with multiple buttons?
-              button.setAttribute("class", "blue");
-              button.setAttribute("type", "button");
-              var buttonOpenLink = "window.open('" + doc.url + "', '_blank')";
-              button.setAttribute("onClick", buttonOpenLink);
-              button.innerHTML = "Open in " + doc.locale.name;
-              var buttonsTopContainer = document.getElementById('action-buttons-top');
-              buttonsTopContainer.appendChild(button);
-            });
-          }
-        }
+        //   if (existingDocsOtherLocales.length > 0) {
+        //     existingDocsOtherLocales.forEach(doc => {
+        //       var button = document.createElement("button");
+        //       button.setAttribute("id", "translate-button-top"); // TODO: figure out how this will work with multiple buttons?
+        //       button.setAttribute("class", "blue");
+        //       button.setAttribute("type", "button");
+        //       var buttonOpenLink = "window.open('" + doc.url + "', '_blank')";
+        //       button.setAttribute("onClick", buttonOpenLink);
+        //       button.innerHTML = "Open in " + doc.locale.name;
+        //       var buttonsTopContainer = document.getElementById('action-buttons-top');
+        //       buttonsTopContainer.appendChild(button);
+        //     });
+        //   }
+        // }
 
         if (publishedInfo) {
           displayPublishedInfo(publishedInfo, translationData);
@@ -867,6 +869,72 @@
 
       function handleGetArticle() {
          google.script.run.withFailureHandler(onFailure).withSuccessHandler(handleGetTranslationsForArticle).hasuraGetArticle();
+      }
+
+      function displayTranslationTools(id, documentId, headline, googleDocs, organization_locales) {
+        var existingDocsOtherLocales = [];
+        var availableLocales = [];
+
+        if (googleDocs) {
+          organization_locales.forEach( (orgLocale) => {
+            var foundLocaleDoc = false;
+            // loop over each google doc associated with this article
+            googleDocs.forEach( (doc) => {
+              // if google doc is not the current one we have open...
+              if (doc.google_document.document_id !== documentId) {
+                // ... and this org locale is equal to the google doc's locale
+                if (orgLocale.locale.code === doc.google_document.locale_code) {
+                  // add it to the list of documents available that are translations of this article
+                  existingDocsOtherLocales.push(doc.google_document);
+                  foundLocaleDoc = true;
+                }
+              // current document
+              } else {
+                if (orgLocale.locale.code === doc.google_document.locale_code) {
+                  foundLocaleDoc = true;
+                }
+              }
+            });
+            // if we didn't find a google document for this org locale, mark it as available
+            if (!foundLocaleDoc) {
+              availableLocales.push(orgLocale.locale);
+            }
+          })
+
+          console.log("availableLocales:", availableLocales, "existingDocsOtherLocales:", existingDocsOtherLocales);
+
+          if (availableLocales && availableLocales.length > 0) {
+            availableLocales.forEach(availableLocale => {
+              // TODO: make another version of this button for the bottom of the sidebar?
+              var button = document.createElement("button");
+              button.setAttribute("class", "blue");
+              button.setAttribute("type", "button");
+              button.setAttribute("id", "translate-button-top"); // TODO: figure out how this will work with multiple buttons?
+              button.setAttribute("data-headline", headline);
+              button.setAttribute("data-article-id", id);
+              button.setAttribute("data-locale", availableLocale.code);
+              button.setAttribute("onClick", "handleCreateDoc(this)");
+              button.innerHTML = 'Translate to ' + availableLocale.name;
+              console.log(availableLocale, "button:", button);
+              var buttonsTopContainer = document.getElementById('action-buttons-top');
+              buttonsTopContainer.appendChild(button);
+            })
+          }
+
+          if (existingDocsOtherLocales.length > 0) {
+            existingDocsOtherLocales.forEach(doc => {
+              var button = document.createElement("button");
+              button.setAttribute("id", "translate-button-top"); // TODO: figure out how this will work with multiple buttons?
+              button.setAttribute("class", "blue");
+              button.setAttribute("type", "button");
+              var buttonOpenLink = "window.open('" + doc.url + "', '_blank')";
+              button.setAttribute("onClick", buttonOpenLink);
+              button.innerHTML = "Open in " + doc.locale.name;
+              var buttonsTopContainer = document.getElementById('action-buttons-top');
+              buttonsTopContainer.appendChild(button);
+            });
+          }
+        }
       }
 
       function onSuccessPreviewPublish(response) {
