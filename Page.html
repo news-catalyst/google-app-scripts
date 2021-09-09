@@ -337,7 +337,7 @@
               button.setAttribute("data-article-id", data.id);
               button.setAttribute("data-locale", availableLocale.code);
               button.setAttribute("onClick", "handleCreateDoc(this)");
-              button.innerHTML = 'Translate ' + availableLocale.name;
+              button.innerHTML = 'Translate to ' + availableLocale.name;
               console.log(availableLocale, "button:", button);
               var buttonsTopContainer = document.getElementById('action-buttons-top');
               buttonsTopContainer.appendChild(button);
@@ -352,7 +352,7 @@
               button.setAttribute("type", "button");
               var buttonOpenLink = "window.open('" + doc.url + "', '_blank')";
               button.setAttribute("onClick", buttonOpenLink);
-              button.innerHTML = "Open " + doc.locale_code;
+              button.innerHTML = "Open in " + doc.locale.name;
               var buttonsTopContainer = document.getElementById('action-buttons-top');
               buttonsTopContainer.appendChild(button);
             });

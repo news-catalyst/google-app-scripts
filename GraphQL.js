@@ -89,6 +89,10 @@ const insertArticleGoogleDocMutationWithoutId = `mutation AddonInsertArticleGoog
         google_document {
           document_id
           locale_code
+          locale {
+            code
+            name
+          }
           url
           id
         }
@@ -176,6 +180,10 @@ const insertArticleGoogleDocMutation = `mutation AddonInsertArticleGoogleDocWith
         google_document {
           document_id
           locale_code
+          locale {
+            code
+            name
+          }
           url
           id
         }
@@ -510,6 +518,10 @@ const getArticleTranslationForIdAndLocale = `query AddonGetArticleTranslationByL
       google_document {
         document_id
         locale_code
+        locale {
+          code
+          name
+        }
         url
       }
     }
@@ -531,6 +543,10 @@ const getArticleTranslationForIdAndLocale = `query AddonGetArticleTranslationByL
     google_document {
       document_id
       locale_code
+      locale {
+        code
+        name
+      }
       url
     }
     article_id
@@ -566,6 +582,10 @@ const getPageForGoogleDocQuery = `query AddonGetPageForGoogleDoc($doc_id: String
       google_document {
         document_id
         locale_code
+        locale {
+          code
+          name
+        }
         url
       }
     }
@@ -595,6 +615,10 @@ const lookupArticleByGoogleDocQuery = `query AddonGetArticleByGoogleDoc($documen
     google_document {
       document_id
       locale_code
+      locale {
+        code
+        name
+      }
       id
       organization_id
       url
@@ -647,6 +671,10 @@ const getPublishedArticles = `query AddonGetPublishedArticles($locale_code: Stri
       google_document {
         document_id
         url
+        locale {
+          code
+          name
+        }
       }
     }
     article_translations(where: {locale_code: {_eq: $locale_code}, published: {_eq: true}}, order_by: {id: desc}, limit: 1) {
