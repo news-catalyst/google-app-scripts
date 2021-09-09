@@ -214,6 +214,27 @@
         // isPublishedSpan.innerHTML = isPublishedYesNo;
       }
 
+      function onSuccessCreateDoc(contents) {
+        console.log("onSuccessCreateDoc: ", contents);
+
+        var button = document.getElementById('translate-button-top');
+        button.innerHTML = "Open Translation";
+
+        button.setAttribute("class", "blue");
+        button.setAttribute("type", "button");
+        var buttonOpenLink = "window.open('" + contents.url + "', '_blank')";
+        button.setAttribute("onClick", buttonOpenLink);
+        // button.innerHTML = "Open " + doc.locale_code;
+        button.href = contents.url;
+      }
+
+      function handleCreateDoc(el) {
+        var localeCode = $(el).data('locale'); 
+        var articleId = $(el).data('article-id');
+        var headline = $(el).data('headline');
+        google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessCreateDoc).hasuraCreateDoc(articleId, localeCode, headline);
+      }
+
       function onSuccessGetArticle(contents) {
 
         var configDiv = document.getElementById('config');
@@ -271,6 +292,70 @@
           }
           if (contents.data.page_translations) {
             translationData = contents.data.page_translations[0];
+          }
+        }
+
+        var existingDocsOtherLocales = [];
+        var availableLocales = [];
+
+        if (googleDocs) {
+          contents.data.organization_locales.forEach( (orgLocale) => {
+            var foundLocaleDoc = false;
+            // loop over each google doc associated with this article
+            googleDocs.forEach( (doc) => {
+              // if google doc is not the current one we have open...
+              if (doc.google_document.document_id !== contents.documentId) {
+                // ... and this org locale is equal to the google doc's locale
+                if (orgLocale.locale.code === doc.google_document.locale_code) {
+                  // add it to the list of documents available that are translations of this article
+                  existingDocsOtherLocales.push(doc.google_document);
+                  foundLocaleDoc = true;
+                }
+              // current document
+              } else {
+                if (orgLocale.locale.code === doc.google_document.locale_code) {
+                  foundLocaleDoc = true;
+                }
+              }
+            });
+            // if we didn't find a google document for this org locale, mark it as available
+            if (!foundLocaleDoc) {
+              availableLocales.push(orgLocale.locale);
+            }
+          })
+
+          console.log("availableLocales:", availableLocales, "existingDocsOtherLocales:", existingDocsOtherLocales);
+
+          if (availableLocales && availableLocales.length > 0) {
+            availableLocales.forEach(availableLocale => {
+              // TODO: make another version of this button for the bottom of the sidebar?
+              var button = document.createElement("button");
+              button.setAttribute("class", "blue");
+              button.setAttribute("type", "button");
+              button.setAttribute("id", "translate-button-top"); // TODO: figure out how this will work with multiple buttons?
+              button.setAttribute("data-headline", translationData.headline);
+              button.setAttribute("data-article-id", data.id);
+              button.setAttribute("data-locale", availableLocale.code);
+              button.setAttribute("onClick", "handleCreateDoc(this)");
+              button.innerHTML = 'Translate ' + availableLocale.name;
+              console.log(availableLocale, "button:", button);
+              var buttonsTopContainer = document.getElementById('action-buttons-top');
+              buttonsTopContainer.appendChild(button);
+            })
+          }
+
+          if (existingDocsOtherLocales.length > 0) {
+            existingDocsOtherLocales.forEach(doc => {
+              var button = document.createElement("button");
+              button.setAttribute("id", "translate-button-top"); // TODO: figure out how this will work with multiple buttons?
+              button.setAttribute("class", "blue");
+              button.setAttribute("type", "button");
+              var buttonOpenLink = "window.open('" + doc.url + "', '_blank')";
+              button.setAttribute("onClick", buttonOpenLink);
+              button.innerHTML = "Open " + doc.locale_code;
+              var buttonsTopContainer = document.getElementById('action-buttons-top');
+              buttonsTopContainer.appendChild(button);
+            });
           }
         }
 
@@ -857,7 +942,7 @@
 
         var sources = {};
 
-        console.log("handling click - doc type is " + documentType);
+        console.log("handling click - doc type is " + documentType, "formObject.submitted:", formObject.submitted);
         if (documentType !== "page")  {
           var elements = formObject.elements;
 
@@ -971,7 +1056,7 @@
             loadingDiv.innerHTML = "<p class='gray'>Publishing... </p>"
             google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(submitData);
           }
-        } else if ( documentType === "article" && formIsValid) {
+        } else if ( documentType === "article" && formIsValid && formObject.submitted === "Unpublish") {
           // console.log("valid form + unpublish")
           loadingDiv.innerHTML = "<p class='gray'>Unpublishing article... </p>"
           var articleId = document.getElementById('article-id').value;
@@ -1171,6 +1256,7 @@
             <input type="submit" class="blue" id="publish-button-bottom" value="Publish" onclick="this.form.submitted=this.value;"/>
             <input type="submit" class="blue" id="unpublish-button-bottom" value="Unpublish" onclick="this.form.submitted=this.value;"/>
           </div>
+
           <div class="block" id="published-info">
             <div class="small" id="translation-id"></div>
             <div class="small" style="width: 100%" id="published-info-first"><b>Initial:</b> <span id="first-published-at"></span></div>
