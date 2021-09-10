@@ -610,6 +610,15 @@ const getPageForGoogleDocQuery = `query AddonGetPageForGoogleDoc($doc_id: String
   }
 }`;
 
+const getOrganizationLocalesQuery = `query AddonGetOrganizationLocales {
+  organization_locales {
+    locale {
+      code
+      name
+    }
+  }
+}`
+
 const lookupArticleByGoogleDocQuery = `query AddonGetArticleByGoogleDoc($document_id: String) {
   article_google_documents(where: {google_document: {document_id: {_eq: $document_id}}}) {
     google_document {

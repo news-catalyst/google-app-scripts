@@ -850,6 +850,10 @@ async function hasuraHandlePublish(formObject) {
     var deleteTagsResult = await hasuraDeleteTagArticles(articleID);
     Logger.log("Deleted article tags: " + JSON.stringify(deleteTagsResult))
 
+    var getOrgLocalesResult = await hasuraGetOrganizationLocales();
+    Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
+    data.organization_locales = getOrgLocalesResult.data.organization_locales;
+
     if (articleID) {
       // store slug + article ID in slug versions table
       var result = await storeArticleIdAndSlug(articleID, slug);
@@ -1001,6 +1005,10 @@ async function hasuraHandlePreview(formObject) {
     var deleteTagsResult = await hasuraDeleteTagArticles(articleID);
     Logger.log("Deleted article tags: " + JSON.stringify(deleteTagsResult))
     
+    var getOrgLocalesResult = await hasuraGetOrganizationLocales();
+    Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
+    data.organization_locales = getOrgLocalesResult.data.organization_locales;
+
     if (articleID && formObject['article-tags']) {
       var tags;
       // ensure this is an array; selecting one in the UI results in a string being sent
@@ -1049,8 +1057,17 @@ async function hasuraHandlePreview(formObject) {
   return {
     message: message,
     data: data,
+    documentID: documentID,
     status: "success"
   }
+}
+
+
+function hasuraGetOrganizationLocales() {
+  return fetchGraphQL(
+    getOrganizationLocalesQuery,
+    "AddonGetOrganizationLocales"
+  );
 }
 
 function fetchArticleForGoogleDoc(doc_id) {
