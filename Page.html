@@ -223,10 +223,13 @@
 
         button.setAttribute("class", "blue");
         button.setAttribute("type", "button");
+
         var buttonOpenLink = "window.open('" + contents.url + "', '_blank')";
         button.setAttribute("onClick", buttonOpenLink);
         // button.innerHTML = "Open " + doc.locale_code;
         button.href = contents.url;
+
+        window.open(contents.url, '_blank');
       }
 
       function handleCreateDoc(el) {

@@ -121,6 +121,7 @@ const insertArticleGoogleDocMutationWithoutId = `mutation AddonInsertArticleGoog
         article_id
         locale_code
         published
+        headline
       }
       published_article_translations(where: {locale_code: {_eq: $locale_code}}) {
         article_translation {
@@ -212,6 +213,7 @@ const insertArticleGoogleDocMutation = `mutation AddonInsertArticleGoogleDocWith
         article_id
         locale_code
         published
+        headline
       }
       published_article_translations(where: {locale_code: {_eq: $locale_code}}) {
         article_translation {
@@ -259,6 +261,55 @@ const insertArticleGoogleDocMutationWithoutSources = `mutation AddonInsertArticl
     returning {
       id
       slug
+      updated_at
+      created_at
+      article_google_documents {
+        id
+        google_document {
+          document_id
+          locale_code
+          locale {
+            code
+            name
+          }
+          url
+          id
+        }
+      }
+      article_sources {
+        source {
+          affiliation
+          age
+          email
+          ethnicity
+          gender
+          id
+          name
+          phone
+          race
+          role
+          sexual_orientation
+          zip
+        }
+      }
+      category {
+        slug
+      }
+      article_translations(where: { locale_code: {_eq: $locale_code}}, order_by: {id: desc}, limit: 1) {
+        id
+        article_id
+        locale_code
+        published
+        headline
+      }
+      published_article_translations(where: {locale_code: {_eq: $locale_code}}) {
+        article_translation {
+          id
+          first_published_at
+          last_published_at
+          locale_code
+        }
+      }
     }
   }
 }`;
