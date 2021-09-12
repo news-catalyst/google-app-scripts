@@ -47,24 +47,7 @@
       }
 
       function handleGetArticle() {
-        var localeCode = document.getElementById("current-article-locale").innerText;
-         google.script.run.withFailureHandler(onFailure).withSuccessHandler(handleGetTranslationsForArticle).hasuraGetArticle(localeCode);
-      }
-
-      function onSuccessCreateDoc(contents) {
-        console.log("onSuccessCreateDoc: ", contents);
-
-        var div = document.getElementById('loading');
-        div.style.display = 'block';
-
-        div.innerHTML = "<a target='_new' href='" + contents.url + "'>Click to edit " + contents.locale + " version of article</a>";
-      }
-
-      function handleCreateDoc(el) {
-        var localeCode = $(el).data('locale'); 
-        var articleId = $(el).data('article-id');
-        var headline = $(el).data('headline');
-        google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessCreateDoc).hasuraCreateDoc(articleId, localeCode, headline);
+        google.script.run.withFailureHandler(onFailure).withSuccessHandler(handleGetTranslationsForArticle).hasuraGetArticle();
       }
 
       function onSuccessGetArticle(contents) {
@@ -77,112 +60,9 @@
         } else {
           div.innerHTML = '<p style="color: #48C774;">' + contents.message + "</p>";
         }
-
-        var data;
-        var translationData;
-        var googleDocs;
-        var documentType = "article";
-        var headline;
-        var localeCode = contents.localeCode;
-        if (contents.data.pages) {
-          data = contents.data.pages[0];
-          if (contents.data.page_translations) {
-            translationData = contents.data.page_translations[0];
-          }
-          documentType = "page"
-        } else {
-          data = contents.data.articles[0];
-          if (contents.data.article_translations) {
-            translationData = contents.data.article_translations[0];
-            if (translationData) {
-              headline = translationData.headline;
-            }
-          }
-          googleDocs = contents.data.article_google_documents;
-        }
-        var docType = document.getElementById('document-type');
-        docType.innerHTML = documentType;
-
-        var availableLocalesElement = document.getElementById('available-locales');
-        var existingDocsOtherLocales = [];
-        var availableLocales = [];
-
-        // figure out which locales are available
-        if (googleDocs) {
-          // loop over each locale available for this org
-          contents.data.organization_locales.forEach( (orgLocale) => {
-            var foundLocaleDoc = false;
-            // loop over each google doc associated with this article
-            googleDocs.forEach( (doc) => {
-              // if google doc is not the current one we have open...
-              if (doc.google_document.document_id !== contents.documentId) {
-                // ... and this org locale is equal to the google doc's locale
-                if (orgLocale.locale.code === doc.google_document.locale_code) {
-                  // add it to the list of documents available that are translations of this article
-                  existingDocsOtherLocales.push(doc.google_document);
-                  foundLocaleDoc = true;
-                }
-              // current document
-              } else {
-                if (orgLocale.locale.code === doc.google_document.locale_code) {
-                  foundLocaleDoc = true;
-                }
-              }
-            });
-            // if we didn't find a google document for this org locale, mark it as available
-            if (!foundLocaleDoc) {
-              availableLocales.push(orgLocale.locale);
-            }
-          })
-        }
-
-        var existingTranslationsDiv = document.getElementById('existing-translations');
-        if (existingDocsOtherLocales.length > 0) {
-          var existingDocItems = [];
-          existingDocsOtherLocales.forEach(doc => {
-            var item = "<a target='_new' href='" + doc.url + "'>" + doc.locale_code + "</a>";
-            existingDocItems.push(item)
-          });
-          existingTranslationsDiv.innerHTML = existingDocItems.join(', ');
-        }
-
-        if (availableLocales.length > 0) {
-          var availableLocaleLinks = [];
-          availableLocales.forEach(availableLocale => {
-            var item = "<a data-headline='" + headline + "' data-article-id='" + data.id + "' data-locale='" + availableLocale.code + "' onClick='handleCreateDoc(this)'>" + availableLocale.name + "</a>";
-            availableLocaleLinks.push(item);
-          });
-          availableLocalesElement.innerHTML = availableLocaleLinks.join(', ');
-        }
-
-        if (data) {
-          var slugDiv = document.getElementById('slug');
-          slugDiv.innerHTML = data.slug;
-
-          var currentId = document.getElementById('current-data-id');
-          currentId.innerHTML = data.id;
-        }
-
-        var articleLocale = document.getElementById('current-article-locale');
-        articleLocale.innerHTML = localeCode;
-
-        if (translationData) {
-          var versionId = document.getElementById('version-id');
-          versionId.innerHTML = translationData.id;
-
-          setPublishedFlag(translationData.published);
-
-          var firstPub = document.getElementById('first-published');
-          firstPub.innerHTML = translationData.first_published_at;
-
-          var lastPub = document.getElementById('last-published');
-          lastPub.innerHTML = translationData.last_published_at;
-        }
       }
 
       function onSuccessDelete(response) {
-        // hideLoading();
-        console.log("outcome", response)
         var div = document.getElementById('republish-info');
         div.style.display = 'block';
         if (response && !response.errors) {
@@ -193,7 +73,6 @@
       }
 
       function onSuccessRepublish(response) {
-        // hideLoading();
         console.log(response.data[0].data.insert_articles.returning[0])
         var div = document.getElementById('republish-info');
         div.style.display = 'block';
@@ -202,7 +81,6 @@
         var slugListItems = republishedArticleSlugs.map( (slug) => {
           return "<li>" + slug + "</li>";
         }).join("\n");
-        console.log("slugListItems", slugListItems)
         div.innerHTML = "<p><b>Republished the following articles:</b><br/><ul>" + slugListItems + "</ul></p>";
       }
 
@@ -286,7 +164,6 @@
       }
 
       function displayConfigFormMessage(text) {
-        console.log("displaying response from saving config form...")
         var configDiv = document.getElementById('loading');
         configDiv.innerHTML = JSON.stringify(text);
 
@@ -616,40 +493,6 @@
         <div id="republish-info"></div>
         <hr/>
         <button onclick="deleteArticle()">Delete Article</button>
-        <hr/>
-        <br/>
-        <br/>
-        <h3 class="gray">Debugging Info:</h3>
-          <p class="gray">
-            <b>Document type:</b> <span id="document-type"></span>
-          </p>
-          <p class="gray">
-            <b>ID:</b> <span id="current-data-id"></span>
-          </p>
-          <p class="gray">
-            <b>Version ID:</b> <span id="version-id"></span>
-          </p>
-          <p class="gray">
-            <b>Article slug:</b> <span id="slug"></span>
-          </p>
-          <p class="gray">
-            <b>Article locale:</b> <span id="current-article-locale"></span>
-          </p>
-          <p class="gray">
-            <b>Published?</b> <span id="is-published"></span>
-          </p>
-          <p class="gray">
-            <b>First published:</b> <span id="first-published"></span>
-          </p>
-          <p class="gray">
-            <b>Last published:</b> <span id="last-published"></span>
-          </p>
-          <p class="gray">
-            <b>Click to translate:</b> <span id="available-locales"></span>
-          </p>
-          <p class="gray">
-            <b>Existing translations:</b> <span id="existing-translations"></span>
-          </p>
       </div>
     </div>
 
