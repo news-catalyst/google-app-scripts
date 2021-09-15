@@ -558,6 +558,18 @@ async function hasuraInsertGoogleDoc(articleId, docId, localeCode, url) {
   );
 }
 
+async function hasuraInsertPageGoogleDoc(pageId, docId, localeCode, url) {
+  return fetchGraphQL(
+    insertPageGoogleDocMutation,
+    "AddonInsertPageGoogleDoc",
+    {
+      page_id: pageId,
+      document_id: docId,
+      locale_code: localeCode,
+      url: url
+    }
+  );
+}
 
 async function hasuraDeleteArticle(articleId) {
   Logger.log("deleting article ID#" + articleId);
@@ -570,7 +582,7 @@ async function hasuraDeleteArticle(articleId) {
   )
 }
 
-async function hasuraCreateDoc(articleId, newLocale, headline) {
+async function hasuraCreateArticleDoc(articleId, newLocale, headline) {
   Logger.log("create new doc for article " + articleId + " and locale " + newLocale);
   // create new document in google docs
   var currentDocId = DocumentApp.getActiveDocument().getId();
@@ -595,6 +607,37 @@ async function hasuraCreateDoc(articleId, newLocale, headline) {
 
   return {
     articleId: articleId,
+    locale: newLocale,
+    docId: newDocId,
+    url: newDocUrl,
+    data: response
+  }
+}
+async function hasuraCreatePageDoc(pageId, newLocale, headline) {
+  Logger.log("create new doc for page " + pageId + " and locale " + newLocale);
+  // create new document in google docs
+  var currentDocId = DocumentApp.getActiveDocument().getId();
+  var newDocId;
+  var newDocUrl;
+  var localisedHeadline = newLocale + " - " + headline;
+  var driveFile = DriveApp.getFileById(currentDocId);
+  var newFile = driveFile.makeCopy(localisedHeadline);
+  if (newFile) {
+    newDocId = newFile.getId();
+    newDocUrl = newFile.getUrl();
+  } else {
+    Logger.log("failed creating new file via DriveApp")
+    return null;
+  }
+
+  // insert new document ID in google_documents table with newLocale & articleID
+  var response = await hasuraInsertPageGoogleDoc(pageId, newDocId, newLocale, newDocUrl);
+  Logger.log("hasura insert page googleDoc response: " + JSON.stringify(response));
+
+  // return new doc ID / url for link?
+
+  return {
+    pageId: pageId,
     locale: newLocale,
     docId: newDocId,
     url: newDocUrl,
@@ -811,6 +854,9 @@ async function hasuraHandlePublish(formObject) {
     var result = await storePageIdAndSlug(pageID, slug);
     Logger.log("stored page id + slug: " + JSON.stringify(result));
 
+    var getOrgLocalesResult = await hasuraGetOrganizationLocales();
+    Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
+    data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
     if (pageID && formObject['article-authors']) {
       var authors;
@@ -965,6 +1011,10 @@ async function hasuraHandlePreview(formObject) {
     // Logger.log("pageResult: " + JSON.stringify(data))
 
     var pageID = data.data.insert_pages.returning[0].id;
+
+    var getOrgLocalesResult = await hasuraGetOrganizationLocales();
+    Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
+    data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
     // store slug + page ID in slug versions table
     var result = await storePageIdAndSlug(pageID, slug);

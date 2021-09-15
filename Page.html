@@ -234,9 +234,16 @@
 
       function handleCreateDoc(el) {
         var localeCode = $(el).data('locale'); 
-        var articleId = $(el).data('article-id');
+        var docType = $(el).data('doc-type');
         var headline = $(el).data('headline');
-        google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessCreateDoc).hasuraCreateDoc(articleId, localeCode, headline);
+        var id;
+        if (docType === "page") {
+          id = $(el).data('page-id');
+          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessCreateDoc).hasuraCreatePageDoc(id, localeCode, headline);
+        } else {
+          id = $(el).data('article-id');
+          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessCreateDoc).hasuraCreateArticleDoc(id, localeCode, headline);
+        }
       }
 
       function onSuccessGetArticle(contents) {
@@ -297,10 +304,14 @@
           if (contents.data.page_translations) {
             translationData = contents.data.page_translations[0];
           }
+
+          if (contents.data.page_google_documents) {
+            googleDocs = contents.data.page_google_documents;
+          }
         }
 
         // displayTranslationTools(id, headline, googleDocs, organization_locales)
-        displayTranslationTools(data.id, contents.documentId, translationData.headline, googleDocs, contents.data.organization_locales);
+        displayTranslationTools(data.id, contents.documentId, documentType, translationData.headline, googleDocs, contents.data.organization_locales);
         
         if (publishedInfo) {
           displayPublishedInfo(publishedInfo, translationData);
@@ -812,7 +823,9 @@
          google.script.run.withFailureHandler(onFailure).withSuccessHandler(handleGetTranslationsForArticle).hasuraGetArticle();
       }
 
-      function displayTranslationTools(id, documentId, headline, googleDocs, organizationLocales) {
+      function displayTranslationTools(id, documentId, documentType, headline, googleDocs, organizationLocales) {
+        console.log("displaying translation tools:", id, documentId, headline, googleDocs, organizationLocales);
+
         var existingDocsOtherLocales = [];
         var availableLocales = [];
 
@@ -858,7 +871,12 @@
                   button.setAttribute("type", "button");
                   button.setAttribute("id", buttonId);
                   button.setAttribute("data-headline", headline);
-                  button.setAttribute("data-article-id", id);
+                  button.setAttribute("data-doc-type", documentType);
+                  if (documentType === "page") {
+                    button.setAttribute("data-page-id", id);
+                  } else {
+                    button.setAttribute("data-article-id", id);
+                  }
                   button.setAttribute("data-locale", availableLocale.code);
                   button.setAttribute("onClick", "handleCreateDoc(this)");
                   button.innerHTML = 'Translate to ' + availableLocale.name;
@@ -872,7 +890,9 @@
 
           if (existingDocsOtherLocales.length > 0) {
             existingDocsOtherLocales.forEach(doc => {
+              console.log("existing doc:", doc)
               if (doc.locale.code !== selectedLocale) {
+                
                 var buttonId = "translate-button-top-" + doc.locale.code;
                 if (!document.getElementById(buttonId)) { // avoid adding multiple instances of the same button
                   var button = document.createElement("button");
@@ -928,15 +948,20 @@
             var organizationLocales = response.data.organization_locales;
             var documentID = response.documentID;
             console.log("googleDocs:", googleDocs, "organizationLocales:", organizationLocales, "documentID:", documentID);
-            // displayTranslationTools(id, documentId, headline, googleDocs, organizationLocales) {
-
-            displayTranslationTools(articleID, documentID, translations[0].headline, googleDocs, organizationLocales);
+        
+            displayTranslationTools(articleID, documentID, "article", translations[0].headline, googleDocs, organizationLocales);
 
           } else if (response.data && response.data.data && response.data.data.insert_pages) {
             var pageID = response.data.data.insert_pages.returning[0].id;
             // console.log("page ID:", pageID)
             var idHiddenField = document.getElementById('article-id');
             idHiddenField.value = pageID;
+
+            var googleDocs = response.data.data.insert_pages.returning[0].page_google_documents;
+            var organizationLocales = response.data.organization_locales;
+            var documentID = response.documentID;
+
+            displayTranslationTools(pageID, documentID, "page", translations[0].headline, googleDocs, organizationLocales);
 
           } else if (response.data && response.data.data && response.data.data.update_article_translations) {
             // console.log("unpublished article:", response.data);

@@ -320,6 +320,12 @@ const insertGoogleDocMutation = `mutation AddonInsertGoogleDoc($article_id: Int!
   }
 }`;
 
+const insertPageGoogleDocMutation = `mutation AddonInsertPageGoogleDoc($page_id: Int!, $document_id: String!, $locale_code: String!, $url: String) {
+  insert_page_google_documents(objects: {page_id: $page_id, google_document: {data: {document_id: $document_id, locale_code: $locale_code, url: $url}, on_conflict: {constraint: google_documents_organization_id_document_id_key, update_columns: url}}}, on_conflict: {constraint: page_google_documents_page_id_google_document_id_key, update_columns: google_document_id}) {
+    affected_rows
+  }
+}`;
+
 const insertPageGoogleDocsMutationWithoutId = `mutation AddonInsertPageGoogleDocNoID($slug: String!, $locale_code: String!, $created_by_email: String, $document_id: String, $url: String, $facebook_title: String, $facebook_description: String, $search_title: String, $search_description: String, $headline: String, $twitter_title: String, $twitter_description: String, $content: jsonb, $published: Boolean) {
   insert_pages(objects: {page_google_documents: {data: {google_document: {data: {document_id: $document_id, locale_code: $locale_code, url: $url}, on_conflict: {constraint: google_documents_organization_id_document_id_key, update_columns: [document_id]}}}, on_conflict: {constraint: page_google_documents_page_id_google_document_id_key, update_columns: [google_document_id]}}, slug: $slug, page_translations: {data: {created_by_email: $created_by_email, published: $published, search_description: $search_description, search_title: $search_title, twitter_description: $twitter_description, twitter_title: $twitter_title, locale_code: $locale_code, headline: $headline, facebook_title: $facebook_title, facebook_description: $facebook_description, content: $content}}}, on_conflict: {constraint: pages_slug_organization_id_key, update_columns: [slug, updated_at]}) {
     returning {
@@ -330,6 +336,10 @@ const insertPageGoogleDocsMutationWithoutId = `mutation AddonInsertPageGoogleDoc
         google_document {
           document_id
           locale_code
+          locale {
+            code
+            name
+          }
           url
         }
       }
@@ -346,6 +356,10 @@ const insertPageGoogleDocsMutation = `mutation AddonInsertPageGoogleDocWithID($i
         google_document {
           document_id
           locale_code
+          locale {
+            code
+            name
+          }
           url
         }
       }
@@ -426,6 +440,10 @@ const getArticleByGoogleDocQuery = `query AddonGetArticleByGoogleDoc($doc_id: St
       google_document {
         document_id
         locale_code
+        locale {
+          code
+          name
+        }
         url
       }
     }
@@ -507,6 +525,10 @@ const getPageTranslationForIdAndLocale = `query AddonGetPageTranslationByLocaleA
       google_document {
         document_id
         locale_code
+        locale {
+          code
+          name
+        }
         url
       }
     }
@@ -520,6 +542,10 @@ const getPageTranslationForIdAndLocale = `query AddonGetPageTranslationByLocaleA
     google_document {
       document_id
       locale_code
+      locale {
+        code
+        name
+      }
       url
     }
     page_id
