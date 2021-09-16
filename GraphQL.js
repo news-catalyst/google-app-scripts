@@ -89,6 +89,10 @@ const insertArticleGoogleDocMutationWithoutId = `mutation AddonInsertArticleGoog
         google_document {
           document_id
           locale_code
+          locale {
+            code
+            name
+          }
           url
           id
         }
@@ -117,6 +121,7 @@ const insertArticleGoogleDocMutationWithoutId = `mutation AddonInsertArticleGoog
         article_id
         locale_code
         published
+        headline
       }
       published_article_translations(where: {locale_code: {_eq: $locale_code}}) {
         article_translation {
@@ -176,6 +181,10 @@ const insertArticleGoogleDocMutation = `mutation AddonInsertArticleGoogleDocWith
         google_document {
           document_id
           locale_code
+          locale {
+            code
+            name
+          }
           url
           id
         }
@@ -204,6 +213,7 @@ const insertArticleGoogleDocMutation = `mutation AddonInsertArticleGoogleDocWith
         article_id
         locale_code
         published
+        headline
       }
       published_article_translations(where: {locale_code: {_eq: $locale_code}}) {
         article_translation {
@@ -251,12 +261,67 @@ const insertArticleGoogleDocMutationWithoutSources = `mutation AddonInsertArticl
     returning {
       id
       slug
+      updated_at
+      created_at
+      article_google_documents {
+        id
+        google_document {
+          document_id
+          locale_code
+          locale {
+            code
+            name
+          }
+          url
+          id
+        }
+      }
+      article_sources {
+        source {
+          affiliation
+          age
+          email
+          ethnicity
+          gender
+          id
+          name
+          phone
+          race
+          role
+          sexual_orientation
+          zip
+        }
+      }
+      category {
+        slug
+      }
+      article_translations(where: { locale_code: {_eq: $locale_code}}, order_by: {id: desc}, limit: 1) {
+        id
+        article_id
+        locale_code
+        published
+        headline
+      }
+      published_article_translations(where: {locale_code: {_eq: $locale_code}}) {
+        article_translation {
+          id
+          first_published_at
+          last_published_at
+          locale_code
+        }
+      }
     }
   }
 }`;
 
 const insertGoogleDocMutation = `mutation AddonInsertGoogleDoc($article_id: Int!, $document_id: String!, $locale_code: String!, $url: String) {
   insert_article_google_documents(objects: {article_id: $article_id, google_document: {data: {document_id: $document_id, locale_code: $locale_code, url: $url}, on_conflict: {constraint: google_documents_organization_id_document_id_key, update_columns: url}}}, on_conflict: {constraint: article_google_documents_article_id_google_document_id_key, update_columns: google_document_id}) {
+    affected_rows
+  }
+}`;
+
+const insertPageGoogleDocMutation = `mutation AddonInsertPageGoogleDoc($page_id: Int!, $document_id: String!, $locale_code: String!, $url: String) {
+  insert_page_google_documents(objects: {page_id: $page_id, google_document: {data: {document_id: $document_id, locale_code: $locale_code, url: $url}, on_conflict: {constraint: google_documents_organization_id_document_id_key, update_columns: url}}}, on_conflict: {constraint: page_google_documents_page_id_google_document_id_key, update_columns: google_document_id}) {
     affected_rows
   }
 }`;
@@ -271,6 +336,10 @@ const insertPageGoogleDocsMutationWithoutId = `mutation AddonInsertPageGoogleDoc
         google_document {
           document_id
           locale_code
+          locale {
+            code
+            name
+          }
           url
         }
       }
@@ -287,6 +356,10 @@ const insertPageGoogleDocsMutation = `mutation AddonInsertPageGoogleDocWithID($i
         google_document {
           document_id
           locale_code
+          locale {
+            code
+            name
+          }
           url
         }
       }
@@ -367,6 +440,10 @@ const getArticleByGoogleDocQuery = `query AddonGetArticleByGoogleDoc($doc_id: St
       google_document {
         document_id
         locale_code
+        locale {
+          code
+          name
+        }
         url
       }
     }
@@ -448,6 +525,10 @@ const getPageTranslationForIdAndLocale = `query AddonGetPageTranslationByLocaleA
       google_document {
         document_id
         locale_code
+        locale {
+          code
+          name
+        }
         url
       }
     }
@@ -461,6 +542,10 @@ const getPageTranslationForIdAndLocale = `query AddonGetPageTranslationByLocaleA
     google_document {
       document_id
       locale_code
+      locale {
+        code
+        name
+      }
       url
     }
     page_id
@@ -510,6 +595,10 @@ const getArticleTranslationForIdAndLocale = `query AddonGetArticleTranslationByL
       google_document {
         document_id
         locale_code
+        locale {
+          code
+          name
+        }
         url
       }
     }
@@ -531,6 +620,10 @@ const getArticleTranslationForIdAndLocale = `query AddonGetArticleTranslationByL
     google_document {
       document_id
       locale_code
+      locale {
+        code
+        name
+      }
       url
     }
     article_id
@@ -566,6 +659,10 @@ const getPageForGoogleDocQuery = `query AddonGetPageForGoogleDoc($doc_id: String
       google_document {
         document_id
         locale_code
+        locale {
+          code
+          name
+        }
         url
       }
     }
@@ -590,11 +687,24 @@ const getPageForGoogleDocQuery = `query AddonGetPageForGoogleDoc($doc_id: String
   }
 }`;
 
+const getOrganizationLocalesQuery = `query AddonGetOrganizationLocales {
+  organization_locales {
+    locale {
+      code
+      name
+    }
+  }
+}`
+
 const lookupArticleByGoogleDocQuery = `query AddonGetArticleByGoogleDoc($document_id: String) {
   article_google_documents(where: {google_document: {document_id: {_eq: $document_id}}}) {
     google_document {
       document_id
       locale_code
+      locale {
+        code
+        name
+      }
       id
       organization_id
       url
@@ -647,6 +757,10 @@ const getPublishedArticles = `query AddonGetPublishedArticles($locale_code: Stri
       google_document {
         document_id
         url
+        locale {
+          code
+          name
+        }
       }
     }
     article_translations(where: {locale_code: {_eq: $locale_code}, published: {_eq: true}}, order_by: {id: desc}, limit: 1) {
