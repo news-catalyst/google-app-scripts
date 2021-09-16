@@ -871,12 +871,18 @@ async function hasuraHandlePublish(formObject) {
         var result = await hasuraCreateAuthorPage(author, pageID);
       }
     }
+    var path = "";
     if (formObject['article-locale']) {
-      fullPublishUrl = publishUrl + "/" + formObject['article-locale'] + "/" + slug;
-    } else {
-      fullPublishUrl = publishUrl + "/" + slug;
+      path += formObject['article-locale'];
     }
-    Logger.log("fullPublishUrl: " + fullPublishUrl);
+    if (slug !== 'about' && slug !== 'donate' && slug !== 'thank-you') { // these 3 pages have their own special routes
+      path += "/static/" + slug;
+    } else {
+      path += "/" + slug;
+    }
+    fullPublishUrl = publishUrl + path;
+
+    Logger.log("publishUrl: " + publishUrl + " fullPublishUrl: " + fullPublishUrl);
 
   } else {
     documentType = "article";
@@ -948,9 +954,11 @@ async function hasuraHandlePublish(formObject) {
       }
     }
     if (formObject['article-locale']) {
-      fullPublishUrl = publishUrl + "/" + formObject['article-locale'] + "/articles/" + categorySlug + "/" + articleSlug;
+      var path = formObject['article-locale'] + "/articles/" + categorySlug + "/" + articleSlug;
+      fullPublishUrl = publishUrl + path;
     } else {
-      fullPublishUrl = publishUrl + "/articles/" + categorySlug + "/" + articleSlug;
+      var path = "articles/" + categorySlug + "/" + articleSlug;
+      fullPublishUrl = publishUrl + path;
     }
   }
 
