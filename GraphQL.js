@@ -432,7 +432,8 @@ const getArticleByGoogleDocQuery = `query AddonGetArticleByGoogleDoc($doc_id: St
     author_articles {
       author {
         id
-        name
+        first_names
+        last_name
         slug
       }
     }
@@ -469,7 +470,8 @@ const getArticleByGoogleDocQuery = `query AddonGetArticleByGoogleDoc($doc_id: St
   authors {
     id
     slug
-    name
+    first_names
+    last_name
   }
   categories {
     id
@@ -517,7 +519,8 @@ const getPageTranslationForIdAndLocale = `query AddonGetPageTranslationByLocaleA
     author_pages {
       author {
         id
-        name
+        first_names
+        last_name
         slug
       }
     }
@@ -536,7 +539,8 @@ const getPageTranslationForIdAndLocale = `query AddonGetPageTranslationByLocaleA
   authors {
     id
     slug
-    name
+    first_names
+    last_name
   }
   page_google_documents(where: {page_id: {_eq: $page_id}}) {
     google_document {
@@ -587,7 +591,8 @@ const getArticleTranslationForIdAndLocale = `query AddonGetArticleTranslationByL
     author_articles {
       author {
         id
-        name
+        first_names
+        last_name
         slug
       }
     }
@@ -606,7 +611,8 @@ const getArticleTranslationForIdAndLocale = `query AddonGetArticleTranslationByL
   authors {
     id
     slug
-    name
+    first_names
+    last_name
   }
   categories {
     id
@@ -668,7 +674,8 @@ const getPageForGoogleDocQuery = `query AddonGetPageForGoogleDoc($doc_id: String
     }
     author_pages {
       author {
-        name
+        first_names
+        last_name
         id
         slug
       }
@@ -677,7 +684,8 @@ const getPageForGoogleDocQuery = `query AddonGetPageForGoogleDoc($doc_id: String
   authors {
     id
     slug
-    name
+    first_names
+    last_name
   }
   organization_locales {
     locale {
@@ -780,7 +788,8 @@ const getPublishedArticles = `query AddonGetPublishedArticles($locale_code: Stri
     }
     author_articles {
       author {
-        name
+        first_names
+        last_name
         photoUrl
         slug
         twitter
