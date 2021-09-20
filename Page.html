@@ -138,8 +138,9 @@
           var selectorString = "#article-authors option[value='" + author.id + "']";
           if ( $(selectorString).length <= 0 ) {
             var option = document.createElement("option");
-            if (author && author.name) {
-              option.text = author.name
+            if (author && author.last_name) {
+              // I found this awesome way of joining non-empty strings here https://stackoverflow.com/a/19903063
+              option.text = [author.first_names, author.last_name].filter(Boolean).join(" ");
             } else {
               option.text = "(BUG) unknown name";
             }
