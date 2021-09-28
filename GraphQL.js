@@ -30,7 +30,7 @@ const insertAuthorPageMutation = `mutation AddonInsertAuthorPage($page_id: Int!,
   }
 }`;
 
-const insertArticleGoogleDocMutationWithoutId = `mutation AddonInsertArticleGoogleDocNoID($locale_code: String!, $created_by_email: String, $headline: String!, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $main_image: jsonb,  $article_sources: [article_source_insert_input!]!) {
+const insertArticleGoogleDocMutationWithoutId = `mutation AddonInsertArticleGoogleDocNoID($locale_code: String!, $created_by_email: String, $headline: String!, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $main_image: jsonb,  $first_published_at: timestamptz, $article_sources: [article_source_insert_input!]!) {
   insert_articles(
     objects: {
       article_translations: {
@@ -47,7 +47,8 @@ const insertArticleGoogleDocMutationWithoutId = `mutation AddonInsertArticleGoog
           search_title: $search_title, 
           twitter_description: $twitter_description, 
           twitter_title: $twitter_title,
-          main_image: $main_image
+          main_image: $main_image,
+          first_published_at: $first_published_at
         }
       }, 
       category_id: $category_id, 
@@ -122,6 +123,8 @@ const insertArticleGoogleDocMutationWithoutId = `mutation AddonInsertArticleGoog
         locale_code
         published
         headline
+        first_published_at
+        last_published_at
       }
       published_article_translations(where: {locale_code: {_eq: $locale_code}}) {
         article_translation {
@@ -135,13 +138,13 @@ const insertArticleGoogleDocMutationWithoutId = `mutation AddonInsertArticleGoog
   }
 }`;
 
-const insertArticleGoogleDocMutation = `mutation AddonInsertArticleGoogleDocWithID($id: Int!, $locale_code: String!, $headline: String!, $created_by_email: String, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $main_image: jsonb, 
+const insertArticleGoogleDocMutation = `mutation AddonInsertArticleGoogleDocWithID($id: Int!, $locale_code: String!, $headline: String!, $created_by_email: String, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $main_image: jsonb, $first_published_at: timestamptz,
   $article_sources: [article_source_insert_input!]!) {
   insert_articles(
     objects: {
       article_translations: {
         data: {
-          created_by_email: $created_by_email, headline: $headline, locale_code: $locale_code, published: $published, content: $content, custom_byline: $custom_byline, facebook_description: $facebook_description, facebook_title: $facebook_title, search_description: $search_description, search_title: $search_title, twitter_description: $twitter_description, twitter_title: $twitter_title, main_image: $main_image
+          first_published_at: $first_published_at, created_by_email: $created_by_email, headline: $headline, locale_code: $locale_code, published: $published, content: $content, custom_byline: $custom_byline, facebook_description: $facebook_description, facebook_title: $facebook_title, search_description: $search_description, search_title: $search_title, twitter_description: $twitter_description, twitter_title: $twitter_title, main_image: $main_image
         }
       }, 
       article_sources: {
@@ -214,6 +217,8 @@ const insertArticleGoogleDocMutation = `mutation AddonInsertArticleGoogleDocWith
         locale_code
         published
         headline
+        first_published_at
+        last_published_at
       }
       published_article_translations(where: {locale_code: {_eq: $locale_code}}) {
         article_translation {
@@ -227,12 +232,12 @@ const insertArticleGoogleDocMutation = `mutation AddonInsertArticleGoogleDocWith
   }
 }`;
 
-const insertArticleGoogleDocMutationWithoutSources = `mutation AddonInsertArticleGoogleDocWithoutSources($id: Int!, $locale_code: String!, $headline: String!, $created_by_email: String, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $main_image: jsonb) {
+const insertArticleGoogleDocMutationWithoutSources = `mutation AddonInsertArticleGoogleDocWithoutSources($id: Int!, $locale_code: String!, $headline: String!, $created_by_email: String, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $main_image: jsonb, $first_published_at: timestamptz) {
   insert_articles(
     objects: {
       article_translations: {
         data: {
-          created_by_email: $created_by_email, headline: $headline, locale_code: $locale_code, published: $published, content: $content, custom_byline: $custom_byline, facebook_description: $facebook_description, facebook_title: $facebook_title, search_description: $search_description, search_title: $search_title, twitter_description: $twitter_description, twitter_title: $twitter_title, main_image: $main_image
+          created_by_email: $created_by_email, headline: $headline, locale_code: $locale_code, published: $published, content: $content, custom_byline: $custom_byline, facebook_description: $facebook_description, facebook_title: $facebook_title, search_description: $search_description, search_title: $search_title, twitter_description: $twitter_description, twitter_title: $twitter_title, main_image: $main_image, first_published_at: $first_published_at
         }
       }, 
       category_id: $category_id, 
@@ -301,6 +306,8 @@ const insertArticleGoogleDocMutationWithoutSources = `mutation AddonInsertArticl
         locale_code
         published
         headline
+        first_published_at
+        last_published_at
       }
       published_article_translations(where: {locale_code: {_eq: $locale_code}}) {
         article_translation {
@@ -397,7 +404,7 @@ const linkDocToArticleMutation = `mutation AddonLinkGoogleDocToArticle($article_
   }
 }`;
 
-const upsertPublishedArticleTranslationMutation = `mutation AddonUpsertPublishedArticleTranslation($article_id: Int = 10, $article_translation_id: Int = 10, $locale_code: String = "") {
+const upsertPublishedArticleTranslationMutation = `mutation AddonUpsertPublishedArticleTranslation($article_id: Int, $article_translation_id: Int, $locale_code: String) {
   insert_published_article_translations(objects: {article_id: $article_id, article_translation_id: $article_translation_id, locale_code: $locale_code}, on_conflict: {constraint: published_article_translations_article_id_locale_code_key, update_columns: article_translation_id}) {
     affected_rows
     returning {
