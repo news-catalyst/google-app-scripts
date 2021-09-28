@@ -382,14 +382,14 @@
           }
         });
 
-        // IN PROGRESS
         const elem = document.querySelector('input[name="article-first-published-date"]');
         const datepicker = new Datepicker(elem, {
           autohide: true
         }); 
         console.log("publishedInfo:", publishedInfo);
         if (publishedInfo) {
-          var firstPubDate = new Date(publishedInfo.first_published_at);
+          // 2021-09-01T00:00:00.000+00:00
+          var firstPubDate = new Date(publishedInfo.first_published_at).toLocaleString('en-US', { timeZone: 'UTC' });
           console.log("setting published date to ", firstPubDate, publishedInfo.first_published_at);
           datepicker.setDate(firstPubDate);
         }
@@ -965,7 +965,7 @@
               }); 
               console.log("publishedInfo:", mostRecentPubInfo);
               if (mostRecentPubInfo) {
-                var firstPubDate = new Date(mostRecentPubInfo.first_published_at);
+                var firstPubDate = new Date(mostRecentPubInfo.first_published_at).toLocaleString('en-US', { timeZone: 'UTC' });
                 console.log("setting published date to ", firstPubDate, mostRecentPubInfo.first_published_at);
                 datepicker.setDate(firstPubDate);
               }
