@@ -409,7 +409,7 @@ async function insertArticleGoogleDocs(data) {
   // Logger.log("insertArticleGoogleDocs content length: " + content.length)
 
   var mainImageContent = await getMainImage(content);
-  console.log("*mainImageContent: " + JSON.stringify(mainImageContent))
+  // console.log("*mainImageContent: " + JSON.stringify(mainImageContent))
 
   let articleData = {
     "slug": data['article-slug'],
@@ -431,7 +431,11 @@ async function insertArticleGoogleDocs(data) {
     "main_image": mainImageContent,
   };
 
-  console.log("*articleData.main_image: " + JSON.stringify(articleData['main_image']))
+  if (data["article-first-published-date"]) {
+    articleData["first_published_at"] = data["article-first-published-date"];
+    Logger.log("* pub date: " + articleData["first_published_at"]);
+  }
+  // console.log("*articleData.main_image: " + JSON.stringify(articleData['main_image']))
 
   var dataSources = [];
   if (data['sources'] !== {} && Object.keys(data['sources']).length > 0) {
@@ -482,6 +486,7 @@ async function insertArticleGoogleDocs(data) {
     );
   } else {
     articleData['id'] = data['article-id'];
+    Logger.log("inserting WITH id: " + articleData["first_published_at"] + " " + JSON.stringify(Object.keys(articleData)))
     return fetchGraphQL(
       insertArticleGoogleDocMutation,
       "AddonInsertArticleGoogleDocWithID",
@@ -887,8 +892,12 @@ async function hasuraHandlePublish(formObject) {
   } else {
     documentType = "article";
     // insert or update article
+    if (formObject["article-first-published-date"]) {
+      formObject["first-published-at"] = formObject["article-first-published-date"];
+    }
     var data = await insertArticleGoogleDocs(formObject);
-    console.log(data);
+    Logger.log(JSON.stringify(data));
+    Logger.log("translation created: " + JSON.stringify(data.data.insert_articles.returning[0].article_translations));
     var articleID = data.data.insert_articles.returning[0].id;
     var categorySlug = data.data.insert_articles.returning[0].category.slug;
     var articleSlug = data.data.insert_articles.returning[0].slug;
@@ -896,14 +905,14 @@ async function hasuraHandlePublish(formObject) {
 
     // first delete any previously set authors
     var deleteAuthorsResult = await hasuraDeleteAuthorArticles(articleID);
-    Logger.log("Deleted article authors: " + JSON.stringify(deleteAuthorsResult))
+    // Logger.log("Deleted article authors: " + JSON.stringify(deleteAuthorsResult))
     
     // and delete any previously set tags
     var deleteTagsResult = await hasuraDeleteTagArticles(articleID);
-    Logger.log("Deleted article tags: " + JSON.stringify(deleteTagsResult))
+    // Logger.log("Deleted article tags: " + JSON.stringify(deleteTagsResult))
 
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
-    Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
+    // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
     data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
     if (articleID) {
@@ -913,6 +922,8 @@ async function hasuraHandlePublish(formObject) {
 
       var publishedArticleData = await upsertPublishedArticle(articleID, translationID, formObject['article-locale'])
       if (publishedArticleData) {
+        Logger.log("Published Article Data:" + JSON.stringify(publishedArticleData));
+
         data.data.insert_articles.returning[0].published_article_translations = publishedArticleData.data.insert_published_article_translations.returning;
       }
     }
@@ -1047,6 +1058,10 @@ async function hasuraHandlePreview(formObject) {
     // insert or update article
     // Logger.log("sources:" + JSON.stringify(formObject['sources']));
 
+    if (formObject["article-first-published-date"]) {
+      formObject["first-published-at"] = formObject["article-first-published-date"];
+    }
+
     var data = await insertArticleGoogleDocs(formObject);
     // Logger.log("articleResult: " + JSON.stringify(data))
     var articleID = data.data.insert_articles.returning[0].id;
@@ -1061,10 +1076,10 @@ async function hasuraHandlePreview(formObject) {
 
     // and delete any previously set tags
     var deleteTagsResult = await hasuraDeleteTagArticles(articleID);
-    Logger.log("Deleted article tags: " + JSON.stringify(deleteTagsResult))
+    // Logger.log("Deleted article tags: " + JSON.stringify(deleteTagsResult))
     
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
-    Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
+    // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
     data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
     if (articleID && formObject['article-tags']) {
@@ -1425,9 +1440,9 @@ async function hasuraGetArticle() {
 async function getCurrentDocContents() {
   var elements = await getElements();
 
-  Logger.log("getCurrentDocContents number of elements: " + elements.length)
+  // Logger.log("getCurrentDocContents number of elements: " + elements.length)
   var formattedElements = formatElements(elements);
-  Logger.log("getCurrentDocContents number of formatted elements: " + formattedElements.length)
+  // Logger.log("getCurrentDocContents number of formatted elements: " + formattedElements.length)
 
   return formattedElements;
 }
@@ -1642,7 +1657,7 @@ async function processDocumentContents(activeDoc, document, slug) {
   if (elementsProcessed === elements.length) {
     // Logger.log("done processing " + elementsProcessed + " elements; storing imageList: " + JSON.stringify(imageList))
     storeImageList(slug, imageList);
-    Logger.log("orderedElements count: " + orderedElements.length)
+    // Logger.log("orderedElements count: " + orderedElements.length)
     return orderedElements;
 
   } else {
@@ -1703,7 +1718,7 @@ async function getMainImage(elements) {
   if (!mainImageNodes[0]) {
     return {}
   }
-  Logger.log("mainImageNodes[0]: " + JSON.stringify(mainImageNodes[0]));
+  // Logger.log("mainImageNodes[0]: " + JSON.stringify(mainImageNodes[0]));
   return mainImageNodes[0];
 }
 /**
