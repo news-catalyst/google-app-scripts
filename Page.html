@@ -19,6 +19,13 @@
         return d.toLocaleString();
       }
 
+      function dateToUTC(localDate) {
+        var dateUTC =  Date.UTC(localDate.getUTCFullYear(), localDate.getUTCMonth(), localDate.getUTCDate(),
+        localDate.getUTCHours(), localDate.getUTCMinutes(), localDate.getUTCSeconds());
+        console.log("localDate:", localDate, "in UTC:", dateUTC);
+        return dateUTC;
+      }
+
       function setValueOrDefault(elementId, value, defaultValue) {
         var element = document.getElementById(elementId);
         if (value !== undefined && value !== null && value !== "") {
@@ -1038,12 +1045,13 @@
         var headline = document.getElementById('article-headline');
         var searchTitle = document.getElementById('article-search-title');
         var searchDescription = document.getElementById('article-search-description');
-
-        const calendar = flatpickr('input[name="article-first-published-date"]', {});
-        console.log("selected dates:", typeof(calendar.selectedDates), calendar.selectedDates)
+       
+        const calendar = flatpickr('input[name="article-first-published-date"]', {enableTime: true,
+            dateFormat: "Y-m-d H:i K"});
         
-        var publishedDate = calendar.selectedDates[0].toISOString();
-        console.log("publishing with date:", publishedDate);
+        var localPublishedDate = calendar.selectedDates[0];
+        var publishedDate = dateToUTC(localPublishedDate);
+        console.log("date:", localPublishedDate, "converted to UTC:", publishedDate);
 
         var sources = {};
 
@@ -1154,6 +1162,11 @@
             if (!window.confirm("You're trying to publish an article without any source tracking info: are you sure?")) { 
               form.style.display = "block";
               loadingDiv.innerHTML = "Please enter source tracking info, then try publishing again.";
+              const redrawCalendar = flatpickr('input[name="article-first-published-date"]', {
+                enableTime: true,
+                dateFormat: "Y-m-d H:i K",
+              });
+
             } else {
               loadingDiv.innerHTML = "<p class='gray'>Publishing without any sources... </p>"
               google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(submitData);
