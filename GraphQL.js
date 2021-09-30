@@ -30,7 +30,7 @@ const insertAuthorPageMutation = `mutation AddonInsertAuthorPage($page_id: Int!,
   }
 }`;
 
-const insertArticleGoogleDocMutationWithoutId = `mutation AddonInsertArticleGoogleDocNoID($locale_code: String!, $created_by_email: String, $headline: String!, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $main_image: jsonb,  $first_published_at: timestamp, $article_sources: [article_source_insert_input!]!) {
+const insertArticleGoogleDocMutationWithoutId = `mutation AddonInsertArticleGoogleDocNoID($locale_code: String!, $created_by_email: String, $headline: String!, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $main_image: jsonb,  $first_published_at: timestamptz, $article_sources: [article_source_insert_input!]!) {
   insert_articles(
     objects: {
       article_translations: {
@@ -138,7 +138,7 @@ const insertArticleGoogleDocMutationWithoutId = `mutation AddonInsertArticleGoog
   }
 }`;
 
-const insertArticleGoogleDocMutation = `mutation AddonInsertArticleGoogleDocWithID($id: Int!, $locale_code: String!, $headline: String!, $created_by_email: String, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $main_image: jsonb, $first_published_at: timestamp,
+const insertArticleGoogleDocMutation = `mutation AddonInsertArticleGoogleDocWithID($id: Int!, $locale_code: String!, $headline: String!, $created_by_email: String, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $main_image: jsonb, $first_published_at: timestamptz,
   $article_sources: [article_source_insert_input!]!) {
   insert_articles(
     objects: {
@@ -232,7 +232,7 @@ const insertArticleGoogleDocMutation = `mutation AddonInsertArticleGoogleDocWith
   }
 }`;
 
-const insertArticleGoogleDocMutationWithoutSources = `mutation AddonInsertArticleGoogleDocWithoutSources($id: Int!, $locale_code: String!, $headline: String!, $created_by_email: String, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $main_image: jsonb, $first_published_at: timestamp) {
+const insertArticleGoogleDocMutationWithoutSources = `mutation AddonInsertArticleGoogleDocWithoutSources($id: Int!, $locale_code: String!, $headline: String!, $created_by_email: String, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $main_image: jsonb, $first_published_at: timestamptz) {
   insert_articles(
     objects: {
       article_translations: {

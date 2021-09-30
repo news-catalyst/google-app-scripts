@@ -19,11 +19,24 @@
         return d.toLocaleString();
       }
 
-      function dateToUTC(localDate) {
-        var dateUTC =  Date.UTC(localDate.getUTCFullYear(), localDate.getUTCMonth(), localDate.getUTCDate(),
-        localDate.getUTCHours(), localDate.getUTCMinutes(), localDate.getUTCSeconds());
-        console.log("localDate:", localDate, "in UTC:", dateUTC);
-        return dateUTC;
+      // javascript date handling is awful
+      // function from https://stackoverflow.com/a/17415677
+      function toIsoString(date) {
+        var tzo = -date.getTimezoneOffset(),
+            dif = tzo >= 0 ? '+' : '-',
+            pad = function(num) {
+                var norm = Math.floor(Math.abs(num));
+                return (norm < 10 ? '0' : '') + norm;
+            };
+
+        return date.getFullYear() +
+            '-' + pad(date.getMonth() + 1) +
+            '-' + pad(date.getDate()) +
+            'T' + pad(date.getHours()) +
+            ':' + pad(date.getMinutes()) +
+            ':' + pad(date.getSeconds()) +
+            dif + pad(tzo / 60) +
+            ':' + pad(tzo % 60);
       }
 
       function setValueOrDefault(elementId, value, defaultValue) {
@@ -397,14 +410,14 @@
 
           flatpickr('input[name="article-first-published-date"]', {
             enableTime: true,
-            dateFormat: "Y-m-d H:i K",
+            dateFormat: "Y-m-d h:i K",
             defaultDate: firstPubDate
           });
         } else {
           var today = new Date();
           flatpickr('input[name="article-first-published-date"]', {
             enableTime: true,
-            dateFormat: "Y-m-d H:i K",
+            dateFormat: "Y-m-d h:i K",
             defaultDate: today
           });
         }
@@ -980,14 +993,14 @@
                 console.log("setting published date to ", firstPubDate, mostRecentPubInfo.first_published_at);
                 flatpickr('input[name="article-first-published-date"]', {
                   enableTime: true,
-                  dateFormat: "Y-m-d H:i K",
+                  dateFormat: "Y-m-d h:i K",
                   defaultDate: firstPubDate
                 });
               } else {
                 var today = new Date();
                 flatpickr('input[name="article-first-published-date"]', {
                   enableTime: true,
-                  dateFormat: "Y-m-d H:i K",
+                  dateFormat: "Y-m-d h:i K",
                   defaultDate: today
                 });
               }
@@ -1047,11 +1060,12 @@
         var searchDescription = document.getElementById('article-search-description');
        
         const calendar = flatpickr('input[name="article-first-published-date"]', {enableTime: true,
-            dateFormat: "Y-m-d H:i K"});
+            dateFormat: "Y-m-d h:i K"});
         
-        var localPublishedDate = calendar.selectedDates[0];
-        var publishedDate = dateToUTC(localPublishedDate);
-        console.log("date:", localPublishedDate, "converted to UTC:", publishedDate);
+        var publishedDate = calendar.selectedDates[0];
+        // 2018-08-28T12:30:00+05:30
+        // var formattedPubDate = calendar.formatDate(publishedDate, "y-m-dT")
+        console.log("storing pub date as:", publishedDate);
 
         var sources = {};
 
@@ -1147,8 +1161,9 @@
           for (var i = 0, tag; tag = selectedTags[i++];) {
             submitData["article-tags"].push(tag.text);
           }
-          submitData["first-published-at"] = publishedDate;
-          console.log('submitData["first-published-at"]', publishedDate);
+          var formattedPubDate = toIsoString(publishedDate);
+          submitData["first-published-at"] = formattedPubDate;
+          console.log('formattedPubDate:', formattedPubDate);
           submitData["sources"] = sources;
         }
         
@@ -1164,7 +1179,7 @@
               loadingDiv.innerHTML = "Please enter source tracking info, then try publishing again.";
               const redrawCalendar = flatpickr('input[name="article-first-published-date"]', {
                 enableTime: true,
-                dateFormat: "Y-m-d H:i K",
+                dateFormat: "Y-m-d h:i K",
               });
 
             } else {
