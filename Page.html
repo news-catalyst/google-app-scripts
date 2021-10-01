@@ -818,10 +818,8 @@
           buttonsDivTop.style.display = "block";
           setPublishedFlag(false); // new article is not published, ensure correct action buttons display
 
-          // if (data && data.data && data.data.organization_locales) {
-            displayLocales(data.data.organization_locales, localeCode);
-          // }
-
+          displayLocales(data.data.organization_locales, localeCode);
+          
           if (documentType === "article") {
             // console.log("data:", data);
             if (data && data.data && data.data.categories) {
@@ -833,6 +831,13 @@
             if (data && data.data && data.data.authors) {
               displayAuthors(data.data.authors, null);
             }
+
+            var today = new Date();
+            flatpickr('input[name="article-first-published-date"]', {
+              enableTime: true,
+              dateFormat: "Y-m-d h:i K",
+              defaultDate: today
+            });
 
             $('#article-authors').select2({
               width: 'resolve',
