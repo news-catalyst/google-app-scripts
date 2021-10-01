@@ -431,10 +431,11 @@ async function insertArticleGoogleDocs(data) {
     "main_image": mainImageContent,
   };
 
-  if (data["article-first-published-date"]) {
-    articleData["first_published_at"] = data["article-first-published-date"];
-    Logger.log("* pub date: " + articleData["first_published_at"]);
-  }
+  if (data["first-published-at"]) {
+    articleData["first_published_at"] = data["first-published-at"];
+    Logger.log("* first published at: " + articleData["first_published_at"]);
+  } 
+
   // console.log("*articleData.main_image: " + JSON.stringify(articleData['main_image']))
 
   var dataSources = [];
@@ -892,8 +893,8 @@ async function hasuraHandlePublish(formObject) {
   } else {
     documentType = "article";
     // insert or update article
-    if (formObject["article-first-published-date"]) {
-      formObject["first-published-at"] = formObject["article-first-published-date"];
+    if (formObject["first-published-at"]) {
+      Logger.log("first-published-at datetime: " + formObject["first-published-at"])
     }
     var data = await insertArticleGoogleDocs(formObject);
     Logger.log(JSON.stringify(data));
@@ -1057,10 +1058,6 @@ async function hasuraHandlePreview(formObject) {
     documentType = "article";
     // insert or update article
     // Logger.log("sources:" + JSON.stringify(formObject['sources']));
-
-    if (formObject["article-first-published-date"]) {
-      formObject["first-published-at"] = formObject["article-first-published-date"];
-    }
 
     var data = await insertArticleGoogleDocs(formObject);
     // Logger.log("articleResult: " + JSON.stringify(data))
