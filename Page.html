@@ -966,8 +966,15 @@
         var div = document.getElementById('loading');
         div.style.display = 'block';
 
-        if (response.data.errors) {
-          div.innerHTML = "<p class='error'>An error occurred: " + JSON.stringify(response.data.errors) + '</p>';
+        if (response.status === "error" || response.data.errors) {
+          let errorMessage;
+          if (response.status === "error") {
+            errorMessage = response.message;
+          } else {
+            errorMessage = JSON.stringify(response.data.errors);
+          }
+          div.innerHTML = "<p class='error'>An error occurred: " + errorMessage + '</p>';
+          
         } else {
           div.innerHTML = '<p style="color: #48C774;">' + response.message + "</p>";
           if (response.data && response.data.data && response.data.data.insert_articles) {

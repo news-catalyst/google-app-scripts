@@ -427,6 +427,15 @@ const unpublishArticleMutation = `mutation AddonUnpublishArticle($article_id: In
 
 /* Queries */
 
+const findArticleByCategoryAndSlugQuery = `query AddonFindArticleByCategorySlug($category_id: Int!, $slug: String!) {
+  articles(where: {category_id: {_eq: $category_id}, slug: {_eq: $slug}}) {
+    id
+    slug
+    category_id
+    created_at
+  }
+}`;
+
 const getArticleByGoogleDocQuery = `query AddonGetArticleByGoogleDoc($doc_id: String!) {
   articles(where: {article_google_documents: {google_document: {document_id: {_eq: $doc_id}}}}) {
     id
