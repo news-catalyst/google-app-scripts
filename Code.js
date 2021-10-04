@@ -1095,11 +1095,8 @@ async function hasuraHandlePreview(formObject) {
     var insertArticle = await insertArticleGoogleDocs(formObject);
     Logger.log("insertArticle response: " + JSON.stringify(insertArticle));
     if (insertArticle.status === "error") {
-      Logger.log("insertArticle ERROR");
       insertArticle["documentID"] = documentID;
       return insertArticle;
-    } else {
-      Logger.log("insertArticle NO ERROR");
     }
 
     // Logger.log("articleResult: " + JSON.stringify(data))
@@ -1509,7 +1506,7 @@ async function processDocumentContents(activeDoc, document, slug) {
   // and properly return the full list of ordered elements
   var elementsProcessed = 0;
   elements.forEach(element => {
-    
+    Logger.log("element: " + JSON.stringify(element))
     if (element.paragraph && element.paragraph.elements) {
       var eleData = {
         children: [],
@@ -1624,6 +1621,12 @@ async function processDocumentContents(activeDoc, document, slug) {
             if (element.paragraph.paragraphStyle.namedStyleType) {
               eleData.style = element.paragraph.paragraphStyle.namedStyleType;
             }
+
+            // treat any indented text as a blockquote
+            if (element.paragraph.paragraphStyle.indentStart || element.paragraph.paragraphStyle.indentFirstLine) {
+              eleData.type = "blockquote";
+            }
+
             var childElement = {
               index: subElement.endIndex,
             }
@@ -1635,6 +1638,10 @@ async function processDocumentContents(activeDoc, document, slug) {
             childElement.content = cleanContent(subElement.textRun.content);
 
             eleData.children.push(childElement);
+
+          // blank content but contains a "horizontalRule" element?
+          } else if (subElement.horizontalRule) {
+            eleData.type = "hr";
           }
 
           // found an image
@@ -1734,6 +1741,7 @@ function formatElements(elements) {
       return -1;
     }
   }).forEach(element => {
+    Logger.log("element.type: " + element.type + " - " + JSON.stringify(element))
     var formattedElement = {
       type: element.type,
       style: element.style,
