@@ -377,6 +377,8 @@
           setValueOrDefault('article-facebook-description', translationData.facebook_description, translationData.facebook_description);
           setValueOrDefault('article-twitter-title', translationData.twitter_title, translationData.twitter_title);
           setValueOrDefault('article-twitter-description', translationData.twitter_description, translationData.twitter_description);
+        } else {
+          // selectedLocale.innerHTML = localeCode;
         }
 
         $('#article-authors').select2({
@@ -401,24 +403,23 @@
           }
         });
 
-        if (documentType === "article") {
-          if (publishedInfo) {
-            var firstPubDate = new Date(publishedInfo.first_published_at);
-            console.log("setting published date to ", firstPubDate, publishedInfo.first_published_at);
+        console.log("publishedInfo:", publishedInfo);
+        if (publishedInfo) {
+          var firstPubDate = new Date(publishedInfo.first_published_at);
+          console.log("setting published date to ", firstPubDate, publishedInfo.first_published_at);
 
-            flatpickr('input[name="article-first-published-date"]', {
-              enableTime: true,
-              dateFormat: "Y-m-d h:i K",
-              defaultDate: firstPubDate
-            });
-          } else {
-            var today = new Date();
-            flatpickr('input[name="article-first-published-date"]', {
-              enableTime: true,
-              dateFormat: "Y-m-d h:i K",
-              defaultDate: today
-            });
-          }
+          flatpickr('input[name="article-first-published-date"]', {
+            enableTime: true,
+            dateFormat: "Y-m-d h:i K",
+            defaultDate: firstPubDate
+          });
+        } else {
+          var today = new Date();
+          flatpickr('input[name="article-first-published-date"]', {
+            enableTime: true,
+            dateFormat: "Y-m-d h:i K",
+            defaultDate: today
+          });
         }
 
         if (data && documentType === "article") {
@@ -965,15 +966,8 @@
         var div = document.getElementById('loading');
         div.style.display = 'block';
 
-        if (response.status === "error" || response.data.errors) {
-          let errorMessage;
-          if (response.status === "error") {
-            errorMessage = response.message;
-          } else {
-            errorMessage = JSON.stringify(response.data.errors);
-          }
-          div.innerHTML = "<p class='error'>An error occurred: " + errorMessage + '</p>';
-
+        if (response.data.errors) {
+          div.innerHTML = "<p class='error'>An error occurred: " + JSON.stringify(response.data.errors) + '</p>';
         } else {
           div.innerHTML = '<p style="color: #48C774;">' + response.message + "</p>";
           if (response.data && response.data.data && response.data.data.insert_articles) {
@@ -1026,23 +1020,16 @@
             displayTranslationTools(articleID, documentID, "article", translations[0].headline, googleDocs, organizationLocales);
 
           } else if (response.data && response.data.data && response.data.data.insert_pages) {
-            var pageData = response.data.data.insert_pages.returning[0];
-            console.log("pageData:", pageData);
-
-            var pageID = pageData.id;
+            var pageID = response.data.data.insert_pages.returning[0].id;
             // console.log("page ID:", pageID)
             var idHiddenField = document.getElementById('article-id');
             idHiddenField.value = pageID;
 
-            var googleDocs = pageData.page_google_documents;
+            var googleDocs = response.data.data.insert_pages.returning[0].page_google_documents;
             var organizationLocales = response.data.organization_locales;
             var documentID = response.documentID;
 
-            var translations = pageData.page_translations;
-            console.log("page translations:", translations);
-            if (translations[0]) {
-              displayTranslationTools(pageID, documentID, "page", translations[0].headline, googleDocs, organizationLocales);
-            }
+            displayTranslationTools(pageID, documentID, "page", translations[0].headline, googleDocs, organizationLocales);
 
           } else if (response.data && response.data.data && response.data.data.update_article_translations) {
             // console.log("unpublished article:", response.data);
@@ -1076,11 +1063,18 @@
         var headline = document.getElementById('article-headline');
         var searchTitle = document.getElementById('article-search-title');
         var searchDescription = document.getElementById('article-search-description');
+       
+        const calendar = flatpickr('input[name="article-first-published-date"]', {enableTime: true,
+            dateFormat: "Y-m-d h:i K"});
+        
+        var publishedDate = calendar.selectedDates[0];
+        // 2018-08-28T12:30:00+05:30
+        // var formattedPubDate = calendar.formatDate(publishedDate, "y-m-dT")
+        console.log("storing pub date as:", publishedDate);
 
         var sources = {};
 
         if (documentType !== "page")  {
-
           var elements = formObject.elements;
 
           // build up an object with source data
@@ -1172,15 +1166,6 @@
           for (var i = 0, tag; tag = selectedTags[i++];) {
             submitData["article-tags"].push(tag.text);
           }
-
-          const calendar = flatpickr('input[name="article-first-published-date"]', {enableTime: true,
-            dateFormat: "Y-m-d h:i K"});
-        
-          var publishedDate = calendar.selectedDates[0];
-          // 2018-08-28T12:30:00+05:30
-          // var formattedPubDate = calendar.formatDate(publishedDate, "y-m-dT")
-          console.log("storing pub date as:", publishedDate);
-
           var formattedPubDate = toIsoString(publishedDate);
           submitData["first-published-at"] = formattedPubDate;
           console.log('formattedPubDate:', formattedPubDate);
@@ -1388,7 +1373,7 @@
             <textarea id="article-twitter-description" name="article-twitter-description"></textarea>
           </div>
 
-          <div class="block form-group articles-only">
+          <div class="block form-group">
             <label for="article-first-published-date">
               <b>Published Date</b>
             </label>
