@@ -470,8 +470,8 @@ const findPageBySlugQuery = `query AddonFindPageBySlug($slug: String!, $document
   }
 }`;
 
-const findArticleByCategoryAndSlugQuery = `query AddonFindArticleByCategorySlug($category_id: Int!, $slug: String!, $document_id: String!) {
-  articles(where: {category_id: {_eq: $category_id}, slug: {_eq: $slug}, article_google_documents: {google_document: {document_id: {_neq: $document_id}}}}) {
+const findArticleByCategoryAndSlugQuery = `query AddonFindArticleByCategorySlug($category_id: Int!, $slug: String!, $document_id: String!, $locale_code: String) {
+  articles(where: {category_id: {_eq: $category_id}, slug: {_eq: $slug}, article_google_documents: {google_document: {document_id: {_neq: $document_id}, locale_code: {_eq: $locale_code}}}}) {
     id
     slug
     category_id

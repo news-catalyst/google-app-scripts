@@ -305,6 +305,7 @@
         var googleDocs;
         var translationData;
         var publishedInfo;
+        var headline;
         var localeCode = contents.localeCode;
         if (contents.data.articles) {
           if (contents.data.articles[0]) {
@@ -335,8 +336,14 @@
           }
         }
 
-        // displayTranslationTools(id, headline, googleDocs, organization_locales)
-        displayTranslationTools(data.id, contents.documentId, documentType, translationData.headline, googleDocs, contents.data.organization_locales);
+        if (translationData) {
+          headline = translationData.headline;
+        } else if (contents.data.documentTitle) {
+          headline = contents.data.documentTitle;
+        } else {
+          headline = "tk";
+        }
+        displayTranslationTools(data.id, contents.documentId, documentType, headline, googleDocs, contents.data.organization_locales);
         
         if (publishedInfo) {
           displayPublishedInfo(publishedInfo, translationData);

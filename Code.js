@@ -426,7 +426,7 @@ async function findPageBySlug(slug) {
   );
 }
 
-async function findArticleByCategoryAndSlug(category_id, slug) {
+async function findArticleByCategoryAndSlug(category_id, slug, localeCode) {
   var documentID = DocumentApp.getActiveDocument().getId();
 
   return fetchGraphQL(
@@ -436,6 +436,7 @@ async function findArticleByCategoryAndSlug(category_id, slug) {
       category_id: category_id,
       document_id: documentID,
       slug: slug,
+      locale_code: localeCode,
     }
   );
 }
@@ -529,7 +530,7 @@ async function insertArticleGoogleDocs(data) {
   }
 
   // Check if article already exists with the given category_id and slug for this organization
-  var existingArticles = await findArticleByCategoryAndSlug(articleData["category_id"], articleData["slug"]);
+  var existingArticles = await findArticleByCategoryAndSlug(articleData["category_id"], articleData["slug"], articleData["locale_code"]);
   if (existingArticles && existingArticles.data && existingArticles.data.articles && existingArticles.data.articles.length > 0) {
     returnValue.status = "error";
     returnValue.message = "Article already exists in that category with the same slug, please pick a unique slug value."
@@ -1413,7 +1414,9 @@ async function hasuraGetTranslations(pageOrArticleId, localeCode) {
     data: {}
   };
 
-  var documentID = DocumentApp.getActiveDocument().getId();
+  var document = DocumentApp.getActiveDocument();
+  var documentID = document.getId();
+  var documentTitle = document.getName();
 
   var isStaticPage = isPage(documentID);
 
@@ -1430,6 +1433,7 @@ async function hasuraGetTranslations(pageOrArticleId, localeCode) {
         returnValue.status = "notFound";
         returnValue.message = "Page not found";
       }
+      returnValue.documentTitle = documentTitle;
       returnValue.documentId = documentID;
       returnValue.data = data;
 
@@ -1441,10 +1445,10 @@ async function hasuraGetTranslations(pageOrArticleId, localeCode) {
         returnValue.status = "success";
         returnValue.message = "Retrieved article translation with ID: " + data.article_translations[0].id;
       } else {
-        Logger.log("failed finding a translation: " + JSON.stringify(data));
         returnValue.status = "notFound";
         returnValue.message = "Article translation not found";
       }
+      returnValue.documentTitle = documentTitle;
       returnValue.documentId = documentID;
       returnValue.data = data;
     }
