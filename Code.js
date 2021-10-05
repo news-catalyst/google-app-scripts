@@ -346,6 +346,12 @@ async function insertPageGoogleDocs(data) {
   var documentURL = DocumentApp.getActiveDocument().getUrl();
   var content = await getCurrentDocContents();
   
+  var returnValue = {
+    status: "success",
+    message: "Successfully inserted page",
+    data: {}
+  };
+
   let pageData = {
     "slug": data['article-slug'],
     "document_id": documentID,
@@ -363,23 +369,36 @@ async function insertPageGoogleDocs(data) {
     "created_by_email": data['created_by_email'],
   };
 
+  // Check if page already exists with the given slug for this organization
+  var existingPages = await findPageBySlug(pageData["slug"]);
+  if (existingPages && existingPages.data && existingPages.data.pages && existingPages.data.pages.length > 0) {
+    returnValue.status = "error";
+    returnValue.message = "Page already exists with the same slug, please pick a unique slug value."
+    returnValue.data = existingPages.data;
+    return returnValue;  
+  }
+  
   if (data["article-id"] === "") {
+    Logger.log("no id")
     // Logger.log("page data:" + JSON.stringify(pageData));
-    return fetchGraphQL(
+    returnValue.data = await fetchGraphQL(
       insertPageGoogleDocsMutationWithoutId,
       "AddonInsertPageGoogleDocNoID",
       pageData
     );
 
   } else {
+    Logger.log("got id")
     pageData["id"] = data['article-id'];
     // Logger.log("page data:" + JSON.stringify(pageData));
-    return fetchGraphQL(
+    returnValue.data = await fetchGraphQL(
       insertPageGoogleDocsMutation,
       "AddonInsertPageGoogleDocWithID",
       pageData
     );
   }
+
+  return returnValue;
 }
 
 function upsertPublishedArticle(articleId, translationId, localeCode) {
@@ -394,12 +413,28 @@ function upsertPublishedArticle(articleId, translationId, localeCode) {
   );
 }
 
+async function findPageBySlug(slug) {
+  var documentID = DocumentApp.getActiveDocument().getId();
+
+  return fetchGraphQL(
+    findPageBySlugQuery,
+    "AddonFindPageBySlug",
+    {
+      document_id: documentID,
+      slug: slug,
+    }
+  );
+}
+
 async function findArticleByCategoryAndSlug(category_id, slug) {
+  var documentID = DocumentApp.getActiveDocument().getId();
+
   return fetchGraphQL(
     findArticleByCategoryAndSlugQuery,
     "AddonFindArticleByCategorySlug",
     {
       category_id: category_id,
+      document_id: documentID,
       slug: slug,
     }
   );
@@ -504,7 +539,7 @@ async function insertArticleGoogleDocs(data) {
 
   // Logger.log("article data:" + JSON.stringify(articleData));
   if (data["article-id"] === "") {
-    returnValue.data = fetchGraphQL(
+    returnValue.data = await fetchGraphQL(
       insertArticleGoogleDocMutationWithoutId,
       "AddonInsertArticleGoogleDocNoID",
       articleData
@@ -513,7 +548,7 @@ async function insertArticleGoogleDocs(data) {
   } else {
     articleData['id'] = data['article-id'];
     Logger.log("inserting WITH id: " + articleData["first_published_at"] + " " + JSON.stringify(Object.keys(articleData)))
-    returnValue.data =  fetchGraphQL(
+    returnValue.data = await fetchGraphQL(
       insertArticleGoogleDocMutation,
       "AddonInsertArticleGoogleDocWithID",
       articleData
@@ -877,10 +912,15 @@ async function hasuraHandlePublish(formObject) {
   if (isStaticPage) {
     documentType = "page";
     // insert or update page
-    var data = await insertPageGoogleDocs(formObject);
+    var insertPage = await insertPageGoogleDocs(formObject);
+
+    if (insertPage.status === "error") {
+      return insertPage;
+    }
+
     // Logger.log("pageResult: " + JSON.stringify(data))
 
-    var pageID = data.data.insert_pages.returning[0].id;
+    var pageID = insertPage.data.data.insert_pages.returning[0].id;
 
     // store slug + page ID in slug versions table
     var result = await storePageIdAndSlug(pageID, slug);
@@ -888,7 +928,7 @@ async function hasuraHandlePublish(formObject) {
 
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
     Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    data.organization_locales = getOrgLocalesResult.data.organization_locales;
+    insertPage.organization_locales = getOrgLocalesResult.data.organization_locales;
 
     if (pageID && formObject['article-authors']) {
       var authors;
@@ -916,6 +956,8 @@ async function hasuraHandlePublish(formObject) {
 
     Logger.log("publishUrl: " + publishUrl + " fullPublishUrl: " + fullPublishUrl);
 
+    data = insertPage;
+
   } else {
     documentType = "article";
     // insert or update article
@@ -930,11 +972,11 @@ async function hasuraHandlePublish(formObject) {
     }
 
     Logger.log(JSON.stringify(insertArticle));
-    Logger.log("translation created: " + JSON.stringify(insertArticle.data.insert_articles.returning[0].article_translations));
-    var articleID = insertArticle.data.insert_articles.returning[0].id;
-    var categorySlug = insertArticle.data.insert_articles.returning[0].category.slug;
-    var articleSlug = insertArticle.data.insert_articles.returning[0].slug;
-    var translationID = insertArticle.data.insert_articles.returning[0].article_translations[0].id;
+    Logger.log("translation created: " + JSON.stringify(insertArticle.data.data.insert_articles.returning[0].article_translations));
+    var articleID = insertArticle.data.data.insert_articles.returning[0].id;
+    var categorySlug = insertArticle.data.data.insert_articles.returning[0].category.slug;
+    var articleSlug = insertArticle.data.data.insert_articles.returning[0].slug;
+    var translationID = insertArticle.data.data.insert_articles.returning[0].article_translations[0].id;
 
     // first delete any previously set authors
     var deleteAuthorsResult = await hasuraDeleteAuthorArticles(articleID);
@@ -946,7 +988,7 @@ async function hasuraHandlePublish(formObject) {
 
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
     // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    data.organization_locales = getOrgLocalesResult.data.organization_locales;
+    insertArticle.organization_locales = getOrgLocalesResult.data.organization_locales;
 
     if (articleID) {
       // store slug + article ID in slug versions table
@@ -957,7 +999,7 @@ async function hasuraHandlePublish(formObject) {
       if (publishedArticleData) {
         Logger.log("Published Article Data:" + JSON.stringify(publishedArticleData));
 
-        insertArticle.data.insert_articles.returning[0].published_article_translations = publishedArticleData.data.insert_published_article_translations.returning;
+        insertArticle.data.data.insert_articles.returning[0].published_article_translations = publishedArticleData.data.insert_published_article_translations.returning;
       }
     }
 
@@ -1004,6 +1046,8 @@ async function hasuraHandlePublish(formObject) {
       var path = "articles/" + categorySlug + "/" + articleSlug;
       fullPublishUrl = publishUrl + path;
     }
+
+    data = insertArticle;
   }
 
   // trigger republish of the site to reflect new article
@@ -1059,14 +1103,20 @@ async function hasuraHandlePreview(formObject) {
   if (isStaticPage) {
     documentType = "page";
     // insert or update page
-    var data = await insertPageGoogleDocs(formObject);
+    var insertPage = await insertPageGoogleDocs(formObject);
+
+    if (insertPage.status === "error") {
+      return insertPage;
+    }
+
     // Logger.log("pageResult: " + JSON.stringify(data))
 
-    var pageID = data.data.insert_pages.returning[0].id;
+    Logger.log("insertPage: " + JSON.stringify(insertPage));
+    var pageID = insertPage.data.data.insert_pages.returning[0].id;
 
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
     Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    data.organization_locales = getOrgLocalesResult.data.organization_locales;
+    insertPage.organization_locales = getOrgLocalesResult.data.organization_locales;
 
     // store slug + page ID in slug versions table
     var result = await storePageIdAndSlug(pageID, slug);
@@ -1086,6 +1136,8 @@ async function hasuraHandlePreview(formObject) {
       }
     }
 
+    data = insertPage;
+
   } else {
     documentType = "article";
     // insert or update article
@@ -1100,7 +1152,7 @@ async function hasuraHandlePreview(formObject) {
     }
 
     // Logger.log("articleResult: " + JSON.stringify(data))
-    var articleID = insertArticle.data.insert_articles.returning[0].id;
+    var articleID = insertArticle.data.data.insert_articles.returning[0].id;
 
     // store slug + article ID in slug versions table
     var result = await storeArticleIdAndSlug(articleID, slug);
@@ -1116,7 +1168,7 @@ async function hasuraHandlePreview(formObject) {
     
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
     // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    data.organization_locales = getOrgLocalesResult.data.organization_locales;
+    insertArticle.organization_locales = getOrgLocalesResult.data.organization_locales;
 
     if (articleID && formObject['article-tags']) {
       var tags;
@@ -1153,6 +1205,8 @@ async function hasuraHandlePreview(formObject) {
         var result = await hasuraCreateAuthorArticle(author, articleID);
       }
     }
+
+    data = insertArticle;
   }
 
   //construct preview url

@@ -338,6 +338,21 @@ const insertPageGoogleDocsMutationWithoutId = `mutation AddonInsertPageGoogleDoc
     returning {
       id
       slug
+      page_translations {
+        content
+        facebook_description
+        facebook_title
+        first_published_at
+        headline
+        id
+        last_published_at
+        locale_code
+        published
+        search_description
+        search_title
+        twitter_description
+        twitter_title
+      }
       page_google_documents {
         id
         google_document {
@@ -358,6 +373,21 @@ const insertPageGoogleDocsMutation = `mutation AddonInsertPageGoogleDocWithID($i
     returning {
       id
       slug
+      page_translations {
+        content
+        facebook_description
+        facebook_title
+        first_published_at
+        headline
+        id
+        last_published_at
+        locale_code
+        published
+        search_description
+        search_title
+        twitter_description
+        twitter_title
+      }
       page_google_documents {
         id
         google_document {
@@ -427,8 +457,21 @@ const unpublishArticleMutation = `mutation AddonUnpublishArticle($article_id: In
 
 /* Queries */
 
-const findArticleByCategoryAndSlugQuery = `query AddonFindArticleByCategorySlug($category_id: Int!, $slug: String!) {
-  articles(where: {category_id: {_eq: $category_id}, slug: {_eq: $slug}}) {
+const findPageBySlugQuery = `query AddonFindPageBySlug($slug: String!, $document_id: String!) {
+  pages(where: {slug: {_eq: $slug}, page_google_documents: {google_document: {document_id: {_neq: $document_id}}}}) {
+    id
+    created_at
+    slug
+    page_google_documents {
+      google_document {
+        document_id
+      }
+    }
+  }
+}`;
+
+const findArticleByCategoryAndSlugQuery = `query AddonFindArticleByCategorySlug($category_id: Int!, $slug: String!, $document_id: String!) {
+  articles(where: {category_id: {_eq: $category_id}, slug: {_eq: $slug}, article_google_documents: {google_document: {document_id: {_neq: $document_id}}}}) {
     id
     slug
     category_id
