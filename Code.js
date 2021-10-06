@@ -370,7 +370,8 @@ async function insertPageGoogleDocs(data) {
   };
 
   // Check if page already exists with the given slug for this organization
-  var existingPages = await findPageBySlug(pageData["slug"]);
+  var existingPages = await findPageBySlug(pageData["slug"], pageData["locale_code"]);
+  Logger.log("existingPages: " + JSON.stringify(existingPages));
   if (existingPages && existingPages.data && existingPages.data.pages && existingPages.data.pages.length > 0) {
     returnValue.status = "error";
     returnValue.message = "Page already exists with the same slug, please pick a unique slug value."
@@ -413,7 +414,7 @@ function upsertPublishedArticle(articleId, translationId, localeCode) {
   );
 }
 
-async function findPageBySlug(slug) {
+async function findPageBySlug(slug, localeCode) {
   var documentID = DocumentApp.getActiveDocument().getId();
 
   return fetchGraphQL(
@@ -422,6 +423,7 @@ async function findPageBySlug(slug) {
     {
       document_id: documentID,
       slug: slug,
+      locale_code: localeCode,
     }
   );
 }
@@ -1418,38 +1420,38 @@ async function hasuraGetTranslations(pageOrArticleId, localeCode) {
   var documentID = document.getId();
   var documentTitle = document.getName();
 
+  returnValue.documentTitle = documentTitle;
+  returnValue.documentId = documentID;
+
   var isStaticPage = isPage(documentID);
 
   var data;
   try {
     if (isStaticPage) {
       returnValue.docType = "page";
+      returnValue.status = "success";
 
       data = await getTranslationDataForPage(documentID, pageOrArticleId, localeCode);
+      
       if (data && data.page_translations && data.page_translations[0]) {
-        returnValue.status = "success";
         returnValue.message = "Retrieved page translation with ID: " + data.page_translations[0].id;
-      } else {
-        returnValue.status = "notFound";
-        returnValue.message = "Page not found";
+      } else if (!data) {
+        returnValue.status = "error";
+        returnValue.message = "An error occurred retrieving page translations.";
       }
-      returnValue.documentTitle = documentTitle;
-      returnValue.documentId = documentID;
       returnValue.data = data;
 
     } else {
       returnValue.docType = "article";
+      returnValue.status = "success";
 
       data = await getTranslationDataForArticle(documentID, pageOrArticleId, localeCode);
       if (data && data.article_translations && data.article_translations[0]) {
-        returnValue.status = "success";
         returnValue.message = "Retrieved article translation with ID: " + data.article_translations[0].id;
-      } else {
-        returnValue.status = "notFound";
-        returnValue.message = "Article translation not found";
+      } else if (!data) {
+        returnValue.status = "error";
+        returnValue.message = "An error occurred retrieving article translations.";
       }
-      returnValue.documentTitle = documentTitle;
-      returnValue.documentId = documentID;
       returnValue.data = data;
     }
 
