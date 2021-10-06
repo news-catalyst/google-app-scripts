@@ -346,12 +346,6 @@ async function insertPageGoogleDocs(data) {
   var documentURL = DocumentApp.getActiveDocument().getUrl();
   var content = await getCurrentDocContents();
   
-  var returnValue = {
-    status: "success",
-    message: "Successfully inserted page",
-    data: {}
-  };
-
   let pageData = {
     "slug": data['article-slug'],
     "document_id": documentID,
@@ -369,6 +363,7 @@ async function insertPageGoogleDocs(data) {
     "created_by_email": data['created_by_email'],
   };
 
+
   // Check if page already exists with the given slug for this organization
   var existingPages = await findPageBySlug(pageData["slug"], pageData["locale_code"]);
   Logger.log("existingPages: " + JSON.stringify(existingPages));
@@ -378,28 +373,24 @@ async function insertPageGoogleDocs(data) {
     returnValue.data = existingPages.data;
     return returnValue;  
   }
-  
+
   if (data["article-id"] === "") {
-    Logger.log("no id")
     // Logger.log("page data:" + JSON.stringify(pageData));
-    returnValue.data = await fetchGraphQL(
+    return fetchGraphQL(
       insertPageGoogleDocsMutationWithoutId,
       "AddonInsertPageGoogleDocNoID",
       pageData
     );
 
   } else {
-    Logger.log("got id")
     pageData["id"] = data['article-id'];
     // Logger.log("page data:" + JSON.stringify(pageData));
-    returnValue.data = await fetchGraphQL(
+    return fetchGraphQL(
       insertPageGoogleDocsMutation,
       "AddonInsertPageGoogleDocWithID",
       pageData
     );
   }
-
-  return returnValue;
 }
 
 function upsertPublishedArticle(articleId, translationId, localeCode) {
@@ -413,6 +404,7 @@ function upsertPublishedArticle(articleId, translationId, localeCode) {
     }
   );
 }
+
 
 async function findPageBySlug(slug, localeCode) {
   var documentID = DocumentApp.getActiveDocument().getId();
@@ -444,12 +436,6 @@ async function findArticleByCategoryAndSlug(category_id, slug, localeCode) {
 }
 
 async function insertArticleGoogleDocs(data) {
-
-  var returnValue = {
-    status: "success",
-    message: "Successfully inserted article",
-    data: {}
-  };
 
   var documentID;
   var documentUrl;
@@ -488,8 +474,10 @@ async function insertArticleGoogleDocs(data) {
 
   if (data["first-published-at"]) {
     articleData["first_published_at"] = data["first-published-at"];
-    // Logger.log("* first published at: " + articleData["first_published_at"]);
+    Logger.log("* first published at: " + articleData["first_published_at"]);
   } 
+
+  // console.log("*articleData.main_image: " + JSON.stringify(articleData['main_image']))
 
   var dataSources = [];
   if (data['sources'] !== {} && Object.keys(data['sources']).length > 0) {
@@ -542,21 +530,19 @@ async function insertArticleGoogleDocs(data) {
 
   // Logger.log("article data:" + JSON.stringify(articleData));
   if (data["article-id"] === "") {
-    returnValue.data = await fetchGraphQL(
+    return fetchGraphQL(
       insertArticleGoogleDocMutationWithoutId,
       "AddonInsertArticleGoogleDocNoID",
       articleData
     );
-    return returnValue;
   } else {
     articleData['id'] = data['article-id'];
     Logger.log("inserting WITH id: " + articleData["first_published_at"] + " " + JSON.stringify(Object.keys(articleData)))
-    returnValue.data = await fetchGraphQL(
+    return fetchGraphQL(
       insertArticleGoogleDocMutation,
       "AddonInsertArticleGoogleDocWithID",
       articleData
     );
-    return returnValue;
   }
 }
 
@@ -915,15 +901,10 @@ async function hasuraHandlePublish(formObject) {
   if (isStaticPage) {
     documentType = "page";
     // insert or update page
-    var insertPage = await insertPageGoogleDocs(formObject);
-
-    if (insertPage.status === "error") {
-      return insertPage;
-    }
-
+    var data = await insertPageGoogleDocs(formObject);
     // Logger.log("pageResult: " + JSON.stringify(data))
 
-    var pageID = insertPage.data.data.insert_pages.returning[0].id;
+    var pageID = data.data.insert_pages.returning[0].id;
 
     // store slug + page ID in slug versions table
     var result = await storePageIdAndSlug(pageID, slug);
@@ -931,7 +912,7 @@ async function hasuraHandlePublish(formObject) {
 
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
     Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    insertPage.organization_locales = getOrgLocalesResult.data.organization_locales;
+    data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
     if (pageID && formObject['article-authors']) {
       var authors;
@@ -959,27 +940,19 @@ async function hasuraHandlePublish(formObject) {
 
     Logger.log("publishUrl: " + publishUrl + " fullPublishUrl: " + fullPublishUrl);
 
-    data = insertPage;
-
   } else {
     documentType = "article";
     // insert or update article
     if (formObject["first-published-at"]) {
       Logger.log("first-published-at datetime: " + formObject["first-published-at"])
     }
-
-    // quit here if a duplicate article found with the given slug & return error to browser
-    var insertArticle = await insertArticleGoogleDocs(formObject);
-    if (insertArticle.status === "error") {
-      return insertArticle;
-    }
-
-    Logger.log(JSON.stringify(insertArticle));
-    Logger.log("translation created: " + JSON.stringify(insertArticle.data.data.insert_articles.returning[0].article_translations));
-    var articleID = insertArticle.data.data.insert_articles.returning[0].id;
-    var categorySlug = insertArticle.data.data.insert_articles.returning[0].category.slug;
-    var articleSlug = insertArticle.data.data.insert_articles.returning[0].slug;
-    var translationID = insertArticle.data.data.insert_articles.returning[0].article_translations[0].id;
+    var data = await insertArticleGoogleDocs(formObject);
+    Logger.log(JSON.stringify(data));
+    Logger.log("translation created: " + JSON.stringify(data.data.insert_articles.returning[0].article_translations));
+    var articleID = data.data.insert_articles.returning[0].id;
+    var categorySlug = data.data.insert_articles.returning[0].category.slug;
+    var articleSlug = data.data.insert_articles.returning[0].slug;
+    var translationID = data.data.insert_articles.returning[0].article_translations[0].id;
 
     // first delete any previously set authors
     var deleteAuthorsResult = await hasuraDeleteAuthorArticles(articleID);
@@ -991,7 +964,7 @@ async function hasuraHandlePublish(formObject) {
 
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
     // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    insertArticle.organization_locales = getOrgLocalesResult.data.organization_locales;
+    data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
     if (articleID) {
       // store slug + article ID in slug versions table
@@ -1002,7 +975,7 @@ async function hasuraHandlePublish(formObject) {
       if (publishedArticleData) {
         Logger.log("Published Article Data:" + JSON.stringify(publishedArticleData));
 
-        insertArticle.data.data.insert_articles.returning[0].published_article_translations = publishedArticleData.data.insert_published_article_translations.returning;
+        data.data.insert_articles.returning[0].published_article_translations = publishedArticleData.data.insert_published_article_translations.returning;
       }
     }
 
@@ -1049,8 +1022,6 @@ async function hasuraHandlePublish(formObject) {
       var path = "articles/" + categorySlug + "/" + articleSlug;
       fullPublishUrl = publishUrl + path;
     }
-
-    data = insertArticle;
   }
 
   // trigger republish of the site to reflect new article
@@ -1106,20 +1077,14 @@ async function hasuraHandlePreview(formObject) {
   if (isStaticPage) {
     documentType = "page";
     // insert or update page
-    var insertPage = await insertPageGoogleDocs(formObject);
-
-    if (insertPage.status === "error") {
-      return insertPage;
-    }
-
+    var data = await insertPageGoogleDocs(formObject);
     // Logger.log("pageResult: " + JSON.stringify(data))
 
-    Logger.log("insertPage: " + JSON.stringify(insertPage));
-    var pageID = insertPage.data.data.insert_pages.returning[0].id;
+    var pageID = data.data.insert_pages.returning[0].id;
 
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
     Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    insertPage.organization_locales = getOrgLocalesResult.data.organization_locales;
+    data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
     // store slug + page ID in slug versions table
     var result = await storePageIdAndSlug(pageID, slug);
@@ -1139,26 +1104,14 @@ async function hasuraHandlePreview(formObject) {
       }
     }
 
-    data = insertPage;
-
   } else {
     documentType = "article";
     // insert or update article
     // Logger.log("sources:" + JSON.stringify(formObject['sources']));
 
-    // quit here if a duplicate article found with the given slug & return error to browser
-    var insertArticle = await insertArticleGoogleDocs(formObject);
-    Logger.log("insertArticle response: " + JSON.stringify(insertArticle));
-    if (insertArticle.status === "error") {
-      Logger.log("insertArticle ERROR");
-      insertArticle["documentID"] = documentID;
-      return insertArticle;
-    } else {
-      Logger.log("insertArticle NO ERROR");
-    }
-
+    var data = await insertArticleGoogleDocs(formObject);
     // Logger.log("articleResult: " + JSON.stringify(data))
-    var articleID = insertArticle.data.data.insert_articles.returning[0].id;
+    var articleID = data.data.insert_articles.returning[0].id;
 
     // store slug + article ID in slug versions table
     var result = await storeArticleIdAndSlug(articleID, slug);
@@ -1174,7 +1127,7 @@ async function hasuraHandlePreview(formObject) {
     
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
     // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    insertArticle.organization_locales = getOrgLocalesResult.data.organization_locales;
+    data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
     if (articleID && formObject['article-tags']) {
       var tags;
@@ -1211,8 +1164,6 @@ async function hasuraHandlePreview(formObject) {
         var result = await hasuraCreateAuthorArticle(author, articleID);
       }
     }
-
-    data = insertArticle;
   }
 
   //construct preview url

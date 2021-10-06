@@ -338,21 +338,6 @@ const insertPageGoogleDocsMutationWithoutId = `mutation AddonInsertPageGoogleDoc
     returning {
       id
       slug
-      page_translations {
-        content
-        facebook_description
-        facebook_title
-        first_published_at
-        headline
-        id
-        last_published_at
-        locale_code
-        published
-        search_description
-        search_title
-        twitter_description
-        twitter_title
-      }
       page_google_documents {
         id
         google_document {
@@ -373,21 +358,6 @@ const insertPageGoogleDocsMutation = `mutation AddonInsertPageGoogleDocWithID($i
     returning {
       id
       slug
-      page_translations {
-        content
-        facebook_description
-        facebook_title
-        first_published_at
-        headline
-        id
-        last_published_at
-        locale_code
-        published
-        search_description
-        search_title
-        twitter_description
-        twitter_title
-      }
       page_google_documents {
         id
         google_document {
