@@ -29,8 +29,6 @@
         
         if (data && data.data && data.data.articles && data.data.articles[0]) {
           articleId = data.data.articles[0].id;
-          document.getElementById("current-data-id").innerHTML = articleId;
-
           if (
             data.data.articles[0] && 
             data.data.articles[0].article_google_documents && 
@@ -495,7 +493,6 @@
         <div id="republish-info"></div>
         <hr/>
         <button onclick="deleteArticle()">Delete Article</button>
-        <div id="current-data-id"></div>
       </div>
     </div>
 

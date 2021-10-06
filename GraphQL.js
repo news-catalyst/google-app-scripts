@@ -338,21 +338,6 @@ const insertPageGoogleDocsMutationWithoutId = `mutation AddonInsertPageGoogleDoc
     returning {
       id
       slug
-      page_translations {
-        content
-        facebook_description
-        facebook_title
-        first_published_at
-        headline
-        id
-        last_published_at
-        locale_code
-        published
-        search_description
-        search_title
-        twitter_description
-        twitter_title
-      }
       page_google_documents {
         id
         google_document {
@@ -373,21 +358,6 @@ const insertPageGoogleDocsMutation = `mutation AddonInsertPageGoogleDocWithID($i
     returning {
       id
       slug
-      page_translations {
-        content
-        facebook_description
-        facebook_title
-        first_published_at
-        headline
-        id
-        last_published_at
-        locale_code
-        published
-        search_description
-        search_title
-        twitter_description
-        twitter_title
-      }
       page_google_documents {
         id
         google_document {
@@ -457,8 +427,8 @@ const unpublishArticleMutation = `mutation AddonUnpublishArticle($article_id: In
 
 /* Queries */
 
-const findPageBySlugQuery = `query AddonFindPageBySlug($slug: String!, $document_id: String!) {
-  pages(where: {slug: {_eq: $slug}, page_google_documents: {google_document: {document_id: {_neq: $document_id}}}}) {
+const findPageBySlugQuery = `query AddonFindPageBySlug($slug: String!, $document_id: String!, $locale_code: String) {
+  pages(where: {slug: {_eq: $slug}, page_google_documents: {google_document: {document_id: {_neq: $document_id}, locale_code: {_eq: $locale_code}}}}) {
     id
     created_at
     slug
@@ -470,8 +440,8 @@ const findPageBySlugQuery = `query AddonFindPageBySlug($slug: String!, $document
   }
 }`;
 
-const findArticleByCategoryAndSlugQuery = `query AddonFindArticleByCategorySlug($category_id: Int!, $slug: String!, $document_id: String!) {
-  articles(where: {category_id: {_eq: $category_id}, slug: {_eq: $slug}, article_google_documents: {google_document: {document_id: {_neq: $document_id}}}}) {
+const findArticleByCategoryAndSlugQuery = `query AddonFindArticleByCategorySlug($category_id: Int!, $slug: String!, $document_id: String!, $locale_code: String) {
+  articles(where: {category_id: {_eq: $category_id}, slug: {_eq: $slug}, article_google_documents: {google_document: {document_id: {_neq: $document_id}, locale_code: {_eq: $locale_code}}}}) {
     id
     slug
     category_id
@@ -868,7 +838,11 @@ const getPublishedArticles = `query AddonGetPublishedArticles($locale_code: Stri
   }
 }`;
 
-const deleteArticleMutation = `mutation AddonDeleteArticleMutation($article_id: Int) {
+
+const deleteArticleMutation = `mutation AddonDeleteArticleMutation($article_id: Int!) {
+  delete_homepage_layout_datas(where: {_or: {first_article: {id: {_eq: $article_id}}, third_article: {id: {_eq: $article_id}}, second_article: {id: {_eq: $article_id}}}}) {
+    affected_rows
+  }
   delete_published_article_translations(where: {article_id: {_eq: $article_id}}) {
     affected_rows
   }
@@ -891,6 +865,43 @@ const deleteArticleMutation = `mutation AddonDeleteArticleMutation($article_id: 
     affected_rows
   }
   delete_articles(where: {id: {_eq: $article_id}}) {
+    affected_rows
+  }
+}`;
+
+
+const deletePageBySlugMutation = `mutation AddonDeletePageBySlugMutation($slug: String!) {
+  delete_page_translations(where: {page: {slug: {_eq: $slug}}}) {
+    affected_rows
+  }
+  delete_page_slug_versions(where: {page: {slug: {_eq: $slug}}}) {
+    affected_rows
+  }
+  delete_page_google_documents(where: {page: {slug: {_eq: $slug}}}) {
+    affected_rows
+  }
+  delete_author_pages(where: {page: {slug: {_eq: $slug}}}) {
+    affected_rows
+  }
+  delete_pages(where: {slug: {_eq: $slug}}) {
+    affected_rows
+  }
+}`;
+
+const deletePageMutation = `mutation AddonDeletePageMutation($page_id: Int!) {
+  delete_page_translations(where: {page: {id: {_eq: $page_id}}}) {
+    affected_rows
+  }
+  delete_page_slug_versions(where: {page: {id: {_eq: $page_id}}}) {
+    affected_rows
+  }
+  delete_page_google_documents(where: {page: {id: {_eq: $page_id}}}) {
+    affected_rows
+  }
+  delete_author_pages(where: {page: {id: {_eq: $page_id}}}) {
+    affected_rows
+  }
+  delete_pages(where: {id: {_eq: $page_id}}) {
     affected_rows
   }
 }`;
