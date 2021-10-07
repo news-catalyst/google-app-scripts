@@ -345,7 +345,13 @@ async function insertPageGoogleDocs(data) {
   var documentID = DocumentApp.getActiveDocument().getId();
   var documentURL = DocumentApp.getActiveDocument().getUrl();
   var content = await getCurrentDocContents();
-  
+
+  var returnValue = {
+    status: "success",
+    message: "",
+    data: {}
+  };
+
   let pageData = {
     "slug": data['article-slug'],
     "document_id": documentID,
@@ -376,21 +382,25 @@ async function insertPageGoogleDocs(data) {
 
   if (data["article-id"] === "") {
     // Logger.log("page data:" + JSON.stringify(pageData));
-    return fetchGraphQL(
+    returnValue.data = await fetchGraphQL(
       insertPageGoogleDocsMutationWithoutId,
       "AddonInsertPageGoogleDocNoID",
       pageData
     );
+    returnValue.message = "Successfully saved the page"
 
   } else {
     pageData["id"] = data['article-id'];
     // Logger.log("page data:" + JSON.stringify(pageData));
-    return fetchGraphQL(
+    returnValue.data = await fetchGraphQL(
       insertPageGoogleDocsMutation,
       "AddonInsertPageGoogleDocWithID",
       pageData
     );
+    returnValue.message = "Successfully saved the page"
   }
+
+  return returnValue;
 }
 
 function upsertPublishedArticle(articleId, translationId, localeCode) {
@@ -436,6 +446,11 @@ async function findArticleByCategoryAndSlug(category_id, slug, localeCode) {
 }
 
 async function insertArticleGoogleDocs(data) {
+  var returnValue = {
+    status: "success",
+    message: "",
+    data: {}
+  };
 
   var documentID;
   var documentUrl;
@@ -530,20 +545,23 @@ async function insertArticleGoogleDocs(data) {
 
   // Logger.log("article data:" + JSON.stringify(articleData));
   if (data["article-id"] === "") {
-    return fetchGraphQL(
+    returnValue.data = await fetchGraphQL(
       insertArticleGoogleDocMutationWithoutId,
       "AddonInsertArticleGoogleDocNoID",
       articleData
     );
+    returnValue.message = "Successfully saved the article.";
   } else {
     articleData['id'] = data['article-id'];
     Logger.log("inserting WITH id: " + articleData["first_published_at"] + " " + JSON.stringify(Object.keys(articleData)))
-    return fetchGraphQL(
+    returnValue.data = await fetchGraphQL(
       insertArticleGoogleDocMutation,
       "AddonInsertArticleGoogleDocWithID",
       articleData
     );
+    returnValue.message = "Successfully saved the article.";
   }
+  return returnValue;
 }
 
 async function hasuraCreateAuthorPage(authorId, pageId) {
@@ -901,8 +919,13 @@ async function hasuraHandlePublish(formObject) {
   if (isStaticPage) {
     documentType = "page";
     // insert or update page
-    var data = await insertPageGoogleDocs(formObject);
-    // Logger.log("pageResult: " + JSON.stringify(data))
+    var insertPage = await insertPageGoogleDocs(formObject);
+    if (insertPage.status === "error") {
+      insertPage["documentID"] = documentID;
+      return insertPage;
+    }
+    var data = insertPage.data;
+    Logger.log("pageResult: " + JSON.stringify(data))
 
     var pageID = data.data.insert_pages.returning[0].id;
 
@@ -946,7 +969,14 @@ async function hasuraHandlePublish(formObject) {
     if (formObject["first-published-at"]) {
       Logger.log("first-published-at datetime: " + formObject["first-published-at"])
     }
-    var data = await insertArticleGoogleDocs(formObject);
+    var insertArticle = await insertArticleGoogleDocs(formObject);
+
+    if(insertArticle.status === "error") {
+      insertArticle["documentID"] = documentID;
+      return insertArticle;
+    }
+
+    var data = insertArticle.data;
     Logger.log(JSON.stringify(data));
     Logger.log("translation created: " + JSON.stringify(data.data.insert_articles.returning[0].article_translations));
     var articleID = data.data.insert_articles.returning[0].id;
@@ -1077,8 +1107,14 @@ async function hasuraHandlePreview(formObject) {
   if (isStaticPage) {
     documentType = "page";
     // insert or update page
-    var data = await insertPageGoogleDocs(formObject);
-    // Logger.log("pageResult: " + JSON.stringify(data))
+    var insertPage = await insertPageGoogleDocs(formObject);
+    if (insertPage.status === "error") {
+      insertPage["documentID"] = documentID;
+      return insertPage;
+    }
+
+    var data = insertPage.data;
+    Logger.log("pageResult: " + JSON.stringify(data))
 
     var pageID = data.data.insert_pages.returning[0].id;
 
@@ -1109,8 +1145,15 @@ async function hasuraHandlePreview(formObject) {
     // insert or update article
     // Logger.log("sources:" + JSON.stringify(formObject['sources']));
 
-    var data = await insertArticleGoogleDocs(formObject);
-    // Logger.log("articleResult: " + JSON.stringify(data))
+    // quit here if a duplicate article found with the given slug & return error to browser
+    var insertArticle = await insertArticleGoogleDocs(formObject);
+    Logger.log("insertArticle response: " + JSON.stringify(insertArticle));
+    if (insertArticle.status === "error") {
+      insertArticle["documentID"] = documentID;
+      return insertArticle;
+    }
+
+    var data = insertArticle.data;
     var articleID = data.data.insert_articles.returning[0].id;
 
     // store slug + article ID in slug versions table
@@ -1520,7 +1563,7 @@ async function processDocumentContents(activeDoc, document, slug) {
   // and properly return the full list of ordered elements
   var elementsProcessed = 0;
   elements.forEach(element => {
-    
+    Logger.log("element: " + JSON.stringify(element))
     if (element.paragraph && element.paragraph.elements) {
       var eleData = {
         children: [],
@@ -1635,6 +1678,12 @@ async function processDocumentContents(activeDoc, document, slug) {
             if (element.paragraph.paragraphStyle.namedStyleType) {
               eleData.style = element.paragraph.paragraphStyle.namedStyleType;
             }
+
+            // treat any indented text as a blockquote
+            if (element.paragraph.paragraphStyle.indentStart || element.paragraph.paragraphStyle.indentFirstLine) {
+              eleData.type = "blockquote";
+            }
+
             var childElement = {
               index: subElement.endIndex,
             }
@@ -1646,6 +1695,10 @@ async function processDocumentContents(activeDoc, document, slug) {
             childElement.content = cleanContent(subElement.textRun.content);
 
             eleData.children.push(childElement);
+
+          // blank content but contains a "horizontalRule" element?
+          } else if (subElement.horizontalRule) {
+            eleData.type = "hr";
           }
 
           // found an image
@@ -1745,6 +1798,7 @@ function formatElements(elements) {
       return -1;
     }
   }).forEach(element => {
+    Logger.log("element.type: " + element.type + " - " + JSON.stringify(element))
     var formattedElement = {
       type: element.type,
       style: element.style,
