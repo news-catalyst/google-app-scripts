@@ -1727,7 +1727,7 @@ async function processDocumentContents(activeDoc, document, slug) {
               childElement.link = subElement.textRun.textStyle.link.url;
             }
             if (inSpecialFormatBlock) {
-              childElement.content = subElement.textRun.content.trim();
+              childElement.content = subElement.textRun.content.trimEnd();
             } else {
               childElement.content = cleanContent(subElement.textRun.content); 
             }
