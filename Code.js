@@ -111,7 +111,7 @@ function uploadImageToS3(imageID, contentUri, slug) {
     articleSlug = getArticleSlug();
   }
 
-  Logger.log("uploading image for org " + orgNameSlug + "and article " + articleSlug);
+  // Logger.log("uploading image for org " + orgNameSlug + "and article " + articleSlug);
 
   var objectName = "image" + imageID + ".png";
 
