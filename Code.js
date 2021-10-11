@@ -1568,7 +1568,7 @@ async function processDocumentContents(activeDoc, document, slug) {
   elements.forEach(element => {
     
     if (element.paragraph && element.paragraph.elements) {
-      Logger.log("element: " + JSON.stringify(element))
+      // Logger.log("element: " + JSON.stringify(element))
 
       var eleData = {
         children: [],
@@ -1689,12 +1689,12 @@ async function processDocumentContents(activeDoc, document, slug) {
             // FORMAT END turns it off
             // all lines in between are given a style of FORMATTED_TEXT without any whitespace stripped
             if (subElement.textRun.content.trim() === "FORMAT START") {
-              Logger.log("START format block")
+              // Logger.log("START format block")
               inSpecialFormatBlock = true;
               storeElement = false;
               
             } else if (subElement.textRun.content.trim() === "FORMAT END") {
-              Logger.log("END format block")
+              // Logger.log("END format block")
               inSpecialFormatBlock = false;
               storeElement = false;
               
@@ -1704,14 +1704,14 @@ async function processDocumentContents(activeDoc, document, slug) {
             eleData.type = "text";
 
             if (inSpecialFormatBlock) {
-              Logger.log("IN SPECIAL BLOCK")
+              // Logger.log("IN SPECIAL BLOCK")
               namedStyle = "FORMATTED_TEXT";
             } else if (element.paragraph.paragraphStyle.namedStyleType) {
               namedStyle = element.paragraph.paragraphStyle.namedStyleType;
             }
 
             eleData.style = namedStyle;
-            Logger.log("eleData.style: " + eleData.style);
+            // Logger.log("eleData.style: " + eleData.style);
 
             // treat any indented text as a blockquote
             if (element.paragraph.paragraphStyle.indentStart || element.paragraph.paragraphStyle.indentFirstLine) {
@@ -1768,11 +1768,11 @@ async function processDocumentContents(activeDoc, document, slug) {
               }
 
               if (s3Url === null || s3Url === undefined || !articleSlugMatches || !assetDomainMatches) {
-                Logger.log(imageID + " " + slug + " has not been uploaded yet, uploading now...")
+                // Logger.log(imageID + " " + slug + " has not been uploaded yet, uploading now...")
                 s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri, slug);
                 imageList[imageID] = s3Url;
               } else {
-                Logger.log(slug + " " + imageID + " has already been uploaded: " + articleSlugMatches + " " + s3Url);
+                // Logger.log(slug + " " + imageID + " has already been uploaded: " + articleSlugMatches + " " + s3Url);
                 imageList[imageID] = s3Url;
               }
 
@@ -1791,7 +1791,7 @@ async function processDocumentContents(activeDoc, document, slug) {
       })
       // skip any blank elements, embeds and lists because they've already been handled above
       if (storeElement && eleData.type !== null && eleData.type !== "list" && eleData.type !== "embed") {
-        Logger.log("Element Data: " + JSON.stringify(eleData));
+        // Logger.log("Element Data: " + JSON.stringify(eleData));
         orderedElements.push(eleData);
       } else if (!storeElement) {
         Logger.log("NOT storing element " + JSON.stringify(eleData));
@@ -1841,7 +1841,7 @@ function formatElements(elements) {
       return -1;
     }
   }).forEach(element => {
-    Logger.log("element.type: " + element.type + " - " + JSON.stringify(element))
+    // Logger.log("element.type: " + element.type + " - " + JSON.stringify(element))
     var formattedElement = {
       type: element.type,
       style: element.style,

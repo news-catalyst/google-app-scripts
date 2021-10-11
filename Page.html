@@ -1132,7 +1132,7 @@
             }
           })
 
-          var selectedAuthors = $('#article-authors').select2('data')
+          var selectedAuthors = $('#article-authors').select2('data');
           var customByline = document.getElementById("article-custom-byline").value;
           if ( (selectedAuthors === undefined || selectedAuthors.length <= 0) && ( customByline === null || customByline === undefined || customByline === "") ) {
             // console.log("selectedAuthors:", selectedAuthors, "customByline:", customByline)
@@ -1176,6 +1176,10 @@
           submitData["first-published-at"] = formattedPubDate;
           // console.log('formattedPubDate:', formattedPubDate);
           submitData["sources"] = sources;
+          submitData['article-authors'] = [];
+          for (var i = 0, author; author = selectedAuthors[i++];) {
+            submitData["article-authors"].push(author.id);
+          }
         }
         
         if (formIsValid && formObject.submitted === "Preview") {
