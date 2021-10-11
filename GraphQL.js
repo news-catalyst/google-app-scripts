@@ -495,6 +495,9 @@ const getArticleByGoogleDocQuery = `query AddonGetArticleByGoogleDoc($doc_id: St
         zip
       }
     }
+    tag_articles {
+      tag_id
+    }
   }
   authors {
     id
@@ -635,6 +638,9 @@ const getArticleTranslationForIdAndLocale = `query AddonGetArticleTranslationByL
         }
         url
       }
+    }
+    tag_articles {
+      tag_id
     }
   }
   authors {
