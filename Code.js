@@ -1562,9 +1562,14 @@ async function processDocumentContents(activeDoc, document, slug) {
   // keeping a count of all elements processed so we can store the full image list at the end
   // and properly return the full list of ordered elements
   var elementsProcessed = 0;
+  var inSpecialFormatBlock = false;
+  // storeElement is set to false for FORMAT START and FORMAT END only
+  var storeElement = true;
   elements.forEach(element => {
-    Logger.log("element: " + JSON.stringify(element))
+    
     if (element.paragraph && element.paragraph.elements) {
+      Logger.log("element: " + JSON.stringify(element))
+
       var eleData = {
         children: [],
         link: null,
@@ -1574,6 +1579,8 @@ async function processDocumentContents(activeDoc, document, slug) {
 
       // handle list items
       if (element.paragraph.bullet) {
+        storeElement = true;
+
         eleData.items = [];
         eleData.type = "list";
         eleData.index = element.endIndex;
@@ -1645,6 +1652,7 @@ async function processDocumentContents(activeDoc, document, slug) {
       var subElements = element.paragraph.elements.filter(subElement => subElement.textRun && subElement.textRun.content.trim().length > 0)
       // try to find an embeddable link: url on its own line matching one of a set of hosts (twitter, youtube, etc)
       if (subElements.length === 1) {
+        storeElement = true;
         var foundLink = subElements.find(subElement => subElement.textRun.textStyle.hasOwnProperty('link'))
         var linkUrl = null;
         // var embeddableUrlRegex = /twitter\.com|youtube\.com|youtu\.be|google\.com|imgur.com|twitch\.tv|vimeo\.com|mixcloud\.com|instagram\.com|facebook\.com|dailymotion\.com|spotify.com|apple.com/i;
@@ -1668,16 +1676,42 @@ async function processDocumentContents(activeDoc, document, slug) {
         }
       }
 
+      
       element.paragraph.elements.forEach(subElement => {
         // skip lists and embed links - we already processed these above
         if (eleData.type !== "list" && eleData.type !== "embed") {
+          var namedStyle;
+
           // found a paragraph of text
           if (subElement.textRun && subElement.textRun.content && subElement.textRun.content.trim().length > 0) {
+            // handle specially formatted blocks of text
+            // FORMAT START flips the "are we in a specially formatted block?" switch on
+            // FORMAT END turns it off
+            // all lines in between are given a style of FORMATTED_TEXT without any whitespace stripped
+            if (subElement.textRun.content.trim() === "FORMAT START") {
+              Logger.log("START format block")
+              inSpecialFormatBlock = true;
+              storeElement = false;
+              
+            } else if (subElement.textRun.content.trim() === "FORMAT END") {
+              Logger.log("END format block")
+              inSpecialFormatBlock = false;
+              storeElement = false;
+              
+            } else {
+              storeElement = true;
+            }
             eleData.type = "text";
 
-            if (element.paragraph.paragraphStyle.namedStyleType) {
-              eleData.style = element.paragraph.paragraphStyle.namedStyleType;
+            if (inSpecialFormatBlock) {
+              Logger.log("IN SPECIAL BLOCK")
+              namedStyle = "FORMATTED_TEXT";
+            } else if (element.paragraph.paragraphStyle.namedStyleType) {
+              namedStyle = element.paragraph.paragraphStyle.namedStyleType;
             }
+
+            eleData.style = namedStyle;
+            Logger.log("eleData.style: " + eleData.style);
 
             // treat any indented text as a blockquote
             if (element.paragraph.paragraphStyle.indentStart || element.paragraph.paragraphStyle.indentFirstLine) {
@@ -1686,23 +1720,29 @@ async function processDocumentContents(activeDoc, document, slug) {
 
             var childElement = {
               index: subElement.endIndex,
+              style: cleanStyle(subElement.textRun.textStyle),
             }
-            childElement.style = cleanStyle(subElement.textRun.textStyle);
-
+            
             if (subElement.textRun.textStyle && subElement.textRun.textStyle.link) {
               childElement.link = subElement.textRun.textStyle.link.url;
             }
-            childElement.content = cleanContent(subElement.textRun.content);
+            if (inSpecialFormatBlock) {
+              childElement.content = subElement.textRun.content.trimEnd();
+            } else {
+              childElement.content = cleanContent(subElement.textRun.content); 
+            }
 
             eleData.children.push(childElement);
 
           // blank content but contains a "horizontalRule" element?
           } else if (subElement.horizontalRule) {
+            storeElement = true;
             eleData.type = "hr";
           }
 
           // found an image
           if ( subElement.inlineObjectElement && subElement.inlineObjectElement.inlineObjectId) {
+            storeElement = true;
             var imageID = subElement.inlineObjectElement.inlineObjectId;
             eleData.type = "image";
 
@@ -1750,8 +1790,11 @@ async function processDocumentContents(activeDoc, document, slug) {
         }
       })
       // skip any blank elements, embeds and lists because they've already been handled above
-      if (eleData.type !== null && eleData.type !== "list" && eleData.type !== "embed") {
+      if (storeElement && eleData.type !== null && eleData.type !== "list" && eleData.type !== "embed") {
+        Logger.log("Element Data: " + JSON.stringify(eleData));
         orderedElements.push(eleData);
+      } else if (!storeElement) {
+        Logger.log("NOT storing element " + JSON.stringify(eleData));
       }
     }
     elementsProcessed++;
