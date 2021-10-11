@@ -91,6 +91,7 @@
       }
 
       function displayTags(tags, articleTags) {
+        // console.log("displayTags:", tags, articleTags)
         var articleTagsSelect = document.getElementById('article-tags');
 
         // first clear out previous tags - without doing this, we end up with dupes of all the tags
@@ -239,7 +240,7 @@
       }
 
       function onSuccessCreateDoc(contents) {
-        console.log("onSuccessCreateDoc: ", contents);
+        // console.log("onSuccessCreateDoc: ", contents);
 
         var buttonId = 'translate-button-top-' + contents.locale;
         var button = document.getElementById(buttonId);
@@ -290,7 +291,7 @@
           div.innerHTML = '<p style="color: #48C774;">' + contents.message + "</p>";
         }
 
-        console.log("contents onSuccessGetArticle:", contents);
+        // console.log("contents onSuccessGetArticle:", contents);
         var typeHiddenField = document.getElementById('document-type');
         var documentType = typeHiddenField.value;
 
@@ -319,7 +320,7 @@
           }
           if (contents.data.published_article_translations && contents.data.published_article_translations[0]) {
             publishedInfo = contents.data.published_article_translations[0].article_translation;
-            console.log("found publishedInfo:", publishedInfo);
+            // console.log("found publishedInfo:", publishedInfo);
           }
         } else if (contents.data.pages) {
           documentType = "page"
@@ -410,10 +411,10 @@
           }
         });
 
-        console.log("publishedInfo:", publishedInfo);
+        // console.log("publishedInfo:", publishedInfo);
         if (publishedInfo) {
           var firstPubDate = new Date(publishedInfo.first_published_at);
-          console.log("setting published date to ", firstPubDate, publishedInfo.first_published_at);
+          // console.log("setting published date to ", firstPubDate, publishedInfo.first_published_at);
 
           flatpickr('input[name="article-first-published-date"]', {
             enableTime: true,
@@ -797,11 +798,9 @@
         if (articleId && localeCode) {
           google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(articleId, localeCode);
         } else if (pageId && localeCode) {
-          console.log("page id found, getting translations...")
           google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(pageId, localeCode);
         } else {
 
-          console.log("no article or page ID found, locale is " + localeCode)
           if (data && data.data && data.data.headline) {
             // console.log("setting default article headline to:", data.data.headline)
             var headline = document.getElementById('article-headline');
@@ -880,14 +879,14 @@
       }
 
       function displayTranslationTools(id, documentId, documentType, headline, googleDocs, organizationLocales) {
-        console.log("displaying translation tools:", id, documentId, headline, googleDocs, organizationLocales);
+        // console.log("displaying translation tools:", id, documentId, headline, googleDocs, organizationLocales);
 
         var existingDocsOtherLocales = [];
         var availableLocales = [];
 
         var selectedLocale = document.getElementById('article-locale').value;
 
-        console.log("organizationLocales:", organizationLocales)
+        // console.log("organizationLocales:", organizationLocales)
         if (googleDocs) {
           organizationLocales.forEach( (orgLocale) => {
             var foundLocaleDoc = false;
@@ -914,7 +913,7 @@
             }
           })
 
-          console.log("availableLocales:", availableLocales, "existingDocsOtherLocales:", existingDocsOtherLocales);
+          // console.log("availableLocales:", availableLocales, "existingDocsOtherLocales:", existingDocsOtherLocales);
 
           if (availableLocales && availableLocales.length > 0) {
             availableLocales.forEach(availableLocale => {
@@ -936,7 +935,7 @@
                   button.setAttribute("data-locale", availableLocale.code);
                   button.setAttribute("onClick", "handleCreateDoc(this)");
                   button.innerHTML = 'Translate to ' + availableLocale.name;
-                  console.log(availableLocale, "button:", button);
+                  // console.log(availableLocale, "button:", button);
                   var buttonsTopContainer = document.getElementById('action-buttons-top');
                   buttonsTopContainer.appendChild(button);
                 }
@@ -946,7 +945,7 @@
 
           if (existingDocsOtherLocales.length > 0) {
             existingDocsOtherLocales.forEach(doc => {
-              console.log("existing doc:", doc)
+              // console.log("existing doc:", doc)
               if (doc.locale.code !== selectedLocale) {
                 
                 var buttonId = "translate-button-top-" + doc.locale.code;
@@ -999,10 +998,10 @@
               var mostRecentPubInfo = publishedInfo[0].article_translation;
               displayPublishedInfo(mostRecentPubInfo, translations[0]);
               
-              console.log("publishedInfo:", mostRecentPubInfo);
+              // console.log("publishedInfo:", mostRecentPubInfo);
               if (mostRecentPubInfo) {
                 var firstPubDate = new Date(mostRecentPubInfo.first_published_at);
-                console.log("setting published date to ", firstPubDate, mostRecentPubInfo.first_published_at);
+                // console.log("setting published date to ", firstPubDate, mostRecentPubInfo.first_published_at);
                 flatpickr('input[name="article-first-published-date"]', {
                   enableTime: true,
                   dateFormat: "Y-m-d h:i K",
@@ -1018,11 +1017,11 @@
               }
             }
 
-            console.log("response:", response);
+            // console.log("response:", response);
             var googleDocs = response.data.data.insert_articles.returning[0].article_google_documents;
             var organizationLocales = response.data.organization_locales;
             var documentID = response.documentID;
-            console.log("googleDocs:", googleDocs, "organizationLocales:", organizationLocales, "documentID:", documentID);
+            // console.log("googleDocs:", googleDocs, "organizationLocales:", organizationLocales, "documentID:", documentID);
         
             displayTranslationTools(articleID, documentID, "article", translations[0].headline, googleDocs, organizationLocales);
 
@@ -1077,7 +1076,7 @@
         var publishedDate = calendar.selectedDates[0];
         // 2018-08-28T12:30:00+05:30
         // var formattedPubDate = calendar.formatDate(publishedDate, "y-m-dT")
-        console.log("storing pub date as:", publishedDate);
+        // console.log("storing pub date as:", publishedDate);
 
         var sources = {};
 
@@ -1175,7 +1174,7 @@
           }
           var formattedPubDate = toIsoString(publishedDate);
           submitData["first-published-at"] = formattedPubDate;
-          console.log('formattedPubDate:', formattedPubDate);
+          // console.log('formattedPubDate:', formattedPubDate);
           submitData["sources"] = sources;
         }
         
