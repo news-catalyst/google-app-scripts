@@ -1031,7 +1031,10 @@
             var idHiddenField = document.getElementById('article-id');
             idHiddenField.value = pageID;
 
-            var googleDocs = response.data.data.insert_pages.returning[0].page_google_documents;
+            var pageData = response.data.data.insert_pages.returning[0];
+            
+            var googleDocs = pageData.page_google_documents;
+            var translations = pageData.page_translations;
             var organizationLocales = response.data.organization_locales;
             var documentID = response.documentID;
 
