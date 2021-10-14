@@ -350,6 +350,15 @@ const insertPageGoogleDocsMutationWithoutId = `mutation AddonInsertPageGoogleDoc
           url
         }
       }
+      page_translations(where: {locale_code: {_eq: $locale_code}}, order_by: {id: desc}, limit: 1) {
+        id
+        page_id
+        headline
+        first_published_at
+        last_published_at
+        locale_code
+        published
+      }
     }
   }
 }`;
@@ -369,6 +378,15 @@ const insertPageGoogleDocsMutation = `mutation AddonInsertPageGoogleDocWithID($i
           }
           url
         }
+      }
+      page_translations(where: {locale_code: {_eq: $locale_code}}, order_by: {id: desc}, limit: 1) {
+        id
+        page_id
+        headline
+        first_published_at
+        last_published_at
+        locale_code
+        published
       }
     }
   }
