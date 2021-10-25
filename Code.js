@@ -319,13 +319,14 @@ async function fetchGraphQL(operationsDoc, operationName, variables) {
   return responseData;
 }
 
-function storeArticleIdAndSlug(id, slug) {
+function storeArticleIdAndSlug(id, slug, categorySlug) {
   return fetchGraphQL(
     insertArticleSlugVersion,
     "AddonInsertArticleSlugVersion",
     {
       article_id: id,
-      slug: slug
+      slug: slug,
+      category_slug: categorySlug
     }
   );
 }
@@ -372,7 +373,7 @@ async function insertPageGoogleDocs(data) {
 
   // Check if page already exists with the given slug for this organization
   var existingPages = await findPageBySlug(pageData["slug"], pageData["locale_code"]);
-  Logger.log("existingPages: " + JSON.stringify(existingPages));
+  // Logger.log("existingPages: " + JSON.stringify(existingPages));
   if (existingPages && existingPages.data && existingPages.data.pages && existingPages.data.pages.length > 0) {
     returnValue.status = "error";
     returnValue.message = "Page already exists with the same slug, please pick a unique slug value."
@@ -998,7 +999,7 @@ async function hasuraHandlePublish(formObject) {
 
     if (articleID) {
       // store slug + article ID in slug versions table
-      var result = await storeArticleIdAndSlug(articleID, slug);
+      var result = await storeArticleIdAndSlug(articleID, slug, categorySlug);
       Logger.log("stored article id + slug: " + JSON.stringify(result));
 
       var publishedArticleData = await upsertPublishedArticle(articleID, translationID, formObject['article-locale'])
@@ -1155,10 +1156,11 @@ async function hasuraHandlePreview(formObject) {
 
     var data = insertArticle.data;
     var articleID = data.data.insert_articles.returning[0].id;
+    var categorySlug = data.data.insert_articles.returning[0].category.slug;
 
     // store slug + article ID in slug versions table
-    var result = await storeArticleIdAndSlug(articleID, slug);
-    // Logger.log("stored article id + slug: " + JSON.stringify(result));
+    var result = await storeArticleIdAndSlug(articleID, slug, categorySlug);
+    Logger.log("stored article id + slug + categorySlug: " + JSON.stringify(result));
 
     // first delete any previously set authors
     var deleteAuthorsResult = await hasuraDeleteAuthorArticles(articleID);

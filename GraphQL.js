@@ -1,7 +1,7 @@
 /* Mutations */
 
-const insertArticleSlugVersion = `mutation AddonInsertArticleSlugVersion($article_id: Int!, $slug: String!) {
-  insert_article_slug_versions(objects: {article_id: $article_id, slug: $slug}, on_conflict: {constraint: slug_versions_pkey, update_columns: article_id}) {
+const insertArticleSlugVersion = `mutation AddonInsertArticleSlugVersion($article_id: Int!, $slug: String!, $category_slug: String!) {
+  insert_article_slug_versions(on_conflict: {constraint: slug_versions_pkey, update_columns: article_id}, objects: {article_id: $article_id, slug: $slug, category_slug: $category_slug}) {
     affected_rows
   }
 }`;
