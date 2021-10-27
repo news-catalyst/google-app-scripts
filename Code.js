@@ -157,6 +157,7 @@ function getScriptConfig() {
     var documentID = DocumentApp.getActiveDocument().getId();
     var driveFile = DriveApp.getFileById(documentID)
     var fileParents = driveFile.getParents();
+    Logger.log("driveFile (" + driveFile.getMimeType() + ") parents: " + JSON.stringify(fileParents))
     while ( fileParents.hasNext() ) {
       var folder = fileParents.next();
       if (folder.getName() === 'articles' || folder.getName() === 'pages') {
@@ -1374,8 +1375,30 @@ async function getArticleForGoogleDoc(doc_id) {
   // otherwise, it's in the wrong spot and we should throw an error
 function isValid(documentID) {
   var driveFile = DriveApp.getFileById(documentID)
-  var fileParents = driveFile.getParents();
 
+  var fileParents;
+
+  // if this file is a shortcut to a document, try to open its target id and get its parents?
+  var fileMimeType = driveFile.getMimeType();
+  if (fileMimeType === "application/vnd.google-apps.shortcut") {
+    var shortcutTargetId = driveFile.getTargetId();
+    if (!shortcutTargetId) {
+      Logger.log(documentID + " shortcut mimetype - failed to find targetID");
+      return false;
+    }
+    var shortcutTargetFile = DriveApp.getFileById(shortcutTargetId);
+    if (!shortcutTargetFile) {
+      Logger.log(documentID + " shortcut mimetype " + shortcutTargetId + " - failed to open target file");
+      return false;
+    }
+    fileParents = shortcutTargetFile.getParents();
+    Logger.log(documentID + " shortcut file parents: " + JSON.stringify(fileParents))
+   } else {
+    fileParents = driveFile.getParents();
+   } 
+
+  // Logger.log("driveFile (" + driveFile.getMimeType() + ") parents: " + JSON.stringify(fileParents))    
+    
   var docIsValid = false;
   while ( fileParents.hasNext() ) {
     var folder = fileParents.next();
@@ -1478,8 +1501,12 @@ async function hasuraGetArticle() {
 
   var valid = isValid(documentID);
   if (!valid) {
+    var driveFile = DriveApp.getFileById(documentID)
+    // var fileParents = driveFile.getParents();  
+    returnValue.message = "driveFile (" + driveFile.getMimeType() + ") " + driveFile.getTargetId() + " (targetId) " + driveFile.getTargetMimeType() + " (targetMimeType) " + driveFile.getTargetResourceKey() + " (targetResourceKey) JSON stringify: " + JSON.stringify(driveFile);    
+// returnValue.message = "Documents must be in the right folder to be published: orgName/articles (and subfolders) for articles and orgName/pages for static pages (like About or Contact); please move this document and try again."
     returnValue.status = "error";
-    returnValue.message = "Documents must be in the right folder to be published: orgName/articles (and subfolders) for articles and orgName/pages for static pages (like About or Contact); please move this document and try again."
+    
     return returnValue;
   }
 
