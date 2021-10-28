@@ -696,7 +696,7 @@ const getArticleTranslationForIdAndLocale = `query AddonGetArticleTranslationByL
   tags {
     id
     slug
-    tag_translations(where: {locale_code: {_eq: $locale_code}}) {
+    tag_translations {
       title
     }
   }

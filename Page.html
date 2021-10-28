@@ -104,7 +104,7 @@
         })
       }
 
-      function displayTags(tags, articleTags) {
+      function displayTags(localeCode, tags, articleTags) {
         // console.log("displayTags:", tags, articleTags)
         var articleTagsSelect = document.getElementById('article-tags');
 
@@ -120,10 +120,14 @@
           var selectorString = "#article-tags option[value='" + tag.slug + "']";
           if ( $(selectorString).length <= 0 ) {
             var option = document.createElement("option");
-            if (tag.tag_translations && tag.tag_translations[0] && tag.tag_translations[0].title) {
-              option.text = tag.tag_translations[0].title;
+            console.log(localeCode, "tag.tag_translations:", tag.tag_translations.length, tag.tag_translations);
+            let translatedTag = tag.tag_translations.find( ({locale_code}) => locale_code === localeCode);
+            if (translatedTag) {
+              console.log(localeCode, "found translatedTag:", translatedTag);
+              option.text = translatedTag.title;
             } else {
-              option.text = "(BUG) unknown title";
+              console.log(localeCode, "using first translation of tag:", tag.tag_translations[0]);
+              option.text = tag.tag_translations[0].title;
             }
             option.value = tag.slug;
 
@@ -327,7 +331,12 @@
         var translationData;
         var publishedInfo;
         var headline;
+        
         var localeCode = contents.localeCode;
+        if (!localeCode) {
+          localeCode = "en-US";
+        }
+
         if (contents.data.articles) {
           if (contents.data.articles[0]) {
             data = contents.data.articles[0]
@@ -376,7 +385,7 @@
         
         if (documentType === "article") {
           displayCategories(contents.data.categories, data.category);
-          displayTags(contents.data.tags, data.tag_articles);
+          displayTags(localeCode, contents.data.tags, data.tag_articles);
           displayAuthors(contents.data.authors, data.author_articles);
         }
 
@@ -833,6 +842,10 @@
           google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(pageId, localeCode);
         } else {
 
+          if (!localeCode) {
+            localeCode = "en-US";
+          }
+
           if (data && data.data && data.data.headline) {
             // console.log("setting default article headline to:", data.data.headline)
             var headline = document.getElementById('article-headline');
@@ -864,7 +877,7 @@
               displayCategories(data.data.categories, null);
             }
             if (data && data.data && data.data.tags) {
-              displayTags(data.data.tags, null);
+              displayTags(localeCode, data.data.tags, null);
             }
             if (data && data.data && data.data.authors) {
               displayAuthors(data.data.authors, null);
