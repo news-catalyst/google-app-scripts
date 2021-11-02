@@ -443,6 +443,12 @@ const unpublishArticleMutation = `mutation AddonUnpublishArticle($article_id: In
   }
 }`;
 
+const unpublishPageMutation = `mutation AddonUnpublishPage($page_id: Int!, $locale_code: String!) {
+  update_page_translations(where: {page_id: {_eq: $page_id}, locale_code: {_eq: $locale_code}}, _set: {published: false}) {
+    affected_rows
+  }
+}`;
+
 /* Queries */
 
 const findPageBySlugQuery = `query AddonFindPageBySlug($slug: String!, $document_id: String!, $locale_code: String) {
