@@ -463,10 +463,10 @@ async function insertArticleGoogleDocs(data) {
     documentUrl = DocumentApp.getActiveDocument().getUrl();
   }
   var content = await getCurrentDocContents();
-  // Logger.log("insertArticleGoogleDocs content length: " + content.length)
+  Logger.log("insertArticleGoogleDocs content length: " + content.length)
 
   var mainImageContent = await getMainImage(content);
-  // console.log("*mainImageContent: " + JSON.stringify(mainImageContent))
+  console.log("*mainImageContent: " + JSON.stringify(mainImageContent))
 
   let articleData = {
     "slug": data['article-slug'],
@@ -968,7 +968,7 @@ async function hasuraHandlePublish(formObject) {
     Logger.log("stored page id + slug: " + JSON.stringify(result));
 
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
-    Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
+    // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
     data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
     if (pageID && formObject['article-authors']) {
@@ -1000,9 +1000,9 @@ async function hasuraHandlePublish(formObject) {
   } else {
     documentType = "article";
     // insert or update article
-    if (formObject["first-published-at"]) {
-      Logger.log("first-published-at datetime: " + formObject["first-published-at"])
-    }
+    // if (formObject["first-published-at"]) {
+    //   Logger.log("first-published-at datetime: " + formObject["first-published-at"])
+    // }
     var insertArticle = await insertArticleGoogleDocs(formObject);
 
     if(insertArticle.status === "error") {
@@ -1037,7 +1037,7 @@ async function hasuraHandlePublish(formObject) {
 
       var publishedArticleData = await upsertPublishedArticle(articleID, translationID, formObject['article-locale'])
       if (publishedArticleData) {
-        Logger.log("Published Article Data:" + JSON.stringify(publishedArticleData));
+        // Logger.log("Published Article Data:" + JSON.stringify(publishedArticleData));
 
         data.data.insert_articles.returning[0].published_article_translations = publishedArticleData.data.insert_published_article_translations.returning;
       }
@@ -1570,7 +1570,7 @@ async function getCurrentDocContents() {
 
   // Logger.log("getCurrentDocContents number of elements: " + elements.length)
   var formattedElements = formatElements(elements);
-  // Logger.log("getCurrentDocContents number of formatted elements: " + formattedElements.length)
+  Logger.log(JSON.stringify(formattedElements))
 
   return formattedElements;
 }
@@ -1590,20 +1590,26 @@ async function processDocumentContents(activeDoc, document, slug) {
   })
 
   var foundMainImage = false;
- 
+  var storedMainImage = false;
+  var mainImageElement = null;
+
   // used to track which images have already been uploaded
   var imageList = getImageList(slug);
 
+  console.log("imageList: " + JSON.stringify(imageList))
   // keeping a count of all elements processed so we can store the full image list at the end
   // and properly return the full list of ordered elements
   var elementsProcessed = 0;
   var inSpecialFormatBlock = false;
   // storeElement is set to false for FORMAT START and FORMAT END only
   var storeElement = true;
+
+  var elementCount = elements.length;
+
   elements.forEach(element => {
     
     if (element.paragraph && element.paragraph.elements) {
-      // Logger.log("element: " + JSON.stringify(element))
+      // Logger.log("paragraph element: " + JSON.stringify(element))  
 
       var eleData = {
         children: [],
@@ -1780,15 +1786,17 @@ async function processDocumentContents(activeDoc, document, slug) {
             storeElement = true;
             var imageID = subElement.inlineObjectElement.inlineObjectId;
             eleData.type = "image";
-
+            console.log("Found an image:" + JSON.stringify(subElement));
             // treat the first image as the main article image used in featured links
             if (!foundMainImage) {
               eleData.type = "mainImage";
               foundMainImage = true;
+              console.log("treating " + imageID + " as main image: " + JSON.stringify(eleData))
             }
 
             var fullImageData = inlineObjects[imageID];
             if (fullImageData) {
+              console.log("Found full image data: " + JSON.stringify(fullImageData))
               var s3Url = imageList[imageID];
 
               var articleSlugMatches = false;
@@ -1819,15 +1827,31 @@ async function processDocumentContents(activeDoc, document, slug) {
                 imageUrl: s3Url,
                 imageAlt: cleanContent(fullImageData.inlineObjectProperties.embeddedObject.title)
               };
+              
               eleData.children.push(childImage);
+              mainImageElement = { 
+                children:[childImage],
+                link: null,
+                type: "mainImage",
+                index: eleData.index
+              }
+              console.log("mainImageElement: " + JSON.stringify(mainImageElement))
             }
           }
         }
       })
       // skip any blank elements, embeds and lists because they've already been handled above
       if (storeElement && eleData.type !== null && eleData.type !== "list" && eleData.type !== "embed") {
-        // Logger.log("Element Data: " + JSON.stringify(eleData));
+        Logger.log(elementCount + " STORING");
         orderedElements.push(eleData);
+      } else if (mainImageElement && !storedMainImage) {
+        orderedElements.push(mainImageElement);
+        // bump the total count and the total processed
+        elementCount++;
+        elementsProcessed++;
+        storedMainImage = true;
+        console.log(elementCount + " STORING MAINIMAGE: " + JSON.stringify(mainImageElement));
+
       } else if (!storeElement) {
         Logger.log("NOT storing element " + JSON.stringify(eleData));
       }
@@ -1835,14 +1859,14 @@ async function processDocumentContents(activeDoc, document, slug) {
     elementsProcessed++;
   });
 
-  if (elementsProcessed === elements.length) {
-    // Logger.log("done processing " + elementsProcessed + " elements; storing imageList: " + JSON.stringify(imageList))
+  if (elementsProcessed === elementCount) {
+    Logger.log("done processing " + elementsProcessed + " elements: " + JSON.stringify(orderedElements))
     storeImageList(slug, imageList);
     // Logger.log("orderedElements count: " + orderedElements.length)
     return orderedElements;
 
   } else {
-    Logger.log("count mismatch: processed " + elementsProcessed + " elements of " + elements.length + " total")
+    Logger.log("count mismatch: processed " + elementsProcessed + " elements of " + elementCount + " total")
     return [];
   }
 
@@ -1876,7 +1900,7 @@ function formatElements(elements) {
       return -1;
     }
   }).forEach(element => {
-    // Logger.log("element.type: " + element.type + " - " + JSON.stringify(element))
+    Logger.log("element.type: " + element.type + " - " + JSON.stringify(element))
     var formattedElement = {
       type: element.type,
       style: element.style,
@@ -1897,7 +1921,9 @@ function formatElements(elements) {
 
 async function getMainImage(elements) {
   var mainImageNodes = elements.filter(element => element.type === 'mainImage');
+
   if (!mainImageNodes[0]) {
+    console.log("no mainImage type found in elements " + JSON.stringify(elements))
     return {}
   }
   // Logger.log("mainImageNodes[0]: " + JSON.stringify(mainImageNodes[0]));
