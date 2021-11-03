@@ -466,7 +466,7 @@ async function insertArticleGoogleDocs(data) {
   Logger.log("insertArticleGoogleDocs content length: " + content.length)
 
   var mainImageContent = await getMainImage(content);
-  console.log("*mainImageContent: " + JSON.stringify(mainImageContent))
+  // console.log("*mainImageContent: " + JSON.stringify(mainImageContent))
 
   let articleData = {
     "slug": data['article-slug'],
@@ -1596,7 +1596,7 @@ async function processDocumentContents(activeDoc, document, slug) {
   // used to track which images have already been uploaded
   var imageList = getImageList(slug);
 
-  console.log("imageList: " + JSON.stringify(imageList))
+  // console.log("imageList: " + JSON.stringify(imageList))
   // keeping a count of all elements processed so we can store the full image list at the end
   // and properly return the full list of ordered elements
   var elementsProcessed = 0;
@@ -1752,7 +1752,6 @@ async function processDocumentContents(activeDoc, document, slug) {
             }
 
             eleData.style = namedStyle;
-            // Logger.log("eleData.style: " + eleData.style);
 
             // treat any indented text as a blockquote
             if (element.paragraph.paragraphStyle.indentStart || element.paragraph.paragraphStyle.indentFirstLine) {
@@ -1773,7 +1772,31 @@ async function processDocumentContents(activeDoc, document, slug) {
               childElement.content = cleanContent(subElement.textRun.content); 
             }
 
-            eleData.children.push(childElement);
+            var headingRegEx = new RegExp(/^HEADING/, 'i');
+            // if this is a heading with more than one child element 
+            // check if we've already created a heading top-level element
+            // instead of appending another child element onto it, we want to:
+            //  * create a new top-level element
+            //  * bump the total elements & elements processed by one
+            if (headingRegEx.test(eleData.style) && element.paragraph.elements.length > 1 && eleData.children.length === 1) {
+              Logger.log("Heading element: " + JSON.stringify(eleData));
+              Logger.log("Heading subelement: " + JSON.stringify(subElement));
+              var newEleData = {
+                type: "text",
+                style: namedStyle,
+                index: eleData.index,
+                children: [childElement]
+              }
+              Logger.log("new eleData: " + JSON.stringify(newEleData));
+              orderedElements.push(newEleData);
+              elementCount++;
+              elementsProcessed++;
+              // storeElement = false;
+            } else {
+              eleData.children.push(childElement);
+              storeElement = true;
+              Logger.log("regular eleData:" + JSON.stringify(eleData));
+            }
 
           // blank content but contains a "horizontalRule" element?
           } else if (subElement.horizontalRule) {
@@ -1786,17 +1809,17 @@ async function processDocumentContents(activeDoc, document, slug) {
             storeElement = true;
             var imageID = subElement.inlineObjectElement.inlineObjectId;
             eleData.type = "image";
-            console.log("Found an image:" + JSON.stringify(subElement));
+            // console.log("Found an image:" + JSON.stringify(subElement));
             // treat the first image as the main article image used in featured links
             if (!foundMainImage) {
               eleData.type = "mainImage";
               foundMainImage = true;
-              console.log("treating " + imageID + " as main image: " + JSON.stringify(eleData))
+              // console.log("treating " + imageID + " as main image: " + JSON.stringify(eleData))
             }
 
             var fullImageData = inlineObjects[imageID];
             if (fullImageData) {
-              console.log("Found full image data: " + JSON.stringify(fullImageData))
+              // console.log("Found full image data: " + JSON.stringify(fullImageData))
               var s3Url = imageList[imageID];
 
               var articleSlugMatches = false;
@@ -1835,7 +1858,7 @@ async function processDocumentContents(activeDoc, document, slug) {
                 type: "mainImage",
                 index: eleData.index
               }
-              console.log("mainImageElement: " + JSON.stringify(mainImageElement))
+              // console.log("mainImageElement: " + JSON.stringify(mainImageElement))
             }
           }
         }
@@ -1853,7 +1876,7 @@ async function processDocumentContents(activeDoc, document, slug) {
         console.log(elementCount + " STORING MAINIMAGE: " + JSON.stringify(mainImageElement));
 
       } else if (!storeElement) {
-        Logger.log("NOT storing element " + JSON.stringify(eleData));
+        Logger.log(elementCount + " NOT storing" + JSON.stringify(eleData));
       }
     }
     elementsProcessed++;
@@ -1923,7 +1946,7 @@ async function getMainImage(elements) {
   var mainImageNodes = elements.filter(element => element.type === 'mainImage');
 
   if (!mainImageNodes[0]) {
-    console.log("no mainImage type found in elements " + JSON.stringify(elements))
+    // console.log("no mainImage type found in elements " + JSON.stringify(elements))
     return {}
   }
   // Logger.log("mainImageNodes[0]: " + JSON.stringify(mainImageNodes[0]));
