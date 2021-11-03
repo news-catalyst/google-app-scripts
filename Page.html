@@ -1258,14 +1258,21 @@
             loadingDiv.innerHTML = "<p class='gray'>Publishing... </p>"
             google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(submitData);
           }
-        } else if ( documentType === "article" && formIsValid && formObject.submitted === "Unpublish") {
+        } else if (formIsValid && formObject.submitted === "Unpublish") {
           // console.log("valid form + unpublish")
-          loadingDiv.innerHTML = "<p class='gray'>Unpublishing article... </p>"
+          loadingDiv.innerHTML = "<p class='gray'>Unpublishing " + documentType + " ...</p>"
           var articleId = document.getElementById('article-id').value;
           var selectedLocale = document.getElementById('article-locale').value;
 
-          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublish(formObject);
+          console.log("Unpublish", documentType, formIsValid, articleId, selectedLocale);
+          if (documentType === "page") {
+            google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublishPage(formObject);
+
+          } else {
+            google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublish(formObject);
+          }
         } else {
+            
           // console.log("invalid form")
           if (errorMessage !== "") {
             loadingDiv.innerHTML = "<p class='error'>" + errorMessage + "</p>"

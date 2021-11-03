@@ -756,12 +756,45 @@ async function hasuraUnpublishArticle(articleId, localeCode) {
   );
 }
 
+async function hasuraUnpublishPage(pageId, localeCode) {
+
+  return fetchGraphQL(
+    unpublishPageMutation,
+    "AddonUnpublishPage",
+    {
+      page_id: pageId,
+      locale_code: localeCode
+    }
+  );
+}
+
 async function hasuraCreateTag(tagData) {
   return fetchGraphQL(
     insertTagMutation,
     "AddonInsertTag",
     tagData
   );
+}
+
+async function hasuraHandleUnpublishPage(formObject) {
+  var pageID = formObject['article-id'];
+  var localeCode = formObject['article-locale'];
+  var response = await hasuraUnpublishPage(pageID, localeCode);
+  
+  var returnValue = {
+    status: "success",
+    message: "Unpublished the page with id " + pageID + " in locale " + localeCode,
+    data: response
+  };
+  if (response.errors) {
+    returnValue.status = "error";
+    returnValue.message = "An unexpected error occurred trying to unpublish the page";
+    returnValue.data = response.errors;
+  } else {
+    // trigger republish of the site to reflect this page no longer being live
+    rebuildSite();
+  }
+  return returnValue;
 }
 
 async function hasuraHandleUnpublish(formObject) {
