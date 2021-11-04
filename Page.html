@@ -123,10 +123,10 @@
             console.log(localeCode, "tag.tag_translations:", tag.tag_translations.length, tag.tag_translations);
             let translatedTag = tag.tag_translations.find( ({locale_code}) => locale_code === localeCode);
             if (translatedTag) {
-              console.log(localeCode, "found translatedTag:", translatedTag);
+              // console.log(localeCode, "found translatedTag:", translatedTag);
               option.text = translatedTag.title;
             } else {
-              console.log(localeCode, "using first translation of tag:", tag.tag_translations[0]);
+              // console.log(localeCode, "using first translation of tag:", tag.tag_translations[0]);
               option.text = tag.tag_translations[0].title;
             }
             option.value = tag.slug;
@@ -764,6 +764,12 @@
         if (documentType === "article" && data && data.data && data.data.articles && data.data.articles[0]) {
 
           articleId = data.data.articles[0].id;
+
+          if (data.data.articles[0].canonical_url) {
+            var canonicalUrlField = document.getElementById('article-custom-canonical-url');
+            canonicalUrlField.value = data.data.articles[0].canonical_url;
+          }
+
           if (
             data.data.articles[0] && 
             data.data.articles[0].article_google_documents && 
@@ -1476,7 +1482,13 @@
             </label>
             <textarea id="article-twitter-description" name="article-twitter-description"></textarea>
           </div>
-
+          <div class="block form-group">
+            <label for="article-custom-canonical-url">
+              <b>Custom Canonical URL</b>
+            </label>
+            <input id="article-custom-canonical-url" name="article-custom-canonical-url" type="text" />
+            <span class="small">Note: this should usually remain blank; only used rarely to override the default and credit an original source.</span>
+          </div>
           <div class="block form-group">
             <label for="article-first-published-date">
               <b>Published Date</b>

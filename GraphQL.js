@@ -30,7 +30,7 @@ const insertAuthorPageMutation = `mutation AddonInsertAuthorPage($page_id: Int!,
   }
 }`;
 
-const insertArticleGoogleDocMutationWithoutId = `mutation AddonInsertArticleGoogleDocNoID($locale_code: String!, $created_by_email: String, $headline: String!, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $main_image: jsonb,  $first_published_at: timestamptz, $article_sources: [article_source_insert_input!]!) {
+const insertArticleGoogleDocMutationWithoutId = `mutation AddonInsertArticleGoogleDocNoID($locale_code: String!, $created_by_email: String, $headline: String!, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $canonical_url: String, $main_image: jsonb,  $first_published_at: timestamptz, $article_sources: [article_source_insert_input!]!) {
   insert_articles(
     objects: {
       article_translations: {
@@ -53,7 +53,7 @@ const insertArticleGoogleDocMutationWithoutId = `mutation AddonInsertArticleGoog
       }, 
       category_id: $category_id, 
       slug: $slug, 
-
+      canonical_url: $canonical_url,
       article_sources: {
         data: $article_sources,
         on_conflict: {constraint: article_source_article_id_source_id_key, update_columns: article_id}
@@ -77,7 +77,7 @@ const insertArticleGoogleDocMutationWithoutId = `mutation AddonInsertArticleGoog
       }
     }, 
     on_conflict: {
-      constraint: articles_slug_category_id_organization_id_key, update_columns: [slug, updated_at]
+      constraint: articles_slug_category_id_organization_id_key, update_columns: [canonical_url, slug, updated_at]
     }
   ) {
     returning {
@@ -138,7 +138,7 @@ const insertArticleGoogleDocMutationWithoutId = `mutation AddonInsertArticleGoog
   }
 }`;
 
-const insertArticleGoogleDocMutation = `mutation AddonInsertArticleGoogleDocWithID($id: Int!, $locale_code: String!, $headline: String!, $created_by_email: String, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $main_image: jsonb, $first_published_at: timestamptz,
+const insertArticleGoogleDocMutation = `mutation AddonInsertArticleGoogleDocWithID($id: Int!, $locale_code: String!, $headline: String!, $created_by_email: String, $published: Boolean, $category_id: Int!, $slug: String!, $document_id: String, $url: String, $custom_byline: String, $content: jsonb, $facebook_description: String, $facebook_title: String, $search_description: String, $search_title: String, $twitter_description: String, $twitter_title: String, $canonical_url: String, $main_image: jsonb, $first_published_at: timestamptz,
   $article_sources: [article_source_insert_input!]!) {
   insert_articles(
     objects: {
@@ -154,6 +154,7 @@ const insertArticleGoogleDocMutation = `mutation AddonInsertArticleGoogleDocWith
       category_id: $category_id, 
       id: $id, 
       slug: $slug, 
+      canonical_url: $canonical_url,
       article_google_documents: {
         data: {
           google_document: {
@@ -171,11 +172,12 @@ const insertArticleGoogleDocMutation = `mutation AddonInsertArticleGoogleDocWith
       }
     }, 
     on_conflict: {
-      constraint: articles_pkey, update_columns: [category_id, slug, updated_at]
+      constraint: articles_pkey, update_columns: [category_id, canonical_url, slug, updated_at]
     }
   ) {
     returning {
       id
+      canonical_url
       slug
       updated_at
       created_at
@@ -477,6 +479,7 @@ const getArticleByGoogleDocQuery = `query AddonGetArticleByGoogleDoc($doc_id: St
   articles(where: {article_google_documents: {google_document: {document_id: {_eq: $doc_id}}}}) {
     id
     slug
+    canonical_url
     category {
       id
       slug
@@ -534,6 +537,7 @@ const getArticleByGoogleDocQuery = `query AddonGetArticleByGoogleDoc($doc_id: St
     published
     slug
     category_translations(where: {locale_code: {_eq: "en-US"}}) {
+      locale_code
       title
     }
   }
@@ -547,6 +551,7 @@ const getArticleByGoogleDocQuery = `query AddonGetArticleByGoogleDoc($doc_id: St
     id
     slug
     tag_translations(where: {locale_code: {_eq: "en-US"}}) {
+      locale_code
       title
     }
   }
@@ -678,6 +683,7 @@ const getArticleTranslationForIdAndLocale = `query AddonGetArticleTranslationByL
     published
     slug
     category_translations(where: {locale_code: {_eq: $locale_code}}) {
+      locale_code
       title
     }
   }
@@ -703,6 +709,7 @@ const getArticleTranslationForIdAndLocale = `query AddonGetArticleTranslationByL
     id
     slug
     tag_translations {
+      locale_code
       title
     }
   }
@@ -862,6 +869,7 @@ const getPublishedArticles = `query AddonGetPublishedArticles($locale_code: Stri
       id
       slug
       category_translations(where: {locale_code: {_eq: $locale_code}}) {
+        locale_code
         title
       }
     }

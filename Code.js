@@ -486,6 +486,7 @@ async function insertArticleGoogleDocs(data) {
     "custom_byline": data['article-custom-byline'],
     "created_by_email": data['created_by_email'],
     "main_image": mainImageContent,
+    "canonical_url": data['article-custom-canonical-url'],
   };
 
   if (data["first-published-at"]) {
@@ -554,7 +555,7 @@ async function insertArticleGoogleDocs(data) {
     returnValue.message = "Successfully saved the article.";
   } else {
     articleData['id'] = data['article-id'];
-    Logger.log("inserting WITH id: " + articleData["first_published_at"] + " " + JSON.stringify(Object.keys(articleData)))
+    Logger.log("inserting WITH id: " + articleData["canonical_url"] + " " + JSON.stringify(Object.keys(articleData)))
     returnValue.data = await fetchGraphQL(
       insertArticleGoogleDocMutation,
       "AddonInsertArticleGoogleDocWithID",
