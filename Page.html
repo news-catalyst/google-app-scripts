@@ -171,6 +171,13 @@
           option.value = currentLocale;
           articleLocaleSelect.add(option);
         }
+
+        var localeContainer = document.getElementById('locale-container');
+        if (locales.length > 1) {
+          localeContainer.style.display = 'block';
+        } else {
+          localeContainer.style.display = 'none';
+        }
       }
 
       function displayAuthors(authors, articleAuthors) {
@@ -1368,6 +1375,22 @@
           </div>
 
           <div class="block form-group">
+            <label for="article-headline">
+              <b>Headline</b> <i>(required)</i>
+            </label>
+            <input id="article-headline" name="article-headline" type="text" />
+          </div>
+          <div class="block form-group">
+            <label for="article-search-description">
+              <b>Description</b> <i>(required)</i>
+            </label>
+            <textarea id="article-search-description" name="article-search-description"></textarea>
+            <span class="small">
+              Used as a general article description around the site in addition to search engine metadata.
+            </span>
+          </div>
+
+          <div id="locale-container" class="block form-group hidden">
             <label for="article-locale">
               <b>Locale</b>
             </label>
@@ -1381,13 +1404,9 @@
             <input type="hidden" id="article-id" name="article-id" />
             <input id="article-slug" name="article-slug" type="text" />
             <input type="hidden" id="document-type" name="document-type" />
-          </div>
-
-          <div class="block form-group">
-            <label for="article-headline">
-              <b>Headline</b> <i>(required)</i>
-            </label>
-            <input id="article-headline" name="article-headline" type="text" />
+            <span class="small">
+              If blank, we will create a slug based on the headline.
+            </span>
           </div>
 
           <div class="block form-group articles-only">
@@ -1402,6 +1421,9 @@
               <b>Custom Byline</b>
             </label>
             <input id="article-custom-byline" name="article-custom-byline" type="text" />
+            <span class="small">
+              This will override any selected authors. Omit the word "By" in this field.
+            </span>
           </div>
 
           <div class="block form-group articles-only">
@@ -1425,12 +1447,12 @@
             <input id="article-search-title" name="article-search-title" type="text" />
           </div>
           <div class="block form-group">
-            <label for="article-search-description">
-              <b>Search description</b> <i>(required)</i>
-            </label>
-            <textarea id="article-search-description" name="article-search-description"></textarea>
+            <span class="small">
+              If any of the following social descriptors are omitted, we will use the search title & general description.
+            </span>
           </div>
           <div class="block form-group">
+
             <label for="article-facebook-title">
               <b>Facebook title</b>
             </label>
