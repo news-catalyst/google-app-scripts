@@ -64,6 +64,14 @@
 
       function displayCategories(categories, selectedCategory) {
         var articleCategorySelect = document.getElementById('article-category');
+        
+        var pleaseChooseOption = document.createElement("option");
+        // pleaseChooseOption.setAttribute("disabled", "");
+        pleaseChooseOption.setAttribute("selected", "");
+        pleaseChooseOption.value = "";
+        pleaseChooseOption.text = "Please select:"
+        articleCategorySelect.appendChild(pleaseChooseOption);
+
         var categoriesSorted = categories.sort(function (a, b) {
           let comparison = 0;
           let aTitle, bTitle;
@@ -1135,7 +1143,8 @@
         var headline = document.getElementById('article-headline');
         var searchTitle = document.getElementById('article-search-title');
         var searchDescription = document.getElementById('article-search-description');
-       
+        var category = document.getElementById('article-category');
+
         const calendar = flatpickr('input[name="article-first-published-date"]', {enableTime: true,
             dateFormat: "Y-m-d h:i K"});
         
@@ -1219,6 +1228,10 @@
         if (!searchDescription.value) {
           // console.log("searchDescription is missing:", searchDescription.value, typeof(searchDescription.value));
           errorMessage += "<br>Search description is required.";
+          formIsValid = false;
+        }
+        if (!category.value) {
+          errorMessage += "<br>Category/section is required.";
           formIsValid = false;
         }
 
