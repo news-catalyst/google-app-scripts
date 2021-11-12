@@ -64,6 +64,14 @@
 
       function displayCategories(categories, selectedCategory) {
         var articleCategorySelect = document.getElementById('article-category');
+        
+        var pleaseChooseOption = document.createElement("option");
+        // pleaseChooseOption.setAttribute("disabled", "");
+        pleaseChooseOption.setAttribute("selected", "");
+        pleaseChooseOption.value = "";
+        pleaseChooseOption.text = "Please select:"
+        articleCategorySelect.appendChild(pleaseChooseOption);
+
         var categoriesSorted = categories.sort(function (a, b) {
           let comparison = 0;
           let aTitle, bTitle;
@@ -120,7 +128,7 @@
           var selectorString = "#article-tags option[value='" + tag.slug + "']";
           if ( $(selectorString).length <= 0 ) {
             var option = document.createElement("option");
-            console.log(localeCode, "tag.tag_translations:", tag.tag_translations.length, tag.tag_translations);
+            // console.log(localeCode, "tag.tag_translations:", tag.tag_translations.length, tag.tag_translations);
             let translatedTag = tag.tag_translations.find( ({locale_code}) => locale_code === localeCode);
             if (translatedTag) {
               // console.log(localeCode, "found translatedTag:", translatedTag);
@@ -375,7 +383,7 @@
 
         if (translationData) {
           headline = translationData.headline;
-        } else if (contents.documentTitle) {
+        } else if (contents.documentTitle && contents.documentTitle !== "Untitled document") {
           headline = contents.documentTitle;
         } else {
           headline = "tk";
@@ -859,7 +867,7 @@
             localeCode = "en-US";
           }
 
-          if (data && data.data && data.data.headline) {
+          if (data && data.data && data.data.headline && data.data.headline !== "Untitled document") {
             // console.log("setting default article headline to:", data.data.headline)
             var headline = document.getElementById('article-headline');
             headline.value = data.data.headline;
@@ -1135,7 +1143,8 @@
         var headline = document.getElementById('article-headline');
         var searchTitle = document.getElementById('article-search-title');
         var searchDescription = document.getElementById('article-search-description');
-       
+        var category = document.getElementById('article-category');
+
         const calendar = flatpickr('input[name="article-first-published-date"]', {enableTime: true,
             dateFormat: "Y-m-d h:i K"});
         
@@ -1221,6 +1230,10 @@
           errorMessage += "<br>Search description is required.";
           formIsValid = false;
         }
+        if (!category.value) {
+          errorMessage += "<br>Category/section is required.";
+          formIsValid = false;
+        }
 
         // assemble the data to submit - unfortunately we can't pass the form object with any additional data here
         var submitData = {};
@@ -1277,7 +1290,7 @@
           var articleId = document.getElementById('article-id').value;
           var selectedLocale = document.getElementById('article-locale').value;
 
-          console.log("Unpublish", documentType, formIsValid, articleId, selectedLocale);
+          // console.log("Unpublish", documentType, formIsValid, articleId, selectedLocale);
           if (documentType === "page") {
             google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublishPage(formObject);
 
