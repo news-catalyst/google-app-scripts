@@ -1755,7 +1755,9 @@ async function processDocumentContents(activeDoc, document, slug) {
             eleData.style = namedStyle;
 
             // treat any indented text as a blockquote
-            if (element.paragraph.paragraphStyle.indentStart || element.paragraph.paragraphStyle.indentFirstLine) {
+            if ((element.paragraph.paragraphStyle.indentStart && element.paragraph.paragraphStyle.indentStart.magnitude) || 
+                (element.paragraph.paragraphStyle.indentFirstLine && element.paragraph.paragraphStyle.indentFirstLine.magnitude)) {
+              Logger.log("indent para:" + JSON.stringify(element.paragraph));
               eleData.type = "blockquote";
             }
 
