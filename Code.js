@@ -1609,7 +1609,7 @@ async function processDocumentContents(activeDoc, document, slug) {
   var elementCount = elements.length;
 
   elements.forEach(element => {
-    
+    Logger.log("element: " + JSON.stringify(element));
     if (element.paragraph && element.paragraph.elements) {
       // Logger.log("paragraph element: " + JSON.stringify(element))  
 
@@ -1724,8 +1724,9 @@ async function processDocumentContents(activeDoc, document, slug) {
         if (eleData.type !== "list" && eleData.type !== "embed") {
           var namedStyle;
 
+
           // found a paragraph of text
-          if (subElement.textRun && subElement.textRun.content && subElement.textRun.content.trim().length > 0) {
+          if (subElement.textRun && subElement.textRun.content) {
             // handle specially formatted blocks of text
             // FORMAT START flips the "are we in a specially formatted block?" switch on
             // FORMAT END turns it off
@@ -1809,7 +1810,7 @@ async function processDocumentContents(activeDoc, document, slug) {
 
           // found an image
           if ( subElement.inlineObjectElement && subElement.inlineObjectElement.inlineObjectId) {
-            Logger.log("FOUND IMAGE: " + JSON.stringify(subElement.inlineObjectElement))
+            // Logger.log("FOUND IMAGE: " + JSON.stringify(subElement.inlineObjectElement))
             storeElement = true;
             var imageID = subElement.inlineObjectElement.inlineObjectId;
             eleData.type = "image";
