@@ -1593,6 +1593,7 @@ async function processDocumentContents(activeDoc, document, slug) {
   var foundMainImage = false;
   var storedMainImage = false;
   var mainImageElement = null;
+  var childImageElement = null;
 
   // used to track which images have already been uploaded
   var imageList = getImageList(slug);
@@ -1608,7 +1609,7 @@ async function processDocumentContents(activeDoc, document, slug) {
   var elementCount = elements.length;
 
   elements.forEach(element => {
-    
+    Logger.log("element: " + JSON.stringify(element));
     if (element.paragraph && element.paragraph.elements) {
       // Logger.log("paragraph element: " + JSON.stringify(element))  
 
@@ -1717,15 +1718,15 @@ async function processDocumentContents(activeDoc, document, slug) {
           }
         }
       }
-
       
       element.paragraph.elements.forEach(subElement => {
         // skip lists and embed links - we already processed these above
         if (eleData.type !== "list" && eleData.type !== "embed") {
           var namedStyle;
 
+
           // found a paragraph of text
-          if (subElement.textRun && subElement.textRun.content && subElement.textRun.content.trim().length > 0) {
+          if (subElement.textRun && subElement.textRun.content) {
             // handle specially formatted blocks of text
             // FORMAT START flips the "are we in a specially formatted block?" switch on
             // FORMAT END turns it off
@@ -1755,7 +1756,9 @@ async function processDocumentContents(activeDoc, document, slug) {
             eleData.style = namedStyle;
 
             // treat any indented text as a blockquote
-            if (element.paragraph.paragraphStyle.indentStart || element.paragraph.paragraphStyle.indentFirstLine) {
+            if ((element.paragraph.paragraphStyle.indentStart && element.paragraph.paragraphStyle.indentStart.magnitude) || 
+                (element.paragraph.paragraphStyle.indentFirstLine && element.paragraph.paragraphStyle.indentFirstLine.magnitude)) {
+              // Logger.log("indent para:" + JSON.stringify(element.paragraph));
               eleData.type = "blockquote";
             }
 
@@ -1807,6 +1810,7 @@ async function processDocumentContents(activeDoc, document, slug) {
 
           // found an image
           if ( subElement.inlineObjectElement && subElement.inlineObjectElement.inlineObjectId) {
+            Logger.log("FOUND IMAGE: " + JSON.stringify(subElement.inlineObjectElement))
             storeElement = true;
             var imageID = subElement.inlineObjectElement.inlineObjectId;
             eleData.type = "image";
@@ -1815,12 +1819,12 @@ async function processDocumentContents(activeDoc, document, slug) {
             if (!foundMainImage) {
               eleData.type = "mainImage";
               foundMainImage = true;
-              // console.log("treating " + imageID + " as main image: " + JSON.stringify(eleData))
+              Logger.log("treating " + imageID + " as main image: " + JSON.stringify(eleData))
             }
 
             var fullImageData = inlineObjects[imageID];
             if (fullImageData) {
-              // console.log("Found full image data: " + JSON.stringify(fullImageData))
+              // Logger.log("Found full image data: " + JSON.stringify(fullImageData))
               var s3Url = imageList[imageID];
 
               var articleSlugMatches = false;
@@ -1852,30 +1856,55 @@ async function processDocumentContents(activeDoc, document, slug) {
                 imageAlt: cleanContent(fullImageData.inlineObjectProperties.embeddedObject.title)
               };
               
-              eleData.children.push(childImage);
-              mainImageElement = { 
-                children:[childImage],
-                link: null,
-                type: "mainImage",
-                index: eleData.index
+              if (eleData.type === "mainImage") {
+                mainImageElement = { 
+                  children:[childImage],
+                  link: null,
+                  type: "mainImage",
+                  index: eleData.index
+                }
+              } else {
+                childImageElement = {
+                  type: "image",
+                  children: [childImage],
+                  link: null,
+                  index: childImage.index
+                }  
               }
+
+              // if(childImageElement) {
+              //   Logger.log("adding childImage to eleData children(" + eleData.children.length + "): " + JSON.stringify(eleData));
+              //   eleData.children.push(childImage);
+  
+              // }
+
+              if (mainImageElement && !storedMainImage) {
+                orderedElements.push(mainImageElement);
+                // bump the total count and the total processed
+                elementCount++;
+                elementsProcessed++;
+                storedMainImage = true;
+                console.log(elementCount + " STORED MAINIMAGE: " + JSON.stringify(mainImageElement));
+              }
+
+              if (childImageElement) {
+                orderedElements.push(childImageElement);
+                elementCount++;
+                elementsProcessed++;
+                console.log(elementCount + " STORED CHILD IMAGE: " + JSON.stringify(childImageElement));
+                childImageElement = null;
+              } 
+              
               // console.log("mainImageElement: " + JSON.stringify(mainImageElement))
-            }
+            } 
           }
         }
       })
       // skip any blank elements, embeds and lists because they've already been handled above
-      if (storeElement && eleData.type !== null && eleData.type !== "list" && eleData.type !== "embed") {
-        Logger.log(elementCount + " STORING");
+      if (storeElement && eleData.type !== null && eleData.type !== "list" && eleData.type !== "embed" && eleData.type !== "image") {
+        Logger.log(elementCount + " STORED TEXT: " + JSON.stringify(eleData));
         orderedElements.push(eleData);
-      } else if (mainImageElement && !storedMainImage) {
-        orderedElements.push(mainImageElement);
-        // bump the total count and the total processed
-        elementCount++;
-        elementsProcessed++;
-        storedMainImage = true;
-        console.log(elementCount + " STORING MAINIMAGE: " + JSON.stringify(mainImageElement));
-
+      
       } else if (!storeElement) {
         Logger.log(elementCount + " NOT storing" + JSON.stringify(eleData));
       }
