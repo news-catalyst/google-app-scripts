@@ -316,6 +316,8 @@ async function fetchGraphQL(operationsDoc, operationName, variables) {
   var responseText = result.getContentText();
   var responseData = JSON.parse(responseText);
 
+  responseData.orgSlug = ORG_SLUG;
+  Logger.log(Object.keys(responseData), responseData.orgSlug);
   return responseData;
 }
 
@@ -1380,7 +1382,10 @@ async function getTranslationDataForPage(docId, pageId, localeCode) {
 }
 
 async function getTranslationDataForArticle(docId, articleId, localeCode) {
-  const { errors, data } = await fetchTranslationDataForArticle(docId, articleId, localeCode);
+  const {errors, data, orgSlug } = await fetchTranslationDataForArticle(docId, articleId, localeCode);
+
+  data.orgSlug = orgSlug;
+  Logger.log("getTranslationDataForArticle orgSlug: " + orgSlug + " data keys: " + JSON.stringify(Object.keys(data)));
 
   if (errors) {
     console.error("errors:" + JSON.stringify(errors));
@@ -1537,7 +1542,7 @@ async function hasuraGetArticle() {
 
   } else {
     data = await getArticleForGoogleDoc(documentID);
-    Logger.log("hasuraGetArticle data: " + JSON.stringify(data));
+    // Logger.log("hasuraGetArticle data: " + JSON.stringify(data));
     if (data && data.articles && data.articles[0]) {
       storeArticleSlug(data.articles[0].slug);
       returnValue.status = "success";
@@ -1783,15 +1788,15 @@ async function processDocumentContents(activeDoc, document, slug) {
             //  * create a new top-level element
             //  * bump the total elements & elements processed by one
             if (headingRegEx.test(eleData.style) && element.paragraph.elements.length > 1 && eleData.children.length === 1) {
-              Logger.log("Heading element: " + JSON.stringify(eleData));
-              Logger.log("Heading subelement: " + JSON.stringify(subElement));
+              // Logger.log("Heading element: " + JSON.stringify(eleData));
+              // Logger.log("Heading subelement: " + JSON.stringify(subElement));
               var newEleData = {
                 type: "text",
                 style: namedStyle,
                 index: eleData.index,
                 children: [childElement]
               }
-              Logger.log("new eleData: " + JSON.stringify(newEleData));
+              // Logger.log("new eleData: " + JSON.stringify(newEleData));
               orderedElements.push(newEleData);
               elementCount++;
               elementsProcessed++;
@@ -1799,7 +1804,7 @@ async function processDocumentContents(activeDoc, document, slug) {
             } else {
               eleData.children.push(childElement);
               storeElement = true;
-              Logger.log("regular eleData:" + JSON.stringify(eleData));
+              // Logger.log("regular eleData:" + JSON.stringify(eleData));
             }
 
           // blank content but contains a "horizontalRule" element?

@@ -16,8 +16,17 @@
 
       function alertAirbrake(error) {
         var err = new Error(error);
-        
-        airbrake.notify(err).then(function(notice) {
+        var orgSlugField = document.getElementById('org-slug');
+
+        let orgSlugValue = "";
+        if (orgSlugField) {
+          orgSlugValue = orgSlugField.value;
+        }
+
+        airbrake.notify({
+          context: { orgSlug: orgSlugValue},
+          error: err,
+        }).then(function(notice) {
           if (notice.id) {
             console.log('notice id:', notice.id);
           } else {
@@ -405,8 +414,14 @@
         }
 
         if (data) {
+          // console.log("contents:", contents, "data:", data);
           var slugField = document.getElementById('article-slug');
           slugField.value = data.slug;
+
+          if (contents && contents.data && contents.data.orgSlug) {
+            var orgSlugField = document.getElementById('org-slug');
+            orgSlugField.value = contents.data.orgSlug;
+          }
 
           var idHiddenField = document.getElementById('article-id');
           idHiddenField.value = data.id;
@@ -750,6 +765,7 @@
       }
 
       function handleGetTranslationsForArticle(data) {
+
         if (data && data.status === "error") {
           onFailure(data.message);
           return;
@@ -1423,6 +1439,7 @@
             <input type="hidden" id="article-id" name="article-id" />
             <input id="article-slug" name="article-slug" type="text" />
             <input type="hidden" id="document-type" name="document-type" />
+            <input type="hidden" id="org-slug" name="org-slug" />
             <span class="small">
               If blank, we will create a slug based on the headline.
             </span>
