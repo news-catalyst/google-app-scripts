@@ -156,7 +156,17 @@ A link to the published version of the article or page is displayed on success.
 tk
 
 ### What Currently Happens
-tk
+
+The front-end checks if this is an article. If so, and no sources are specified, [the user is prompted to confirm](https://github.com/news-catalyst/google-app-scripts/blob/master/Page.html#L1286-L1298) that the publishing should go ahead without any source attribution. 
+
+* [hasuraHandlePublish()](https://github.com/news-catalyst/google-app-scripts/blob/7a6d567f64475f6b164981c91928978b09320227/Code.js#L915-L1105)
+
+This is almost exactly the same as the `hasuraHandlePreview()` detailed above, with teh following differences:
+
+* the `publish` flag is set to `true`
+* on articles, an additional API call is made to `upsertPublishedArticle()` [graphql mutation](https://github.com/news-catalyst/google-app-scripts/blob/master/GraphQL.js#L427-L440) which adds a row for this version of the article content and locale to the published_article_translations table; this is used to display the "Read in X language" links on the front-end
+* a POST is made to the Vercel build hook to rebuild the site
+* the sidebar determines the URL to view the published article instead of returning a preview URL
 
 ## Unpublish
 
