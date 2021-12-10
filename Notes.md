@@ -99,6 +99,8 @@ The google doc is parsed and the formatted data, along with any related metadata
 
 I could see an argument potentially made to send the unformatted raw Google Docs markup to the API for parsing and re-formatting, but I think it's okay to leave it in the sidebar "backend" (Code.js) code. Why? Because this is very specific to Google Docs, so I feel the logic belongs in Google Docs. I'm open to being convinced otherwise though given a good reason.
 
+The current implementation of `preview` makes a lot of API calls. I think this should be consolidated into one call that does all of the data wrangling, error checking, and returns the resulting data and preview URL. I don't think the sidebar should be determining this URL, which is what's happening now.
+
 ### What Currently Happens
 
 The document contents are parsed to take them from the Google Docs format to one usable by our front-end. The following are the special cases that the code particularly handles:
