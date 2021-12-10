@@ -153,7 +153,8 @@ A link to the published version of the article or page is displayed on success.
 
 ### What Should Happen
 
-tk
+Similar to what I said about the preview functionality above, this logic should mainly be moved to a single API call that handles all the updates and formatting, returning data needed by the sidebar front-end and a published URL for the content.
+
 
 ### What Currently Happens
 
@@ -174,9 +175,10 @@ This marks the published content as no longer published by setting the published
 
 ### What Should Happen
 
-tk
+A single backend API call is made that sets the content as unpublished.
 
 ### What Currently Happens
+
 tk
 
 ## Translation
