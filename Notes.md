@@ -1,6 +1,6 @@
-# Google Docs Add-On Functionality
+# Google Docs Publishing Tools Add-On Functionality
 
-## Sidebar Load
+## On Sidebar Load
 
 ### What Should Happen
 
@@ -77,3 +77,60 @@ Finds most recent translation for the article or page in the current locale.
 
 
 3. [isArticleFeatured](https://github.com/news-catalyst/google-app-scripts/blob/master/Code.js#L1297-L1325)
+
+Whether this article is currently featured on the homepage. 
+
+Why? 
+
+* because we don't allow unpublishing a featured article (it causes problems in Hasura with data integrity)
+* and so we can include a link to the homepage editor (set in Admin Tools config)
+
+## Preview
+
+Allows viewing the content in the front-end preview template without publishing. There are two preview buttons, one at the top and one at the bottom of the sidebar - both make the same exact backend calls.
+
+Preview saves the document contents and sidebar-defined metadata to Hasura. Some of the info is stored on the top-level article or page record overwriting previous values. The rest, specifically the document contents, is stored as the latest translation record associated with the article or page. 
+
+A link is displayed to the preview version of the article or page on success.
+
+### What Should Happen
+
+tk
+
+### What Currently Happens
+tk
+
+## Publish
+
+Saves the document contents and metadata and publishes it to the organization's site (makes it public). This works the same as preview (see above) except the publish flag is set to true and first/last published dates are set.
+
+A link to the published version of the article or page is displayed on success.
+
+### What Should Happen
+
+tk
+
+### What Currently Happens
+tk
+
+## Unpublish
+
+This marks the published content as no longer published by setting the published flag to false.
+
+### What Should Happen
+
+tk
+
+### What Currently Happens
+tk
+
+## Translation
+
+Available on sites with more than one locale.
+
+### What Should Happen
+
+tk
+
+### What Currently Happens
+tk
