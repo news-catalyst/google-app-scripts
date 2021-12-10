@@ -4,7 +4,7 @@
 
 ### What Should Happen
 
-Figure out if the current google doc is known for the organization and return all information required to set up the sidebar for editing.
+Figure out if the current google doc is known for the organization and return all information required to set up the sidebar for editing with one API call. 
 
 If this is a new document, the sidebar should have enough data to supply choices for things like category, tags, and authors. 
 
@@ -24,9 +24,28 @@ Ideally, we could make a single API call with the Google Document ID (easy looku
   
 ### What Currently Happens
 
+Several API calls happen via http requests, passing the entire graphql query in the POST data, to determine if this google doc is known or new and get all the info necessary to set up the sidebar for editing.
+
 On page load, calls backend function [`hasuraGetArticle()`](https://github.com/news-catalyst/google-app-scripts/blob/master/Notes.md#hasuragetarticle) (see below, defined in Code.js). 
 
 If this call is successful, calls [`handleGetTranslationsForArticle()`](https://github.com/news-catalyst/google-app-scripts/blob/master/Notes.md#hasuragettranslations), which stores some of the `hasuraGetArticle` data in the sidebar and kicks off another backend function call `hasuraGetTranslations()` for either the known articleID or pageID, depending on document type.
+
+If the translation lookup is successful, calls `onSuccessGetArticle()` which sets up UI stuff in the sidebar.
+
+Makes an additional backend call to `isArticleFeatured()` which checks if this document is for an article currently featured on the homepage.
+
+UI stuff that happens after translation data is available:
+
+* if static page document, hides any article-only features in the sidebar 
+* if new document, defaults locale to `en-US`
+* displays translation tools (open existing translation, create translation)
+* populates: locale, category, tag, and author select menus / typeahead suggest fields
+* displays publishing info (is published?, first/last pub dates)
+* stores some hidden data to facilitate later functionality:
+  * organization slug
+  * article (or page) ID
+  * document type
+  * source tracking counter
 
 1. [hasuraGetArticle](https://github.com/news-catalyst/google-app-scripts/blob/master/Code.js#L1502-L1569)
 
@@ -50,11 +69,11 @@ Finds most recent translation for the article or page in the current locale.
 
 #### If Page
 
-* tk
+* [getTranslationDataForPage](https://github.com/news-catalyst/google-app-scripts/blob/7a6d567f64475f6b164981c91928978b09320227/Code.js#L1373-L1382) [graphql query](https://github.com/news-catalyst/google-app-scripts/blob/master/GraphQL.js#L560-L624)
 
 #### If Article
 
-* tk
+* [getTranslationDataForArticle](https://github.com/news-catalyst/google-app-scripts/blob/7a6d567f64475f6b164981c91928978b09320227/Code.js#L1384-L1396) [graphql query](https://github.com/news-catalyst/google-app-scripts/blob/master/GraphQL.js#L626-L724)
 
 
-3. TK
+3. [isArticleFeatured](https://github.com/news-catalyst/google-app-scripts/blob/master/Code.js#L1297-L1325)
