@@ -179,7 +179,7 @@ A single backend API call is made that sets the content as unpublished that does
 
 ### What Currently Happens
 
-This actually works pretty closely to the ideal, except the sidebar is currently handling the GraphQL mutations and sending those over the wire.
+This is done in [hasuraHandleUnpublish() for articles](https://github.com/news-catalyst/google-app-scripts/blob/7a6d567f64475f6b164981c91928978b09320227/Code.js#L803-L822) and [hasuraHandleUnpublishPage() for pages](https://github.com/news-catalyst/google-app-scripts/blob/7a6d567f64475f6b164981c91928978b09320227/Code.js#L782-L801) and is pretty straightforward. It actually works pretty closely to the ideal except the sidebar is currently handling the GraphQL mutations and sending those over the wire.
 
 Both mutations - articles and pages - set the `published` flag to false for all translation records for the given article/page ID and locale. Unpublishing an article or page in a given locale will basically make it no longer viewable on the public website. Note that it does not wipe out the `first_published_at` timestamp, so unpublishing and then publishing content will update the `last_published_at` date while preserving the initial date.
 
