@@ -171,23 +171,45 @@ This is almost exactly the same as the `hasuraHandlePreview()` detailed above, w
 
 ## Unpublish
 
-This marks the published content as no longer published by setting the published flag to false.
+This hides the article or page from the public website by setting the published flag to false on all translations of the content.
 
 ### What Should Happen
 
-A single backend API call is made that sets the content as unpublished.
+A single backend API call is made that sets the content as unpublished that doesn't require knowledge of the mutation required. We should have separate API endpoints for articles vs pages (e.g. `/api/articles/:id/unpublish` and `/api/pages/:id/unpublish`) so the sidebar code will need logic to determine which endpoint to call.
 
 ### What Currently Happens
 
-tk
+This actually works pretty closely to the ideal, except the sidebar is currently handling the GraphQL mutations and sending those over the wire.
+
+Both mutations - articles and pages - set the `published` flag to false for all translation records for the given article/page ID and locale. Unpublishing an article or page in a given locale will basically make it no longer viewable on the public website. Note that it does not wipe out the `first_published_at` timestamp, so unpublishing and then publishing content will update the `last_published_at` date while preserving the initial date.
 
 ## Translation
 
-Available on sites with more than one locale.
+Available on sites with more than one locale. Translation tools are available in the sidebar that:
+
+* display what other languages the article or page is available in with links to the google docs for each
+* create a new translation by making a copy of the current google doc and displaying a button to open it (you still need to publish for it to be viewable, and ideally, provide a translation of the content!)
 
 ### What Should Happen
 
-tk
+This is tricky. I almost hesitate to change this functionality because it's a bit complicated. However, some of the functionality could be moved from the sidebar code to new API endpoints for sure, and that will hopefully streamline the code and make it easier to maintain in this area.
+
+What should happen, ideally, though, from a new API standpoint:
+
+* there should be an endpoint that returns available translations for a given article or page id, including each translation's associated Google Doc ID
+* creating the Google Doc would still have to happen in the sidebar code, but another endpoint should be POST-able that creates a new translation for the article or page in the specified locale with the new Google Doc ID 
 
 ### What Currently Happens
-tk
+
+The sidebar front-end determines if the article or page already exists in other languages. This is based on data returned from previous API calls (get article/page translations). It also compares this list against all potential languages this content could be translated into, and if there are any gaps, create a translation buttons will be provided for any missing languages. This is encapsulated in the [displayTranslationTools() function](https://github.com/news-catalyst/google-app-scripts/blob/master/Page.html#L963-L1049).
+
+#### Create a Translation
+
+Handled by the "Translate to $language" button. This creates a new Google Doc by copying the current one, then saves it as a new translation for the given language in the database. The content still has to be translated as it's only a copy.
+
+1. Create a google doc
+2. Create the article/page translation record
+
+#### Open a Translation
+
+Handled by the "Open in $language" button. This is a simple link to the Google Doc with the translated content that opens in a new tab.
