@@ -95,9 +95,9 @@ A link is displayed to the preview version of the article or page on success.
 
 ### What Should Happen
 
-The google doc is parsed and the formatted data, along with any related metadata configured in the sidebar, is saved. A single API call should take all of the information, create or update it in the database, and return a link to the previewable article or page.
+The contents of the Google Doc, along with any related metadata configured in the sidebar, is saved. A single API call should take all of the information, parse the raw document contents into our stack's preferred format, create or update it in the database, and return a link to the previewable article or page.
 
-I could see an argument potentially made to send the unformatted raw Google Docs markup to the API for parsing and re-formatting, but I think it's okay to leave it in the sidebar "backend" (Code.js) code. Why? Because this is very specific to Google Docs, so I feel the logic belongs in Google Docs. I'm open to being convinced otherwise though given a good reason.
+The reformatting of the document contents is significant and porting it over to the API will probably take the bulk of time and effort for the preview and publish endpoints. Thankfully it will only have to happen once, so finishing the publish endpoint should be relatively quick!
 
 The current implementation of `preview` makes a lot of API calls. I think this should be consolidated into one call that does all of the data wrangling, error checking, and returns the resulting data and preview URL. I don't think the sidebar should be determining this URL, which is what's happening now.
 
