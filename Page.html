@@ -313,186 +313,6 @@
         }
       }
 
-      function onSuccessGetArticle(contents) {
-
-        var configDiv = document.getElementById('config');
-        configDiv.style.display = 'none';
-        var div = document.getElementById('loading');
-        div.style.display = 'block';
-        var form = document.getElementById('article-form');
-        form.style.display = "block";
-
-        var buttonsDivBottom = document.getElementById('action-buttons-bottom')
-        buttonsDivBottom.style.display = "block";
-        var buttonsDivTop = document.getElementById('action-buttons-top')
-        buttonsDivTop.style.display = "block";
-
-        if (contents && contents.status && contents.status === "error") {
-          div.innerHTML = "<p class='error'>An error occurred: " + contents.message + '</p>';
-          
-          try {
-            alertAirbrake(JSON.stringify(contents));
-          } catch(e) {
-            console.error("Failed to log error with Airbrake:", e);
-          }
-        } else {
-          div.innerHTML = '<p style="color: #48C774;">' + contents.message + "</p>";
-        }
-
-        // console.log("contents onSuccessGetArticle:", contents);
-        var typeHiddenField = document.getElementById('document-type');
-        var documentType = typeHiddenField.value;
-
-        // hide form fields that are relevant for articles only from documents that are static pages
-        if (documentType !== "article") {
-          [].forEach.call(document.querySelectorAll('.articles-only'), function (el) {
-            el.style.display = 'none';
-          });
-        }
-
-        var data;
-        var googleDocs;
-        var translationData;
-        var publishedInfo;
-        var headline;
-        
-        var localeCode = contents.localeCode;
-        if (!localeCode) {
-          localeCode = "en-US";
-        }
-
-        if (contents.data.articles) {
-          if (contents.data.articles[0]) {
-            data = contents.data.articles[0]
-          }
-          if (contents.data.article_translations) {
-              translationData = contents.data.article_translations[0];
-          }
-          if (contents.data.article_google_documents) {
-            googleDocs = contents.data.article_google_documents;
-          }
-          if (contents.data.published_article_translations && contents.data.published_article_translations[0]) {
-            publishedInfo = contents.data.published_article_translations[0].article_translation;
-            // console.log("found publishedInfo:", publishedInfo);
-          }
-        } else if (contents.data.pages) {
-          documentType = "page"
-          if (contents.data.pages[0]) {
-            data = contents.data.pages[0]
-            
-          }
-          if (contents.data.page_translations) {
-            translationData = contents.data.page_translations[0];
-          }
-
-          if (contents.data.page_google_documents) {
-            googleDocs = contents.data.page_google_documents;
-          }
-        }
-
-        if (translationData) {
-          headline = translationData.headline;
-        } else if (contents.documentTitle && contents.documentTitle !== "Untitled document") {
-          headline = contents.documentTitle;
-        } else {
-          headline = "tk";
-        }
-        displayTranslationTools(data.id, contents.documentId, documentType, headline, googleDocs, contents.data.organization_locales);
-        
-        if (publishedInfo) {
-          displayPublishedInfo(publishedInfo, translationData);
-        }
-
-        // if (contents.data.organization_locales) {
-          displayLocales(contents.data.organization_locales, localeCode);
-        // }
-        
-        if (documentType === "article") {
-          displayCategories(contents.data.categories, data.category);
-          displayTags(localeCode, contents.data.tags, data.tag_articles);
-          displayAuthors(contents.data.authors, data.author_articles);
-        }
-
-        if (data) {
-          // console.log("contents:", contents, "data:", data);
-          var slugField = document.getElementById('article-slug');
-          slugField.value = data.slug;
-
-          if (contents && contents.data && contents.data.orgSlug) {
-            var orgSlugField = document.getElementById('org-slug');
-            orgSlugField.value = contents.data.orgSlug;
-          }
-
-          var idHiddenField = document.getElementById('article-id');
-          idHiddenField.value = data.id;
-          
-        }
-
-        // var selectedLocale = document.getElementById('selected-locale');
-        if (translationData) {
-          setPublishedFlag(translationData.published);
-
-          var articleHeadline = document.getElementById('article-headline');
-          articleHeadline.value = translationData.headline;
-
-          // selectedLocale.innerHTML = translationData.locale_code;
-
-          setValueOrDefault('article-custom-byline', translationData.custom_byline, "");
-          setValueOrDefault('article-search-title', translationData.search_title, translationData.search_title);
-          setValueOrDefault('article-search-description', translationData.search_description, translationData.search_description);
-          setValueOrDefault('article-facebook-title', translationData.facebook_title, translationData.facebook_title);
-          setValueOrDefault('article-facebook-description', translationData.facebook_description, translationData.facebook_description);
-          setValueOrDefault('article-twitter-title', translationData.twitter_title, translationData.twitter_title);
-          setValueOrDefault('article-twitter-description', translationData.twitter_description, translationData.twitter_description);
-        } else {
-          // selectedLocale.innerHTML = localeCode;
-        }
-
-        $('#article-authors').select2({
-          width: 'resolve',
-        });
-
-        $('#article-tags').select2({
-          width: 'resolve',
-          tags: true,
-          createTag: function (params) {
-            var term = $.trim(params.term);
-
-            if (term === '') {
-              return null;
-            }
-
-            return {
-              id: term,
-              text: term,
-              newTag: true // add additional parameters
-            }
-          }
-        });
-
-        // console.log("publishedInfo:", publishedInfo);
-        if (publishedInfo) {
-          var firstPubDate = new Date(publishedInfo.first_published_at);
-          // console.log("setting published date to ", firstPubDate, publishedInfo.first_published_at);
-
-          flatpickr('input[name="article-first-published-date"]', {
-            enableTime: true,
-            dateFormat: "Y-m-d h:i K",
-            defaultDate: firstPubDate
-          });
-        } else {
-          var today = new Date();
-          flatpickr('input[name="article-first-published-date"]', {
-            enableTime: true,
-            dateFormat: "Y-m-d h:i K",
-            defaultDate: today
-          });
-        }
-
-        if (data && documentType === "article") {
-          google.script.run.withFailureHandler(onFailureFeatured).withSuccessHandler(onSuccessFeatured).isArticleFeatured(data.id);
-        }
-      }
       
       function onSuccessFeatured(result) {
         if (result && result.featured) {
@@ -763,202 +583,347 @@
         sourceContainer.appendChild(formDiv);
 
       }
+      function onSuccessGetArticle(data) {
+// console.log("contents onSuccessGetArticle:", contents);
+// var typeHiddenField = document.getElementById('document-type');
+// var documentType = typeHiddenField.value;
 
-      function handleGetTranslationsForArticle(data) {
 
-        if (data && data.status === "error") {
-          onFailure(data.message);
-          return;
+}
+
+function handleGetTranslationsForArticle(result) {
+  var configDiv = document.getElementById('config');
+  configDiv.style.display = 'none';
+  var div = document.getElementById('loading');
+  div.style.display = 'block';
+  var form = document.getElementById('article-form');
+  form.style.display = "block";
+
+  var buttonsDivBottom = document.getElementById('action-buttons-bottom')
+  buttonsDivBottom.style.display = "block";
+  var buttonsDivTop = document.getElementById('action-buttons-top')
+  buttonsDivTop.style.display = "block";
+
+  if (result && result.status && result.status === "error") {
+    div.innerHTML = "<p class='error'>An error occurred: " + data.message + '</p>';
+    
+    try {
+      alertAirbrake(JSON.stringify(data));
+    } catch(e) {
+      console.error("Failed to log error with Airbrake:", e);
+    }
+
+    return;
+  } else {
+    div.innerHTML = '<p style="color: #48C774;">' + result.message + "</p>";
+  }
+  
+  var articleId;
+  var pageId;
+  var localeCode;
+  var typeHiddenField = document.getElementById('document-type');
+  var documentType = "article";
+  
+  var data = result.data;
+
+  if (data && data.documentType) {
+    documentType = data.documentType;
+  }
+  typeHiddenField.value = documentType;
+
+  console.log("data:", data);
+
+  if (documentType === "article" && data.article && data.article.id) {
+
+    articleId = data.article.id;
+
+    if (data.article.canonical_url) {
+      var canonicalUrlField = document.getElementById('article-custom-canonical-url');
+      canonicalUrlField.value = data.article.canonical_url;
+    }
+
+    if (
+      data.article.article_google_documents && 
+      data.article.article_google_documents[0] && 
+      data.article.article_google_documents[0].google_document) {
+        localeCode = data.article.article_google_documents[0].google_document.locale_code;
+    }
+
+    var blankSource = {
+      name: "",
+      race: "",
+      zip: "",
+      affiliation: "",
+      phone: "",
+      email: "",
+      gender: "",
+      sexual_orientation: "",
+      ethnicity: "",
+      role: "",
+      age: ""
+    }
+
+    var sourceContainer = document.getElementById('sources-container');
+    var sourcesCounter = 0;
+    sourcesCounter += 1;
+
+    // first add an empty set of form fields to the top of the sources-container
+    addAnotherSource("new_1", blankSource);
+    sourcesCounter += 1;
+
+    var sourceListContainer = document.getElementById('sources-list-container');
+    var sourceUnorderedList = document.createElement("ul");
+
+    // then loop over existing sources and render the filled-in set of form fields
+    if (data.article.article_sources) {
+      var sources = data.article.article_sources;
+      // console.log("found " + sources.length + " sources");
+      sources.forEach(sourceData => {
+        sourcesCounter += 1;
+        var source = sourceData.source;
+        // console.log("found source id# " + source.id);
+
+        addAnotherSource(source.id, source);
+
+        var sourceListItem = document.createElement("li");
+        sourceListItem.style.cursor = "pointer";
+        sourceListItem.innerHTML = "<a onClick='expandSource(" + source.id + ")'>" + source.name + "</a>";
+        sourceUnorderedList.appendChild(sourceListItem)
+      });
+    }
+
+    sourceListContainer.appendChild(sourceUnorderedList);
+
+    var counterField = document.getElementById("source-tracking-counter");
+    counterField.value = sourcesCounter;
+  }
+
+  if (documentType === "page" && data.page) {
+    // hide the source tracking form
+    var sourceListContainer = document.getElementById('sources-list-container');
+    sourceListContainer.style.display = "none";
+    var addSourceButton = document.getElementById('add-another-source');
+    addSourceButton.style.display = "none";
+
+    // hide fields that are for articles only
+    [].forEach.call(document.querySelectorAll('.articles-only'), function (el) {
+      el.style.display = 'none';
+    });
+
+    pageId = data.page.id;
+    // console.log("hasuraGetPage id:", pageId);
+    if (data.page.page_google_documents && data.page.page_google_documents[0] && data.page.page_google_documents[0].google_document) {
+      localeCode = data.page.page_google_documents[0].google_document.locale_code;
+    }
+  }
+
+  if (!localeCode) {
+    localeCode = "en-US";
+  }
+  
+  if ( (articleId || pageId) && localeCode) {
+    // console.log("FOUND articleId: " + articleId + ", pageId: " + pageId + ", localeCode: " + localeCode);
+    var googleDocs;
+    var translationData;
+    var publishedInfo;
+    var headline;
+    var id;
+
+    if (data.article) {
+      id = data.article.id;
+      if (data.article.article_translations) {
+        translationData = data.article.article_translations[0];
+      }
+      if (data.article_google_documents) {
+        googleDocs = data.article_google_documents;
+      }
+      if (data.published_article_translations && data.published_article_translations[0]) {
+        publishedInfo = data.published_article_translations[0].article_translation;
+        // console.log("found publishedInfo:", publishedInfo);
+      }
+
+      displayCategories(data.categories, data.article.category);
+      displayTags(localeCode, data.tags, data.article.tag_articles);
+      displayAuthors(data.authors, data.article.author_articles);
+
+      var slugField = document.getElementById('article-slug');
+      slugField.value = data.article.slug;
+
+      if (data.orgSlug) {
+        var orgSlugField = document.getElementById('org-slug');
+        orgSlugField.value = data.orgSlug;
+      }
+
+      var idHiddenField = document.getElementById('article-id');
+      idHiddenField.value = id;
+    
+      google.script.run.withFailureHandler(onFailureFeatured).withSuccessHandler(onSuccessFeatured).isArticleFeatured(data.id);
+    
+    } else if (data.page) {
+      id = data.page.id;
+      if (data.page.page_translations) {
+        translationData = data.page.page_translations[0];
+      }
+
+      if (data.page_google_documents) {
+        googleDocs = data.page_google_documents;
+      }
+
+      var slugField = document.getElementById('article-slug');
+      slugField.value = data.page.slug;
+
+      if (data.orgSlug) {
+        var orgSlugField = document.getElementById('org-slug');
+        orgSlugField.value = data.orgSlug;
+      }
+
+      var idHiddenField = document.getElementById('article-id');
+      idHiddenField.value = id;
+    
+    }
+
+    if (translationData) {
+      headline = translationData.headline;
+    } else if (data.documentTitle && data.documentTitle !== "Untitled document") {
+      headline = data.documentTitle;
+    } else {
+      headline = "tk";
+    }
+    displayTranslationTools(id, data.documentId, documentType, headline, googleDocs, data.organization_locales);
+
+    if (publishedInfo) {
+      displayPublishedInfo(publishedInfo, translationData);
+
+      var firstPubDate = new Date(publishedInfo.first_published_at);
+      // console.log("setting published date to ", firstPubDate, publishedInfo.first_published_at);
+
+      flatpickr('input[name="article-first-published-date"]', {
+        enableTime: true,
+        dateFormat: "Y-m-d h:i K",
+        defaultDate: firstPubDate
+      });
+
+    } else {
+      var today = new Date();
+      flatpickr('input[name="article-first-published-date"]', {
+        enableTime: true,
+        dateFormat: "Y-m-d h:i K",
+        defaultDate: today
+      });
+    
+    }
+
+    displayLocales(data.organization_locales, localeCode);
+
+    if (translationData) {
+      setPublishedFlag(translationData.published);
+
+      var articleHeadline = document.getElementById('article-headline');
+      articleHeadline.value = headline;
+
+      setValueOrDefault('article-custom-byline', translationData.custom_byline, "");
+      setValueOrDefault('article-search-title', translationData.search_title, translationData.search_title);
+      setValueOrDefault('article-search-description', translationData.search_description, translationData.search_description);
+      setValueOrDefault('article-facebook-title', translationData.facebook_title, translationData.facebook_title);
+      setValueOrDefault('article-facebook-description', translationData.facebook_description, translationData.facebook_description);
+      setValueOrDefault('article-twitter-title', translationData.twitter_title, translationData.twitter_title);
+      setValueOrDefault('article-twitter-description', translationData.twitter_description, translationData.twitter_description);
+    }
+
+    $('#article-authors').select2({
+      width: 'resolve',
+    });
+
+    $('#article-tags').select2({
+      width: 'resolve',
+      tags: true,
+      createTag: function (params) {
+        var term = $.trim(params.term);
+
+        if (term === '') {
+          return null;
         }
-        var articleId;
-        var pageId;
-        var localeCode;
-        var typeHiddenField = document.getElementById('document-type');
-        var documentType = "article";
-        
-        if (data && data.data && data.data.articles) {
-          documentType = "article";
+
+        return {
+          id: term,
+          text: term,
+          newTag: true // add additional parameters
         }
-        if (data && data.data && data.data.pages) {
-          documentType = "page";
-        }
+      }
+    });
 
-        typeHiddenField.value = documentType;
+  } else {
+    if (!localeCode) {
+      localeCode = "en-US";
+    }
+    console.log("Failed to find stored data, new document? Using localeCode: " + localeCode);
 
-        if (documentType === "article" && data && data.data && data.data.articles && data.data.articles[0]) {
+    // TBD: where to get the active doc headline from - pretty sure this html doc can't access it?
+    if (data && data.headline && data.headline !== "Untitled document") {
+      // console.log("setting default article headline to:", data.data.headline)
+      var headline = document.getElementById('article-headline');
+      headline.value = data.headline;
+      var searchTitle = document.getElementById('article-search-title');
+      searchTitle.value = data.headline;
+    } else {
+      console.log("data.headline is undefined:", data);
+    }
 
-          articleId = data.data.articles[0].id;
+    setPublishedFlag(false); // new article is not published, ensure correct action buttons display
 
-          if (data.data.articles[0].canonical_url) {
-            var canonicalUrlField = document.getElementById('article-custom-canonical-url');
-            canonicalUrlField.value = data.data.articles[0].canonical_url;
-          }
-
-          if (
-            data.data.articles[0] && 
-            data.data.articles[0].article_google_documents && 
-            data.data.articles[0].article_google_documents[0] && 
-            data.data.articles[0].article_google_documents[0].google_document) {
-              localeCode = data.data.articles[0].article_google_documents[0].google_document.locale_code;
-            }
-
-            var blankSource = {
-              name: "",
-              race: "",
-              zip: "",
-              affiliation: "",
-              phone: "",
-              email: "",
-              gender: "",
-              sexual_orientation: "",
-              ethnicity: "",
-              role: "",
-              age: ""
-            }
-
-            var sourceContainer = document.getElementById('sources-container');
-            var sourcesCounter = 0;
-            sourcesCounter += 1;
-
-            // first add an empty set of form fields to the top of the sources-container
-            addAnotherSource("new_1", blankSource);
-            sourcesCounter += 1;
-
-            var sourceListContainer = document.getElementById('sources-list-container');
-            var sourceUnorderedList = document.createElement("ul");
-
-            // then loop over existing sources and render the filled-in set of form fields
-            if (
-              data.data.articles[0] &&
-              data.data.articles[0].article_sources
-              ) {
-                var sources = data.data.articles[0].article_sources;
-                // console.log("found " + sources.length + " sources");
-                sources.forEach(sourceData => {
-                  sourcesCounter += 1;
-                  var source = sourceData.source;
-                  // console.log("found source id# " + source.id);
-
-                  addAnotherSource(source.id, source);
-
-                  var sourceListItem = document.createElement("li");
-                  sourceListItem.style.cursor = "pointer";
-                  sourceListItem.innerHTML = "<a onClick='expandSource(" + source.id + ")'>" + source.name + "</a>";
-                  sourceUnorderedList.appendChild(sourceListItem)
-                });
-            }
-
-            sourceListContainer.appendChild(sourceUnorderedList);
-
-            var counterField = document.getElementById("source-tracking-counter");
-            counterField.value = sourcesCounter;
-        }
-
-        if (documentType === "page" && data.data.pages[0]) {
-          // hide the source tracking form
-          var sourceListContainer = document.getElementById('sources-list-container');
-          sourceListContainer.style.display = "none";
-          var addSourceButton = document.getElementById('add-another-source');
-          addSourceButton.style.display = "none";
-
-          typeHiddenField.value = documentType;
-          pageId = data.data.pages[0].id;
-          // console.log("hasuraGetPage id:", pageId);
-          if (
-            data.data.pages[0] && 
-            data.data.pages[0].page_google_documents && 
-            data.data.pages[0].page_google_documents[0] && 
-            data.data.pages[0].page_google_documents[0].google_document) {
-              localeCode = data.data.pages[0].page_google_documents[0].google_document.locale_code;
-            }
-        }
-
-        if (articleId && localeCode) {
-          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(articleId, localeCode);
-        } else if (pageId && localeCode) {
-          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(pageId, localeCode);
-        } else {
-
-          if (!localeCode) {
-            localeCode = "en-US";
-          }
-
-          if (data && data.data && data.data.headline && data.data.headline !== "Untitled document") {
-            // console.log("setting default article headline to:", data.data.headline)
-            var headline = document.getElementById('article-headline');
-            headline.value = data.data.headline;
-            var searchTitle = document.getElementById('article-search-title');
-            searchTitle.value = data.data.headline;
-          } else {
-            // console.log("data.headline is undefined:", data);
-          }
-          var configDiv = document.getElementById('config');
-          configDiv.style.display = 'none';
-
-          var div = document.getElementById('loading');
-          div.style.display = 'block';
-          div.innerHTML = data.message;
-          var form = document.getElementById('article-form');
-          form.style.display = "block";
-          var buttonsDivBottom = document.getElementById('action-buttons-bottom')
-          buttonsDivBottom.style.display = "block";
-          var buttonsDivTop = document.getElementById('action-buttons-top')
-          buttonsDivTop.style.display = "block";
-          setPublishedFlag(false); // new article is not published, ensure correct action buttons display
-
-          displayLocales(data.data.organization_locales, localeCode);
+    displayLocales(data.organization_locales, localeCode);
           
-          if (documentType === "article") {
-            // console.log("data:", data);
-            if (data && data.data && data.data.categories) {
-              displayCategories(data.data.categories, null);
-            }
-            if (data && data.data && data.data.tags) {
-              displayTags(localeCode, data.data.tags, null);
-            }
-            if (data && data.data && data.data.authors) {
-              displayAuthors(data.data.authors, null);
-            }
+    if (documentType === "article") {
+      // console.log("data:", data);
+      if (data && data.categories) {
+        displayCategories(data.categories, null);
+      }
+      if (data && data.tags) {
+        displayTags(localeCode, data.tags, null);
+      }
+      if (data && data.authors) {
+        displayAuthors(data.authors, null);
+      }
 
-            var today = new Date();
-            flatpickr('input[name="article-first-published-date"]', {
-              enableTime: true,
-              dateFormat: "Y-m-d h:i K",
-              defaultDate: today
-            });
+      var today = new Date();
+      flatpickr('input[name="article-first-published-date"]', {
+        enableTime: true,
+        dateFormat: "Y-m-d h:i K",
+        defaultDate: today
+      });
 
-            $('#article-authors').select2({
-              width: 'resolve',
-            });
+      $('#article-authors').select2({
+        width: 'resolve',
+      });
 
-            $('#article-tags').select2({
-              width: 'resolve',
-              tags: true,
-              createTag: function (params) {
-                var term = $.trim(params.term);
+      $('#article-tags').select2({
+        width: 'resolve',
+        tags: true,
+        createTag: function (params) {
+          var term = $.trim(params.term);
 
-                if (term === '') {
-                  return null;
-                }
+          if (term === '') {
+            return null;
+          }
 
-                return {
-                  id: term,
-                  text: term,
-                  newTag: true // add additional parameters
-                }
-              }
-            });
-          } else {
-            [].forEach.call(document.querySelectorAll('.articles-only'), function (el) {
-              el.style.display = 'none';
-            });
+          return {
+            id: term,
+            text: term,
+            newTag: true // add additional parameters
           }
         }
-      }
+      });
+    } else {
+      [].forEach.call(document.querySelectorAll('.articles-only'), function (el) {
+        el.style.display = 'none';
+      });
+    }
+  }
+}
 
-      function handleGetArticle() {
-         google.script.run.withFailureHandler(onFailure).withSuccessHandler(handleGetTranslationsForArticle).hasuraGetArticle();
-      }
+function handleGetArticle() {
+    google.script.run.withFailureHandler(onFailure).withSuccessHandler(handleGetTranslationsForArticle).hasuraGetArticle();
+}
 
       function displayTranslationTools(id, documentId, documentType, headline, googleDocs, organizationLocales) {
         // console.log("displaying translation tools:", id, documentId, headline, googleDocs, organizationLocales);
