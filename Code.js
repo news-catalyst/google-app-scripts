@@ -111,9 +111,7 @@ function uploadImageToS3(imageID, contentUri, slug) {
     articleSlug = getArticleSlug();
   }
 
-  // Logger.log("uploading image for org " + orgNameSlug + "and article " + articleSlug);
-
-  var objectName = "image" + imageID + ".png";
+  var objectName = "image-" + imageID;
 
   // get the image data from google first
   var imageData = null;
@@ -1815,7 +1813,7 @@ async function processDocumentContents(activeDoc, document, slug) {
 
           // found an image
           if ( subElement.inlineObjectElement && subElement.inlineObjectElement.inlineObjectId) {
-            Logger.log("FOUND IMAGE: " + JSON.stringify(subElement.inlineObjectElement))
+            Logger.log("FOUND IMAGE: " + JSON.stringify(subElement))
             storeElement = true;
             var imageID = subElement.inlineObjectElement.inlineObjectId;
             eleData.type = "image";
@@ -1824,7 +1822,7 @@ async function processDocumentContents(activeDoc, document, slug) {
             if (!foundMainImage) {
               eleData.type = "mainImage";
               foundMainImage = true;
-              Logger.log("treating " + imageID + " as main image: " + JSON.stringify(eleData))
+              Logger.log("treating " + imageID + " as main image: " + JSON.stringify(subElement))
             }
 
             var fullImageData = inlineObjects[imageID];
@@ -1844,11 +1842,12 @@ async function processDocumentContents(activeDoc, document, slug) {
               }
 
               if (s3Url === null || s3Url === undefined || !articleSlugMatches || !assetDomainMatches) {
-                // Logger.log(imageID + " " + slug + " has not been uploaded yet, uploading now...")
+                Logger.log(imageID + " " + slug + " has not been uploaded yet, uploading now...")
+              
                 s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri, slug);
                 imageList[imageID] = s3Url;
               } else {
-                // Logger.log(slug + " " + imageID + " has already been uploaded: " + articleSlugMatches + " " + s3Url);
+                Logger.log(slug + " " + imageID + " has already been uploaded: " + articleSlugMatches + " " + s3Url);
                 imageList[imageID] = s3Url;
               }
 
