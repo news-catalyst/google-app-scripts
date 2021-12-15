@@ -111,21 +111,51 @@ function uploadImageToS3(imageID, contentUri, slug) {
     articleSlug = getArticleSlug();
   }
 
-  // Logger.log("uploading image for org " + orgNameSlug + "and article " + articleSlug);
-
-  var objectName = "image" + imageID + ".png";
+  var objectName = "image-" + imageID;
 
   // get the image data from google first
   var imageData = null;
+  
+  var imageExt = null;
   var res = UrlFetchApp.fetch(contentUri, {headers: {Authorization: "Bearer " + ScriptApp.getOAuthToken()}, muteHttpExceptions: true});
   if (res.getResponseCode() == 200) {
+
+    Logger.log(res.getAllHeaders());
     imageData = res.getBlob(); //.setName("image1");
+    // try to get content type
+    var imageType = imageData.getContentType();
+    Logger.log("IMAGE TYPE: " + imageType);
+
+    // 'image/bmp', 'image/gif', 'image/jpeg', or 'image/png' 
+    switch(imageType) {
+      case "image/gif":
+        imageExt = "gif";
+        break;
+      case "image/jpeg":
+        imageExt = "jpg";
+        break;
+      case "image/png":
+        imageExt = "png";
+        break;
+      case "image/bmp":
+        imageExt = "bmp";
+        break;
+      case "application/pdf":
+        imageExt = "pdf";
+        break;
+      default:
+        Logger.log(imageType + " is an unknown image type, no file extension given to image!");
+        break;
+    }
   } else {
     Logger.log("Failed to fetch image data for uri: ", contentUri);
     return null;
   }
 
   var destinationPath = orgNameSlug + "/" + articleSlug + "/" + objectName;
+  if (imageExt) {
+    destinationPath += "." + imageExt;
+  }
   var s3;
 
   try {
@@ -1815,7 +1845,8 @@ async function processDocumentContents(activeDoc, document, slug) {
 
           // found an image
           if ( subElement.inlineObjectElement && subElement.inlineObjectElement.inlineObjectId) {
-            Logger.log("FOUND IMAGE: " + JSON.stringify(subElement.inlineObjectElement))
+            
+            Logger.log("FOUND IMAGE: " + JSON.stringify(subElement))
             storeElement = true;
             var imageID = subElement.inlineObjectElement.inlineObjectId;
             eleData.type = "image";
@@ -1824,12 +1855,12 @@ async function processDocumentContents(activeDoc, document, slug) {
             if (!foundMainImage) {
               eleData.type = "mainImage";
               foundMainImage = true;
-              Logger.log("treating " + imageID + " as main image: " + JSON.stringify(eleData))
+              Logger.log("treating " + imageID + " as main image: " + JSON.stringify(subElement))
             }
 
             var fullImageData = inlineObjects[imageID];
             if (fullImageData) {
-              // Logger.log("Found full image data: " + JSON.stringify(fullImageData))
+              Logger.log("Found full image data: " + JSON.stringify(fullImageData))
               var s3Url = imageList[imageID];
 
               var articleSlugMatches = false;
@@ -1844,11 +1875,12 @@ async function processDocumentContents(activeDoc, document, slug) {
               }
 
               if (s3Url === null || s3Url === undefined || !articleSlugMatches || !assetDomainMatches) {
-                // Logger.log(imageID + " " + slug + " has not been uploaded yet, uploading now...")
+                Logger.log(imageID + " " + slug + " has not been uploaded yet, uploading now...")
+              
                 s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri, slug);
                 imageList[imageID] = s3Url;
               } else {
-                // Logger.log(slug + " " + imageID + " has already been uploaded: " + articleSlugMatches + " " + s3Url);
+                Logger.log(slug + " " + imageID + " has already been uploaded: " + articleSlugMatches + " " + s3Url);
                 imageList[imageID] = s3Url;
               }
 
