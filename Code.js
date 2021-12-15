@@ -1339,6 +1339,35 @@ function hasuraSearchArticles(formObject) {
     {"term": term, "locale_code": localeCode}
   );
 }
+/*
+* looks up either an article or a page by google doc ID
+*/
+async function lookupDataForDocument(documentID) {
+  var scriptConfig = getScriptConfig();
+  var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
+  var API_URL = scriptConfig['DOCUMENT_API_URL'];
+  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+
+  var options = {
+    method: 'GET',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+  };
+
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}?token=${API_TOKEN}`
+  Logger.log("REQUEST URL: " + requestURL);
+  const result = await UrlFetchApp.fetch(
+    requestURL,
+    options
+  );
+
+  var responseText = result.getContentText();
+  var responseData = JSON.parse(responseText);
+
+  responseData.orgSlug = ORG_SLUG;
+  Logger.log(Object.keys(responseData) + " " + responseData.orgSlug);
+  return responseData;
+}
 
 /*
  * looks up a page by google doc ID and locale
@@ -1522,48 +1551,39 @@ async function hasuraGetArticle() {
     return returnValue;
   }
 
-  var isStaticPage = isPage(documentID);
-  Logger.log("isStaticPage: " + isStaticPage);
-
-  var data;
-  if (isStaticPage) {
-
-    data = await getPageForGoogleDoc(documentID);
-    if (data && data.pages && data.pages[0]) {
-      storeArticleSlug(data.pages[0].slug);
-      returnValue.status = "success";
-      returnValue.message = "Retrieved page with ID: " + data.pages[0].id;
-    } else {
-      Logger.log("getPage notFound data: " + JSON.stringify(data));
-      returnValue.status = "notFound";
-      returnValue.message = "Page not found";
-    }
+  let data = await lookupDataForDocument(documentID);
+  if (data && data.documentType === 'page' && data.page && data.page.slug) {
+    storeArticleSlug(data.page.slug);
     returnValue.data = data;
-
-  } else {
-    data = await getArticleForGoogleDoc(documentID);
-    // Logger.log("hasuraGetArticle data: " + JSON.stringify(data));
-    if (data && data.articles && data.articles[0]) {
-      storeArticleSlug(data.articles[0].slug);
-      returnValue.status = "success";
-      returnValue.message = "Retrieved article with ID: " + data.articles[0].id;
-    } else {
-      Logger.log("getArticle notFound data: " + JSON.stringify(data));
-      returnValue.status = "notFound";
-      data.headline = documentTitle;
-      data.searchTitle = documentTitle;
-      returnValue.message = "Article not found";
-    }
     returnValue.documentId = documentID;
+    returnValue.status = "success";
+    returnValue.message = "Retrieved page with ID: " + data.page.id;
+  } else if (data && data.documentType === 'page' && !data.page) {
+    Logger.log("page not found: " + JSON.stringify(data));
+    returnValue.status = "notFound";
+    returnValue.message = "Page not found";
+  } else if (data && data.documentType === 'article' && data.article && data.article.slug) {
+    storeArticleSlug(data.article.slug);
+    returnValue.documentId = documentID;
+    data.headline = documentTitle;
+    data.searchTitle = documentTitle;
     returnValue.data = data;
+    returnValue.status = "success";
+    returnValue.message = "Retrieved article with ID: " + data.article.id;
+  } else if (data && data.documentType === 'article' && !data.article) {
+    Logger.log("article not found: " + JSON.stringify(data));
+    data.headline = documentTitle;
+    data.searchTitle = documentTitle;
+    returnValue.data = data;
+    returnValue.status = "notFound";
+    returnValue.message = "Article not found";
+  } else {
+    Logger.log("Something went wrong looking up the document: " + JSON.stringify(data));
+    returnValue.status = "error";
+    returnValue.message = "Article not found";
   }
 
   Logger.log("returnValue: " + JSON.stringify(returnValue));
-
-    // Logger.log("error: " + JSON.stringify(err));
-    // returnValue.status = "error";
-    // returnValue.message = "An error occurred getting the article or page";
-    // returnValue.data = err;
 
   return returnValue;
 }
