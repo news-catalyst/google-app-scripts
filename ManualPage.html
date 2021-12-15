@@ -179,6 +179,12 @@
         var contentApi = document.getElementById('content-api');
         contentApi.value = data.contentApi ? data.contentApi : data['CONTENT_API'];
 
+        var apiToken = document.getElementById('document-api-token');
+        apiToken.value = data.apiToken ? data.apiToken : data['DOCUMENT_API_TOKEN'];
+
+        var documentApi = document.getElementById('document-api');
+        documentApi.value = data.documentApi ? data.contentApi : data['DOCUMENT_API_URL'];
+
         var editorUrl = document.getElementById('editor-url');
         editorUrl.value = data.editorUrl ? data.editorUrl : data['EDITOR_URL'];
 
@@ -392,7 +398,18 @@
           </label>
           <input id="content-api" name="CONTENT_API" type="text" />
         </div>
-
+        <div class="block form-group">
+          <label for="document-api-token">
+            <b>Document API Token</b>
+          </label>
+          <input id="document-api-token" name="DOCUMENT_API_TOKEN" type="text" />
+        </div>
+        <div class="block form-group">
+          <label for="document-api-url">
+            <b>Document API URL</b>
+          </label>
+          <input id="document-api-url" name="DOCUMENT_API_URL" type="text" />
+        </div>
         <div class="block form-group">
           <label for="editor-url">
             <b>Homepage Editor URL</b>
