@@ -145,6 +145,36 @@ function uploadImageToS3(imageID, contentUri, slug) {
 }
 
 /*
+* looks up either an article or a page by google doc ID
+*/
+async function lookupDataForDocument(documentID) {
+    var scriptConfig = getScriptConfig();
+    var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
+    var API_URL = scriptConfig['DOCUMENT_API_URL'];
+    var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+  
+    var options = {
+      method: 'GET',
+      muteHttpExceptions: true,
+      contentType: 'application/json',
+    };
+  
+    const requestURL = `${API_URL}/api/sidebar/documents/${documentID}?token=${API_TOKEN}`
+    Logger.log("REQUEST URL: " + requestURL);
+    const result = await UrlFetchApp.fetch(
+      requestURL,
+      options
+    );
+  
+    var responseText = result.getContentText();
+    var responseData = JSON.parse(responseText);
+  
+    responseData.orgSlug = ORG_SLUG;
+    Logger.log(Object.keys(responseData) + " " + responseData.orgSlug);
+    return responseData;
+  }
+  
+/*
 .* Gets the script configuration, data available to all users and docs for this add-on
 .*/
 function getScriptConfig() {
@@ -1308,7 +1338,7 @@ async function isArticleFeatured(articleId) {
   // Logger.log("data: " + JSON.stringify(data))
   var isFeatured = false;
   if (data && data.homepage_layout_datas) {
-    data.homepage_layout_datas.fo
+    
     data.homepage_layout_datas.forEach(hpData => {
       var values = Object.values(hpData);
       Logger.log(values);
@@ -1338,35 +1368,6 @@ function hasuraSearchArticles(formObject) {
     "AddonSearchArticlesByHeadline",
     {"term": term, "locale_code": localeCode}
   );
-}
-/*
-* looks up either an article or a page by google doc ID
-*/
-async function lookupDataForDocument(documentID) {
-  var scriptConfig = getScriptConfig();
-  var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
-  var API_URL = scriptConfig['DOCUMENT_API_URL'];
-  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
-
-  var options = {
-    method: 'GET',
-    muteHttpExceptions: true,
-    contentType: 'application/json',
-  };
-
-  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}?token=${API_TOKEN}`
-  Logger.log("REQUEST URL: " + requestURL);
-  const result = await UrlFetchApp.fetch(
-    requestURL,
-    options
-  );
-
-  var responseText = result.getContentText();
-  var responseData = JSON.parse(responseText);
-
-  responseData.orgSlug = ORG_SLUG;
-  Logger.log(Object.keys(responseData) + " " + responseData.orgSlug);
-  return responseData;
 }
 
 /*
@@ -1543,6 +1544,7 @@ async function hasuraGetArticle() {
   var documentID = document.getId();
   var documentTitle = document.getName();
   Logger.log("documentID: " + documentID);
+  returnValue.documentId = documentID;
 
   var valid = isValid(documentID);
   if (!valid) {
@@ -1555,21 +1557,22 @@ async function hasuraGetArticle() {
   if (data && data.documentType === 'page' && data.page && data.page.slug) {
     storeArticleSlug(data.page.slug);
     returnValue.data = data;
-    returnValue.documentId = documentID;
     returnValue.status = "success";
     returnValue.message = "Retrieved page with ID: " + data.page.id;
+
   } else if (data && data.documentType === 'page' && !data.page) {
     Logger.log("page not found: " + JSON.stringify(data));
     returnValue.status = "notFound";
     returnValue.message = "Page not found";
+
   } else if (data && data.documentType === 'article' && data.article && data.article.slug) {
     storeArticleSlug(data.article.slug);
-    returnValue.documentId = documentID;
     data.headline = documentTitle;
     data.searchTitle = documentTitle;
     returnValue.data = data;
     returnValue.status = "success";
     returnValue.message = "Retrieved article with ID: " + data.article.id;
+
   } else if (data && data.documentType === 'article' && !data.article) {
     Logger.log("article not found: " + JSON.stringify(data));
     data.headline = documentTitle;
@@ -1577,13 +1580,19 @@ async function hasuraGetArticle() {
     returnValue.data = data;
     returnValue.status = "notFound";
     returnValue.message = "Article not found";
+
   } else {
     Logger.log("Something went wrong looking up the document: " + JSON.stringify(data));
     returnValue.status = "error";
-    returnValue.message = "Article not found";
+    returnValue.message = "Something went wrong looking up the document" + JSON.stringify(data);
   }
 
   Logger.log("returnValue: " + JSON.stringify(returnValue));
+
+    // Logger.log("error: " + JSON.stringify(err));
+    // returnValue.status = "error";
+    // returnValue.message = "An error occurred getting the article or page";
+    // returnValue.data = err;
 
   return returnValue;
 }

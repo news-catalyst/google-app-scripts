@@ -314,14 +314,14 @@
       }
 
       
-      function onSuccessFeatured(result) {
-        if (result && result.featured) {
+      function displayFeaturedMessage(featured, url) {
+        if (featured) {
           
           var div = document.getElementById('featured');
           div.style.display = "block";
           var message = "<b>This article is featured on the homepage</b>";
-          if (result.editorUrl) {
-            message += ": <a target='_new' href='" + result.editorUrl + "'>edit</a>"
+          if (url) {
+            message += ": <a target='_new' href='" + url + "'>edit</a>"
           }
           div.innerHTML = message;
 
@@ -757,7 +757,14 @@ function handleGetTranslationsForArticle(result) {
       var idHiddenField = document.getElementById('article-id');
       idHiddenField.value = id;
     
-      google.script.run.withFailureHandler(onFailureFeatured).withSuccessHandler(onSuccessFeatured).isArticleFeatured(data.id);
+      let articleIsFeatured = false;
+      data.homepage_layout_datas.forEach((homepageSpots) => {
+        articleIsFeatured = Object.values(homepageSpots).includes(id);
+      });
+
+      displayFeaturedMessage(articleIsFeatured, data.editorUrl);
+
+      // google.script.run.withFailureHandler(onFailureFeatured).withSuccessHandler(onSuccessFeatured).isArticleFeatured(data.id);
     
     } else if (data.page) {
       id = data.page.id;
@@ -922,10 +929,10 @@ function handleGetTranslationsForArticle(result) {
 }
 
 function handleGetArticle() {
-    google.script.run.withFailureHandler(onFailure).withSuccessHandler(handleGetTranslationsForArticle).hasuraGetArticle();
+  google.script.run.withFailureHandler(onFailure).withSuccessHandler(handleGetTranslationsForArticle).hasuraGetArticle();
 }
 
-      function displayTranslationTools(id, documentId, documentType, headline, googleDocs, organizationLocales) {
+function displayTranslationTools(id, documentId, documentType, headline, googleDocs, organizationLocales) {
         // console.log("displaying translation tools:", id, documentId, headline, googleDocs, organizationLocales);
 
         var existingDocsOtherLocales = [];
