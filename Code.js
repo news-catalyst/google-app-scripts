@@ -122,6 +122,7 @@ function uploadImageToS3(imageID, contentUri, slug) {
 
     Logger.log(res.getAllHeaders());
     imageData = res.getBlob(); //.setName("image1");
+
     // try to get content type
     var imageType = imageData.getContentType();
     Logger.log("IMAGE TYPE: " + imageType);
@@ -1759,7 +1760,6 @@ async function processDocumentContents(activeDoc, document, slug) {
         if (eleData.type !== "list" && eleData.type !== "embed") {
           var namedStyle;
 
-
           // found a paragraph of text
           if (subElement.textRun && subElement.textRun.content) {
             // handle specially formatted blocks of text
@@ -1845,7 +1845,6 @@ async function processDocumentContents(activeDoc, document, slug) {
 
           // found an image
           if ( subElement.inlineObjectElement && subElement.inlineObjectElement.inlineObjectId) {
-            
             Logger.log("FOUND IMAGE: " + JSON.stringify(subElement))
             storeElement = true;
             var imageID = subElement.inlineObjectElement.inlineObjectId;
@@ -1884,10 +1883,14 @@ async function processDocumentContents(activeDoc, document, slug) {
                 imageList[imageID] = s3Url;
               }
 
+              let specifiedHeight = fullImageData.inlineObjectProperties.embeddedObject.size.height.magnitude;
+              let calculatedHeight = specifiedHeight * .75; // PT to PX conversion
+              let specifiedWidth = fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude;
+              let calculatedWidth = specifiedWidth * .75; // PT to PX conversion
               var childImage = {
                 index: subElement.endIndex,
-                height: fullImageData.inlineObjectProperties.embeddedObject.size.height.magnitude,
-                width: fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude,
+                height: calculatedHeight,
+                width: calculatedWidth,
                 imageId: subElement.inlineObjectElement.inlineObjectId,
                 imageUrl: s3Url,
                 imageAlt: cleanContent(fullImageData.inlineObjectProperties.embeddedObject.title)
