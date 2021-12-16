@@ -1554,6 +1554,10 @@ async function hasuraGetArticle() {
   }
 
   let data = await lookupDataForDocument(documentID);
+  if (!data.documentType) {
+    data.documentType = "article";
+  }
+  
   if (data && data.documentType === 'page' && data.page && data.page.slug) {
     storeArticleSlug(data.page.slug);
     returnValue.data = data;

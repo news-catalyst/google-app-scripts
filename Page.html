@@ -592,6 +592,9 @@
 }
 
 function handleGetTranslationsForArticle(result) {
+  console.log("result:", result);
+
+  
   var configDiv = document.getElementById('config');
   configDiv.style.display = 'none';
   var div = document.getElementById('loading');
@@ -605,10 +608,10 @@ function handleGetTranslationsForArticle(result) {
   buttonsDivTop.style.display = "block";
 
   if (result && result.status && result.status === "error") {
-    div.innerHTML = "<p class='error'>An error occurred: " + data.message + '</p>';
+    div.innerHTML = "<p class='error'>An error occurred: " + result.message + '</p>';
     
     try {
-      alertAirbrake(JSON.stringify(data));
+      alertAirbrake(JSON.stringify(result));
     } catch(e) {
       console.error("Failed to log error with Airbrake:", e);
     }
@@ -624,6 +627,7 @@ function handleGetTranslationsForArticle(result) {
   var typeHiddenField = document.getElementById('document-type');
   var documentType = "article";
   
+
   var data = result.data;
 
   if (data && data.documentType) {
@@ -631,7 +635,6 @@ function handleGetTranslationsForArticle(result) {
   }
   typeHiddenField.value = documentType;
 
-  console.log("data:", data);
 
   if (documentType === "article" && data.article && data.article.id) {
 
