@@ -161,6 +161,12 @@
 
       function displayLocales(locales, currentLocale) {
         var articleLocaleSelect = document.getElementById('article-locale');
+
+        var selectOption = document.createElement("option");
+        selectOption.text = "Please select:";
+        selectOption.value = "";
+        articleLocaleSelect.add(selectOption);
+
         if (locales) {
           locales.forEach(localeData => {
             // first check if this option already exists; don't add dupes!
@@ -355,7 +361,7 @@
         loadingDiv.style.display = "block";
         loadingDiv.innerHTML = "<p class='error'>An error occurred: " + error + "</p>";
         var form = document.getElementById('article-form');
-        form.style.display = "none";
+        form.style.display = "block";
       }
 
       function createTextInputDiv(id, label, name, value) {
@@ -732,8 +738,11 @@ function handleGetTranslationsForArticle(result) {
     var headline;
     var id;
 
+    displayLocales(data.organization_locales, localeCode);
+
     if (data.article) {
       id = data.article.id;
+
       if (data.article.article_translations) {
         translationData = data.article.article_translations[0];
       }
@@ -822,8 +831,6 @@ function handleGetTranslationsForArticle(result) {
       });
     
     }
-
-    displayLocales(data.organization_locales, localeCode);
 
     if (translationData) {
       setPublishedFlag(translationData.published);
@@ -936,92 +943,92 @@ function handleGetArticle() {
 }
 
 function displayTranslationTools(id, documentId, documentType, headline, googleDocs, organizationLocales) {
-        // console.log("displaying translation tools:", id, documentId, headline, googleDocs, organizationLocales);
+    // console.log("displaying translation tools:", id, documentId, headline, googleDocs, organizationLocales);
 
-        var existingDocsOtherLocales = [];
-        var availableLocales = [];
+    var existingDocsOtherLocales = [];
+    var availableLocales = [];
 
-        var selectedLocale = document.getElementById('article-locale').value;
+    var selectedLocale = document.getElementById('article-locale').value;
 
-        // console.log("organizationLocales:", organizationLocales)
-        if (googleDocs) {
-          organizationLocales.forEach( (orgLocale) => {
-            var foundLocaleDoc = false;
-            // loop over each google doc associated with this article
-            googleDocs.forEach( (doc) => {
-              // if google doc is not the current one we have open...
-              if (doc.google_document.document_id !== documentId) {
-                // ... and this org locale is equal to the google doc's locale
-                if (orgLocale.locale.code === doc.google_document.locale_code) {
-                  // add it to the list of documents available that are translations of this article
-                  existingDocsOtherLocales.push(doc.google_document);
-                  foundLocaleDoc = true;
-                }
-              // current document
-              } else {
-                if (orgLocale.locale.code === doc.google_document.locale_code) {
-                  foundLocaleDoc = true;
-                }
-              }
-            });
-            // if we didn't find a google document for this org locale, mark it as available
-            if (!foundLocaleDoc) {
-              availableLocales.push(orgLocale.locale);
+    // console.log("organizationLocales:", organizationLocales)
+    if (googleDocs) {
+      organizationLocales.forEach( (orgLocale) => {
+        var foundLocaleDoc = false;
+        // loop over each google doc associated with this article
+        googleDocs.forEach( (doc) => {
+          // if google doc is not the current one we have open...
+          if (doc.google_document.document_id !== documentId) {
+            // ... and this org locale is equal to the google doc's locale
+            if (orgLocale.locale.code === doc.google_document.locale_code) {
+              // add it to the list of documents available that are translations of this article
+              existingDocsOtherLocales.push(doc.google_document);
+              foundLocaleDoc = true;
             }
-          })
-
-          // console.log("availableLocales:", availableLocales, "existingDocsOtherLocales:", existingDocsOtherLocales);
-
-          if (availableLocales && availableLocales.length > 0) {
-            availableLocales.forEach(availableLocale => {
-              if (availableLocale.code !== selectedLocale) {
-                // TODO: make another version of this button for the bottom of the sidebar?
-                var buttonId = "translate-button-top-" + availableLocale.code;
-                if (!document.getElementById(buttonId)) { // avoid adding multiple instances of the same button
-                  var button = document.createElement("button");
-                  button.setAttribute("class", "blue");
-                  button.setAttribute("type", "button");
-                  button.setAttribute("id", buttonId);
-                  button.setAttribute("data-headline", headline);
-                  button.setAttribute("data-doc-type", documentType);
-                  if (documentType === "page") {
-                    button.setAttribute("data-page-id", id);
-                  } else {
-                    button.setAttribute("data-article-id", id);
-                  }
-                  button.setAttribute("data-locale", availableLocale.code);
-                  button.setAttribute("onClick", "handleCreateDoc(this)");
-                  button.innerHTML = 'Translate to ' + availableLocale.name;
-                  // console.log(availableLocale, "button:", button);
-                  var buttonsTopContainer = document.getElementById('action-buttons-top');
-                  buttonsTopContainer.appendChild(button);
-                }
-              }
-            })
+          // current document
+          } else {
+            if (orgLocale.locale.code === doc.google_document.locale_code) {
+              foundLocaleDoc = true;
+            }
           }
-
-          if (existingDocsOtherLocales.length > 0) {
-            existingDocsOtherLocales.forEach(doc => {
-              // console.log("existing doc:", doc)
-              if (doc.locale.code !== selectedLocale) {
-                
-                var buttonId = "translate-button-top-" + doc.locale.code;
-                if (!document.getElementById(buttonId)) { // avoid adding multiple instances of the same button
-                  var button = document.createElement("button");
-                  button.setAttribute("id", buttonId);
-                  button.setAttribute("class", "blue");
-                  button.setAttribute("type", "button");
-                  var buttonOpenLink = "window.open('" + doc.url + "', '_blank')";
-                  button.setAttribute("onClick", buttonOpenLink);
-                  button.innerHTML = "Open in " + doc.locale.name;
-                  var buttonsTopContainer = document.getElementById('action-buttons-top');
-                  buttonsTopContainer.appendChild(button);
-                }
-              }
-            });
-          }
+        });
+        // if we didn't find a google document for this org locale, mark it as available
+        if (!foundLocaleDoc) {
+          availableLocales.push(orgLocale.locale);
         }
+      })
+
+      // console.log("availableLocales:", availableLocales, "existingDocsOtherLocales:", existingDocsOtherLocales);
+
+      if (availableLocales && availableLocales.length > 0) {
+        availableLocales.forEach(availableLocale => {
+          if (availableLocale.code !== selectedLocale) {
+            // TODO: make another version of this button for the bottom of the sidebar?
+            var buttonId = "translate-button-top-" + availableLocale.code;
+            if (!document.getElementById(buttonId)) { // avoid adding multiple instances of the same button
+              var button = document.createElement("button");
+              button.setAttribute("class", "blue");
+              button.setAttribute("type", "button");
+              button.setAttribute("id", buttonId);
+              button.setAttribute("data-headline", headline);
+              button.setAttribute("data-doc-type", documentType);
+              if (documentType === "page") {
+                button.setAttribute("data-page-id", id);
+              } else {
+                button.setAttribute("data-article-id", id);
+              }
+              button.setAttribute("data-locale", availableLocale.code);
+              button.setAttribute("onClick", "handleCreateDoc(this)");
+              button.innerHTML = 'Translate to ' + availableLocale.name;
+              // console.log(availableLocale, "button:", button);
+              var buttonsTopContainer = document.getElementById('action-buttons-top');
+              buttonsTopContainer.appendChild(button);
+            }
+          }
+        })
       }
+
+      if (existingDocsOtherLocales.length > 0) {
+        existingDocsOtherLocales.forEach(doc => {
+          // console.log("existing doc:", doc)
+          if (doc.locale.code !== selectedLocale) {
+            console.log(doc.locale.code, selectedLocale);
+            var buttonId = "translate-button-top-" + doc.locale.code;
+            if (!document.getElementById(buttonId)) { // avoid adding multiple instances of the same button
+              var button = document.createElement("button");
+              button.setAttribute("id", buttonId);
+              button.setAttribute("class", "blue");
+              button.setAttribute("type", "button");
+              var buttonOpenLink = "window.open('" + doc.url + "', '_blank')";
+              button.setAttribute("onClick", buttonOpenLink);
+              button.innerHTML = "Open in " + doc.locale.name;
+              var buttonsTopContainer = document.getElementById('action-buttons-top');
+              buttonsTopContainer.appendChild(button);
+            }
+          }
+        });
+      }
+    }
+  }
 
       function onSuccessPreviewPublish(response) {
         var configDiv = document.getElementById('config');

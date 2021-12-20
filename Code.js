@@ -117,7 +117,9 @@ function uploadImageToS3(imageID, contentUri, slug) {
 
   // get the image data from google first
   var imageData = null;
-  var res = UrlFetchApp.fetch(contentUri, {headers: {Authorization: "Bearer " + ScriptApp.getOAuthToken()}, muteHttpExceptions: true});
+  var googleAuthToken = ScriptApp.getOAuthToken();
+  Logger.log("GOOGLE AUTH TOKEN: " + googleAuthToken);
+  var res = UrlFetchApp.fetch(contentUri, {headers: {Authorization: "Bearer " + googleAuthToken}, muteHttpExceptions: true});
   if (res.getResponseCode() == 200) {
     imageData = res.getBlob(); //.setName("image1");
   } else {
@@ -265,6 +267,7 @@ function getValueJSON(key) {
 .* general purpose function (called in the other data storage functions) to set a value at a key
 .*/
 function storeValue(key, value) {
+  // Logger.log(`${key} => ${value}`);
   var documentProperties = PropertiesService.getDocumentProperties();
   documentProperties.setProperty(key, value);
 }
@@ -485,22 +488,32 @@ async function insertArticleGoogleDocs(data) {
     data: {}
   };
 
-  var documentID;
-  var documentUrl;
+  var activeDoc = DocumentApp.getActiveDocument();
+  var documentID = activeDoc.getId();
+  var documentUrl = DocumentApp.getActiveDocument().getUrl();
+
   if (data['document-id']) {
     documentID = data['document-id'];
-    documentUrl = data['document-url'];
-  } else {
-    documentID = DocumentApp.getActiveDocument().getId();
-    documentUrl = DocumentApp.getActiveDocument().getUrl();
+    documentUrl = data['document-url'];  
   }
-  var content = await getCurrentDocContents();
-  Logger.log("insertArticleGoogleDocs content length: " + content.length)
 
-  var mainImageContent = await getMainImage(content);
-  // console.log("*mainImageContent: " + JSON.stringify(mainImageContent))
+  var document = Docs.Documents.get(documentID);
+  var slug = getArticleSlug();
+  var elements = document.body.content;
+  var inlineObjects = document.inlineObjects;
+  // used to track which images have already been uploaded
+  var imageList = getImageList(slug);
+
+  var listInfo = {};
+  var listItems = activeDoc.getListItems();
+  listItems.forEach(li => {
+    var id = li.getListId();
+    var glyphType = li.getGlyphType();
+    listInfo[id] = glyphType;
+  })
 
   let articleData = {
+    "id": data['article-id'],
     "slug": data['article-slug'],
     "document_id": documentID,
     "url": documentUrl,
@@ -508,7 +521,7 @@ async function insertArticleGoogleDocs(data) {
     "locale_code": data['article-locale'],
     "headline": data['article-headline'],
     "published": data['published'],
-    "content": content,
+    // "content": response['body'],
     "search_description": data['article-search-description'],
     "search_title": data['article-search-title'],
     "twitter_title": data['article-twitter-title'],
@@ -517,16 +530,16 @@ async function insertArticleGoogleDocs(data) {
     "facebook_description": data['article-facebook-description'],
     "custom_byline": data['article-custom-byline'],
     "created_by_email": data['created_by_email'],
-    "main_image": mainImageContent,
+    // "main_image": response['mainImage'],
     "canonical_url": data['article-custom-canonical-url'],
+    "article_tags": data['article-tags'],
+    "article_authors": data['article-authors'],
   };
 
   if (data["first-published-at"]) {
     articleData["first_published_at"] = data["first-published-at"];
     Logger.log("* first published at: " + articleData["first_published_at"]);
   } 
-
-  // console.log("*articleData.main_image: " + JSON.stringify(articleData['main_image']))
 
   var dataSources = [];
   if (data['sources'] !== {} && Object.keys(data['sources']).length > 0) {
@@ -568,33 +581,21 @@ async function insertArticleGoogleDocs(data) {
     articleData['article_sources'] = [];
   }
 
-  // Check if article already exists with the given category_id and slug for this organization
-  var existingArticles = await findArticleByCategoryAndSlug(articleData["category_id"], articleData["slug"], articleData["locale_code"]);
-  if (existingArticles && existingArticles.data && existingArticles.data.articles && existingArticles.data.articles.length > 0) {
-    returnValue.status = "error";
-    returnValue.message = "Article already exists in that category with the same slug, please pick a unique slug value."
-    returnValue.data = existingArticles.data;
-    return returnValue;
+
+  let response = await previewArticle(articleData, slug, elements, listInfo, imageList, inlineObjects);
+  Logger.log("previewArticleResponse: " + Object.keys(response).sort());
+  returnValue.data = response.data;
+
+  if (response.status && response.status === 'error') {
+    returnValue.status = 'error';
+    returnValue.message = "An error occurred saving the article"
+  } else {
+    Logger.log("Storing image list.");
+    storeImageList(slug, response.updatedImageList);  
+    returnValue.previewUrl = response.previewUrl;
+    returnValue.message = "Successfully saved the article.";
   }
 
-  // Logger.log("article data:" + JSON.stringify(articleData));
-  if (data["article-id"] === "") {
-    returnValue.data = await fetchGraphQL(
-      insertArticleGoogleDocMutationWithoutId,
-      "AddonInsertArticleGoogleDocNoID",
-      articleData
-    );
-    returnValue.message = "Successfully saved the article.";
-  } else {
-    articleData['id'] = data['article-id'];
-    Logger.log("inserting WITH id: " + articleData["canonical_url"] + " " + JSON.stringify(Object.keys(articleData)))
-    returnValue.data = await fetchGraphQL(
-      insertArticleGoogleDocMutation,
-      "AddonInsertArticleGoogleDocWithID",
-      articleData
-    );
-    returnValue.message = "Successfully saved the article.";
-  }
   return returnValue;
 }
 
@@ -1052,7 +1053,7 @@ async function hasuraHandlePublish(formObject) {
     var translationID = data.data.insert_articles.returning[0].article_translations[0].id;
 
     // first delete any previously set authors
-    var deleteAuthorsResult = await hasuraDeleteAuthorArticles(articleID);
+    // var deleteAuthorsResult = await hasuraDeleteAuthorArticles(articleID);
     // Logger.log("Deleted article authors: " + JSON.stringify(deleteAuthorsResult))
     
     // and delete any previously set tags
@@ -1063,18 +1064,18 @@ async function hasuraHandlePublish(formObject) {
     // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
     data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
-    if (articleID) {
-      // store slug + article ID in slug versions table
-      var result = await storeArticleIdAndSlug(articleID, slug, categorySlug);
-      Logger.log("stored article id + slug: " + JSON.stringify(result));
+    // if (articleID) {
+    //   // store slug + article ID in slug versions table
+    //   var result = await storeArticleIdAndSlug(articleID, slug, categorySlug);
+    //   Logger.log("stored article id + slug: " + JSON.stringify(result));
 
-      var publishedArticleData = await upsertPublishedArticle(articleID, translationID, formObject['article-locale'])
-      if (publishedArticleData) {
-        // Logger.log("Published Article Data:" + JSON.stringify(publishedArticleData));
+    //   var publishedArticleData = await upsertPublishedArticle(articleID, translationID, formObject['article-locale'])
+    //   if (publishedArticleData) {
+    //     // Logger.log("Published Article Data:" + JSON.stringify(publishedArticleData));
 
-        data.data.insert_articles.returning[0].published_article_translations = publishedArticleData.data.insert_published_article_translations.returning;
-      }
-    }
+    //     data.data.insert_articles.returning[0].published_article_translations = publishedArticleData.data.insert_published_article_translations.returning;
+    //   }
+    // }
 
     if (articleID && formObject['article-tags']) {
       var tags;
@@ -1167,6 +1168,7 @@ async function hasuraHandlePreview(formObject) {
 
   var data;
   var documentType;
+  var previewUrl;
 
   var documentID = DocumentApp.getActiveDocument().getId();
   var isStaticPage = isPage(documentID);
@@ -1220,70 +1222,23 @@ async function hasuraHandlePreview(formObject) {
       return insertArticle;
     }
 
-    var data = insertArticle.data;
-    var articleID = data.data.insert_articles.returning[0].id;
-    var categorySlug = data.data.insert_articles.returning[0].category.slug;
+    previewUrl = insertArticle.previewUrl;
+
+    var data = insertArticle.data[0];
+    var articleID = data.id;
+    var categorySlug = data.category.slug;
 
     // store slug + article ID in slug versions table
     var result = await storeArticleIdAndSlug(articleID, slug, categorySlug);
     Logger.log("stored article id + slug + categorySlug: " + JSON.stringify(result));
 
-    // first delete any previously set authors
-    var deleteAuthorsResult = await hasuraDeleteAuthorArticles(articleID);
-    // Logger.log("Deleted article authors: " + JSON.stringify(deleteAuthorsResult))
-
-    // and delete any previously set tags
-    var deleteTagsResult = await hasuraDeleteTagArticles(articleID);
-    // Logger.log("Deleted article tags: " + JSON.stringify(deleteTagsResult))
-    
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
-    // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
+    Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
     data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
-    if (articleID && formObject['article-tags']) {
-      var tags;
-      // ensure this is an array; selecting one in the UI results in a string being sent
-      if (typeof(formObject['article-tags']) === 'string') {
-        tags = [formObject['article-tags']]
-      } else {
-        tags = formObject['article-tags'];
-      }
-
-      for (var index = 0; index < tags.length; index++) {
-        var tag = tags[index];
-        var slug = slugify(tag);
-        var result = await hasuraCreateTag({
-          slug: slug, 
-          title: tag,
-          article_id: articleID,
-          locale_code: formObject['article-locale']
-        });
-      }
-    }
-
-    if (articleID && formObject['article-authors']) {
-      var authors;
-      // ensure this is an array; selecting one in the UI results in a string being sent
-      if (typeof(formObject['article-authors']) === 'string') {
-        authors = [formObject['article-authors']]
-      } else {
-        authors = formObject['article-authors'];
-      }
-      Logger.log("Found authors: " + JSON.stringify(authors));
-      for (var index = 0; index < authors.length; index++) {
-        var author = authors[index];
-        var result = await hasuraCreateAuthorArticle(author, articleID);
-      }
-    }
   }
 
-  //construct preview url
-  var fullPreviewUrl = scriptConfig['PREVIEW_URL'];
-  if (documentType === 'page') {
-    fullPreviewUrl += "-static";
-  } 
-  fullPreviewUrl += "?secret=" + scriptConfig['PREVIEW_SECRET'] + "&slug=" + formObject['article-slug'] + "&locale=" + formObject['article-locale'];
-  var message = "<a href='" + fullPreviewUrl + "' target='_blank'>Preview article in new window</a>";
+  var message = "<a href='" + previewUrl + "' target='_blank'>Preview article in new window</a>";
 
   return {
     message: message,
@@ -1605,376 +1560,67 @@ async function hasuraGetArticle() {
 . * Gets the current document's contents
 . */
 async function getCurrentDocContents() {
-  var elements = await getElements();
-
-  // Logger.log("getCurrentDocContents number of elements: " + elements.length)
-  var formattedElements = formatElements(elements);
-  Logger.log(JSON.stringify(formattedElements))
+  
 
   return formattedElements;
 }
 
-async function processDocumentContents(activeDoc, document, slug) {
-  var elements = document.body.content;
-  var inlineObjects = document.inlineObjects;
+async function previewArticle(articleData, slug, contents, listInfo, imageList, inlineObjects) {
+  var scriptConfig = getScriptConfig();
+  var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
+  var API_URL = scriptConfig['DOCUMENT_API_URL'];
+  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
 
-  var orderedElements = [];
+  var activeDoc = DocumentApp.getActiveDocument();
+  var documentID = activeDoc.getId();
 
-  var listInfo = {};
-  var listItems = activeDoc.getListItems();
-  listItems.forEach(li => {
-    var id = li.getListId();
-    var glyphType = li.getGlyphType();
-    listInfo[id] = glyphType;
-  })
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/preview?token=${API_TOKEN}`
+  Logger.log("REQUEST URL: " + requestURL);
 
-  var foundMainImage = false;
-  var storedMainImage = false;
-  var mainImageElement = null;
-  var childImageElement = null;
+  var options = {
+    method: 'POST',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      "TNC-Organization": ORG_SLUG
+    },
+    payload: JSON.stringify({
+      articleData: articleData,
+      googleAuthToken: ScriptApp.getOAuthToken(),
+      contents: contents,
+      slug: slug,
+      listInfo: listInfo,
+      imageList: imageList,
+      inlineObjects: inlineObjects
+    }),
+  };
 
-  // used to track which images have already been uploaded
-  var imageList = getImageList(slug);
-
-  // console.log("imageList: " + JSON.stringify(imageList))
-  // keeping a count of all elements processed so we can store the full image list at the end
-  // and properly return the full list of ordered elements
-  var elementsProcessed = 0;
-  var inSpecialFormatBlock = false;
-  // storeElement is set to false for FORMAT START and FORMAT END only
-  var storeElement = true;
-
-  var elementCount = elements.length;
-
-  elements.forEach(element => {
-    Logger.log("element: " + JSON.stringify(element));
-    if (element.paragraph && element.paragraph.elements) {
-      // Logger.log("paragraph element: " + JSON.stringify(element))  
-
-      var eleData = {
-        children: [],
-        link: null,
-        type: null,
-        index: element.endIndex
-      };
-
-      // handle list items
-      if (element.paragraph.bullet) {
-        storeElement = true;
-
-        eleData.items = [];
-        eleData.type = "list";
-        eleData.index = element.endIndex;
-        var nestingLevel = element.paragraph.bullet.nestingLevel;
-        if (nestingLevel === null || typeof nestingLevel === "undefined") {
-          nestingLevel = 0;
-        }
-        // Find existing element with the same list ID
-        var listID = element.paragraph.bullet.listId;
-
-        var findListElement = (element) => element.type === "list" && element.listId === listID
-        var listElementIndex = orderedElements.findIndex(findListElement);
-        // don't create a new element for an existing list
-        // just append this element's text to the exist list's items
-        if (listElementIndex > 0) {
-          var listElement = orderedElements[listElementIndex];
-          var listElementChildren = [];
-          
-          element.paragraph.elements.forEach(subElement => {
-            // append list items to the main list element's children
-            var listItemChild = {
-              content: cleanContent(subElement.textRun.content),
-              style: cleanStyle(subElement.textRun.textStyle)
-            };
-            if (subElement.textRun.textStyle && subElement.textRun.textStyle.link) {
-              listItemChild.link = subElement.textRun.textStyle.link.url;
-            }
-            // Logger.log("liChild: " + JSON.stringify(listItemChild));
-            listElementChildren.push(listItemChild)
-          });
-          listElement.items.push({
-            children: listElementChildren,
-            index: eleData.index,
-            nestingLevel: nestingLevel
-          })
-          orderedElements[listElementIndex] = listElement;
-        } else {
-          // make a new list element
-          if (listInfo[listID]) {
-            eleData.listType = listInfo[listID];
-          } else {
-            eleData.listType = "BULLET";
-          }
-          eleData.type = "list";
-          eleData.listId = listID;
-          var listElementChildren = [];
-          element.paragraph.elements.forEach(subElement => {
-            // append list items to the main list element's children
-            var listItemChild = {
-              content: cleanContent(subElement.textRun.content),
-              style: cleanStyle(subElement.textRun.textStyle)
-            };
-            if (subElement.textRun.textStyle && subElement.textRun.textStyle.link) {
-              listItemChild.link = subElement.textRun.textStyle.link.url;
-            }
-            // Logger.log("liChild: " + JSON.stringify(listItemChild));
-            listElementChildren.push(listItemChild)
-          });
-          eleData.items.push({
-            nestingLevel: nestingLevel,
-            children: listElementChildren,
-            index: eleData.index
-          })
-          orderedElements.push(eleData);
-        }
-      }
-
-      // filter out blank subelements
-      var subElements = element.paragraph.elements.filter(subElement => subElement.textRun && subElement.textRun.content.trim().length > 0)
-      // try to find an embeddable link: url on its own line matching one of a set of hosts (twitter, youtube, etc)
-      if (subElements.length === 1) {
-        storeElement = true;
-        var foundLink = subElements.find(subElement => subElement.textRun.textStyle.hasOwnProperty('link'))
-        var linkUrl = null;
-        // var embeddableUrlRegex = /twitter\.com|youtube\.com|youtu\.be|google\.com|imgur.com|twitch\.tv|vimeo\.com|mixcloud\.com|instagram\.com|facebook\.com|dailymotion\.com|spotify.com|apple.com/i;
-        var embeddableUrlRegex = /twitter\.com|youtube\.com|youtu\.be|instagram\.com|facebook\.com|spotify\.com|vimeo\.com|apple\.com|tiktok\.com/i;
-        if (foundLink) {
-          linkUrl = foundLink.textRun.textStyle.link.url;
-          // Logger.log("found link: " + linkUrl + " type: " + eleData.type);
-
-        // try to find a URL by itself that google hasn't auto-linked
-        } else if(embeddableUrlRegex.test(subElements[0].textRun.content.trim())) {
-          linkUrl = subElements[0].textRun.content.trim();
-        }
-
-        if ( linkUrl !== null && eleData.type !== "list") {
-          var embeddableUrl = embeddableUrlRegex.test(linkUrl);
-          if (embeddableUrl) {
-            eleData.type = "embed";
-            eleData.link = linkUrl;
-            orderedElements.push(eleData);
-          }
-        }
-      }
-      
-      element.paragraph.elements.forEach(subElement => {
-        // skip lists and embed links - we already processed these above
-        if (eleData.type !== "list" && eleData.type !== "embed") {
-          var namedStyle;
-
-
-          // found a paragraph of text
-          if (subElement.textRun && subElement.textRun.content) {
-            // handle specially formatted blocks of text
-            // FORMAT START flips the "are we in a specially formatted block?" switch on
-            // FORMAT END turns it off
-            // all lines in between are given a style of FORMATTED_TEXT without any whitespace stripped
-            if (subElement.textRun.content.trim() === "FORMAT START") {
-              // Logger.log("START format block")
-              inSpecialFormatBlock = true;
-              storeElement = false;
-              
-            } else if (subElement.textRun.content.trim() === "FORMAT END") {
-              // Logger.log("END format block")
-              inSpecialFormatBlock = false;
-              storeElement = false;
-              
-            } else {
-              storeElement = true;
-            }
-            eleData.type = "text";
-
-            if (inSpecialFormatBlock) {
-              // Logger.log("IN SPECIAL BLOCK")
-              namedStyle = "FORMATTED_TEXT";
-            } else if (element.paragraph.paragraphStyle.namedStyleType) {
-              namedStyle = element.paragraph.paragraphStyle.namedStyleType;
-            }
-
-            eleData.style = namedStyle;
-
-            // treat any indented text as a blockquote
-            if ((element.paragraph.paragraphStyle.indentStart && element.paragraph.paragraphStyle.indentStart.magnitude) || 
-                (element.paragraph.paragraphStyle.indentFirstLine && element.paragraph.paragraphStyle.indentFirstLine.magnitude)) {
-              // Logger.log("indent para:" + JSON.stringify(element.paragraph));
-              eleData.type = "blockquote";
-            }
-
-            var childElement = {
-              index: subElement.endIndex,
-              style: cleanStyle(subElement.textRun.textStyle),
-            }
-            
-            if (subElement.textRun.textStyle && subElement.textRun.textStyle.link) {
-              childElement.link = subElement.textRun.textStyle.link.url;
-            }
-            if (inSpecialFormatBlock) {
-              childElement.content = subElement.textRun.content.trimEnd();
-            } else {
-              childElement.content = cleanContent(subElement.textRun.content); 
-            }
-
-            var headingRegEx = new RegExp(/^HEADING/, 'i');
-            // if this is a heading with more than one child element 
-            // check if we've already created a heading top-level element
-            // instead of appending another child element onto it, we want to:
-            //  * create a new top-level element
-            //  * bump the total elements & elements processed by one
-            if (headingRegEx.test(eleData.style) && element.paragraph.elements.length > 1 && eleData.children.length === 1) {
-              // Logger.log("Heading element: " + JSON.stringify(eleData));
-              // Logger.log("Heading subelement: " + JSON.stringify(subElement));
-              var newEleData = {
-                type: "text",
-                style: namedStyle,
-                index: eleData.index,
-                children: [childElement]
-              }
-              // Logger.log("new eleData: " + JSON.stringify(newEleData));
-              orderedElements.push(newEleData);
-              elementCount++;
-              elementsProcessed++;
-              // storeElement = false;
-            } else {
-              eleData.children.push(childElement);
-              storeElement = true;
-              // Logger.log("regular eleData:" + JSON.stringify(eleData));
-            }
-
-          // blank content but contains a "horizontalRule" element?
-          } else if (subElement.horizontalRule) {
-            storeElement = true;
-            eleData.type = "hr";
-          }
-
-          // found an image
-          if ( subElement.inlineObjectElement && subElement.inlineObjectElement.inlineObjectId) {
-            Logger.log("FOUND IMAGE: " + JSON.stringify(subElement.inlineObjectElement))
-            storeElement = true;
-            var imageID = subElement.inlineObjectElement.inlineObjectId;
-            eleData.type = "image";
-            // console.log("Found an image:" + JSON.stringify(subElement));
-            // treat the first image as the main article image used in featured links
-            if (!foundMainImage) {
-              eleData.type = "mainImage";
-              foundMainImage = true;
-              Logger.log("treating " + imageID + " as main image: " + JSON.stringify(eleData))
-            }
-
-            var fullImageData = inlineObjects[imageID];
-            if (fullImageData) {
-              // Logger.log("Found full image data: " + JSON.stringify(fullImageData))
-              var s3Url = imageList[imageID];
-
-              var articleSlugMatches = false;
-              var assetDomainMatches = false;
-              if (s3Url && s3Url.match(slug)) {
-                articleSlugMatches = true;
-              }
-
-              // image URL should be stored as assets.tinynewsco.org not the s3 bucket domain
-              if (s3Url && s3Url.match(/assets\.tinynewsco\.org/)) {
-                assetDomainMatches = true;
-              }
-
-              if (s3Url === null || s3Url === undefined || !articleSlugMatches || !assetDomainMatches) {
-                // Logger.log(imageID + " " + slug + " has not been uploaded yet, uploading now...")
-                s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri, slug);
-                imageList[imageID] = s3Url;
-              } else {
-                // Logger.log(slug + " " + imageID + " has already been uploaded: " + articleSlugMatches + " " + s3Url);
-                imageList[imageID] = s3Url;
-              }
-
-              var childImage = {
-                index: subElement.endIndex,
-                height: fullImageData.inlineObjectProperties.embeddedObject.size.height.magnitude,
-                width: fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude,
-                imageId: subElement.inlineObjectElement.inlineObjectId,
-                imageUrl: s3Url,
-                imageAlt: cleanContent(fullImageData.inlineObjectProperties.embeddedObject.title)
-              };
-              
-              if (eleData.type === "mainImage") {
-                mainImageElement = { 
-                  children:[childImage],
-                  link: null,
-                  type: "mainImage",
-                  index: eleData.index
-                }
-              } else {
-                childImageElement = {
-                  type: "image",
-                  children: [childImage],
-                  link: null,
-                  index: childImage.index
-                }  
-              }
-
-              // if(childImageElement) {
-              //   Logger.log("adding childImage to eleData children(" + eleData.children.length + "): " + JSON.stringify(eleData));
-              //   eleData.children.push(childImage);
+  const result = await UrlFetchApp.fetch(
+    requestURL,
+    options
+  );
   
-              // }
-
-              if (mainImageElement && !storedMainImage) {
-                orderedElements.push(mainImageElement);
-                // bump the total count and the total processed
-                elementCount++;
-                elementsProcessed++;
-                storedMainImage = true;
-                console.log(elementCount + " STORED MAINIMAGE: " + JSON.stringify(mainImageElement));
-              }
-
-              if (childImageElement) {
-                orderedElements.push(childImageElement);
-                elementCount++;
-                elementsProcessed++;
-                console.log(elementCount + " STORED CHILD IMAGE: " + JSON.stringify(childImageElement));
-                childImageElement = null;
-              } 
-              
-              // console.log("mainImageElement: " + JSON.stringify(mainImageElement))
-            } 
-          }
-        }
-      })
-      // skip any blank elements, embeds and lists because they've already been handled above
-      if (storeElement && eleData.type !== null && eleData.type !== "list" && eleData.type !== "embed" && eleData.type !== "image") {
-        Logger.log(elementCount + " STORED TEXT: " + JSON.stringify(eleData));
-        orderedElements.push(eleData);
-      
-      } else if (!storeElement) {
-        Logger.log(elementCount + " NOT storing" + JSON.stringify(eleData));
-      }
+  var responseText = result.getContentText();
+  var responseData;
+  try {
+    responseData = JSON.parse(responseText);
+  } catch(e) {
+    console.error(e)
+    responseData = {
+      status: 'error',
+      data: responseText
     }
-    elementsProcessed++;
-  });
-
-  if (elementsProcessed === elementCount) {
-    Logger.log("done processing " + elementsProcessed + " elements: " + JSON.stringify(orderedElements))
-    storeImageList(slug, imageList);
-    // Logger.log("orderedElements count: " + orderedElements.length)
-    return orderedElements;
-
-  } else {
-    Logger.log("count mismatch: processed " + elementsProcessed + " elements of " + elementCount + " total")
-    return [];
   }
 
-
+  return responseData;
 }
+
 /*
 .* Retrieves "elements" from the google doc - which are headings, images, paragraphs, lists
 .* Preserves order, indicates that order with `index` attribute
 .*/
 async function getElements() {
-  var activeDoc = DocumentApp.getActiveDocument();
-  var documentID = activeDoc.getId();
-  var document = Docs.Documents.get(documentID);
-
-  var slug = getArticleSlug();
-  
-  var orderedElements = await processDocumentContents(activeDoc, document, slug);
+ 
   return orderedElements;
 }
 
