@@ -600,7 +600,6 @@
 function handleGetTranslationsForArticle(result) {
   console.log("result:", result);
 
-  
   var configDiv = document.getElementById('config');
   configDiv.style.display = 'none';
   var div = document.getElementById('loading');
@@ -632,7 +631,6 @@ function handleGetTranslationsForArticle(result) {
   var localeCode;
   var typeHiddenField = document.getElementById('document-type');
   var documentType = "article";
-  
 
   var data = result.data;
 
@@ -641,9 +639,7 @@ function handleGetTranslationsForArticle(result) {
   }
   typeHiddenField.value = documentType;
 
-
   if (documentType === "article" && data.article && data.article.id) {
-
     articleId = data.article.id;
 
     if (data.article.canonical_url) {
@@ -738,6 +734,7 @@ function handleGetTranslationsForArticle(result) {
     var headline;
     var id;
 
+    console.log("data:", data);
     displayLocales(data.organization_locales, localeCode);
 
     if (data.article) {
@@ -888,6 +885,7 @@ function handleGetTranslationsForArticle(result) {
 
     setPublishedFlag(false); // new article is not published, ensure correct action buttons display
 
+    console.log("data:", data);
     displayLocales(data.organization_locales, localeCode);
           
     if (documentType === "article") {

@@ -149,7 +149,7 @@ function uploadImageToS3(imageID, contentUri, slug) {
 /*
 * looks up either an article or a page by google doc ID
 */
-async function lookupDataForDocument(documentID) {
+async function lookupDataForDocument(documentID, documentType) {
     var scriptConfig = getScriptConfig();
     var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
     var API_URL = scriptConfig['DOCUMENT_API_URL'];
@@ -161,7 +161,7 @@ async function lookupDataForDocument(documentID) {
       contentType: 'application/json',
     };
   
-    const requestURL = `${API_URL}/api/sidebar/documents/${documentID}?token=${API_TOKEN}`
+    const requestURL = `${API_URL}/api/sidebar/documents/${documentID}?token=${API_TOKEN}&documentType=${documentType}`
     Logger.log("REQUEST URL: " + requestURL);
     const result = await UrlFetchApp.fetch(
       requestURL,
@@ -172,7 +172,7 @@ async function lookupDataForDocument(documentID) {
     var responseData = JSON.parse(responseText);
   
     responseData.orgSlug = ORG_SLUG;
-    Logger.log(Object.keys(responseData) + " " + responseData.orgSlug);
+    Logger.log(Object.keys(responseData) + " " + responseData.documentType);
     return responseData;
   }
   
@@ -1511,6 +1511,12 @@ async function hasuraGetArticle() {
   Logger.log("documentID: " + documentID);
   returnValue.documentId = documentID;
 
+  let documentType = 'article';
+  let isStaticPage = isPage(documentID);
+  if (isStaticPage) {
+    documentType = 'page';
+  }
+ 
   var valid = isValid(documentID);
   if (!valid) {
     returnValue.status = "error";
@@ -1518,10 +1524,12 @@ async function hasuraGetArticle() {
     return returnValue;
   }
 
-  let data = await lookupDataForDocument(documentID);
+  let data = await lookupDataForDocument(documentID, documentType);
   if (!data.documentType) {
-    data.documentType = "article";
+    data.documentType = documentType;
   }
+  
+  returnValue.documentType = data.documentType;
   
   if (data && data.documentType === 'page' && data.page && data.page.slug) {
     storeArticleSlug(data.page.slug);
@@ -1531,6 +1539,7 @@ async function hasuraGetArticle() {
 
   } else if (data && data.documentType === 'page' && !data.page) {
     Logger.log("page not found: " + JSON.stringify(data));
+    returnValue.data = data;
     returnValue.status = "notFound";
     returnValue.message = "Page not found";
 
@@ -1552,6 +1561,7 @@ async function hasuraGetArticle() {
 
   } else {
     Logger.log("Something went wrong looking up the document: " + JSON.stringify(data));
+    returnValue.data = data;
     returnValue.status = "error";
     returnValue.message = "Something went wrong looking up the document" + JSON.stringify(data);
   }
