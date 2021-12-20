@@ -1112,6 +1112,7 @@ function displayTranslationTools(id, documentId, documentType, headline, googleD
         
         var googleDocs = pageData.page_google_documents;
         var translations = pageData.page_translations;
+        console.log("translations:", translations);
         var organizationLocales = response.data.organization_locales;
         var documentID = response.documentID;
 
@@ -1145,6 +1146,7 @@ function displayTranslationTools(id, documentId, documentType, headline, googleD
 
     var typeHiddenField = document.getElementById('document-type');
     var documentType = typeHiddenField.value;
+    console.log("handleClick for docType:", documentType);
 
     var headline = document.getElementById('article-headline');
     var searchTitle = document.getElementById('article-search-title');
@@ -1220,6 +1222,10 @@ function displayTranslationTools(id, documentId, documentType, headline, googleD
         errorMessage += "<br>Author or custom byline is required.";
         formIsValid = false;
       }
+      if (!category.value) {
+        errorMessage += "<br>Category/section is required.";
+        formIsValid = false;
+      } 
     }
     if (!headline.value) {
       // console.log("headline is missing:", headline.value, typeof(headline.value));
@@ -1236,11 +1242,7 @@ function displayTranslationTools(id, documentId, documentType, headline, googleD
       errorMessage += "<br>Search description is required.";
       formIsValid = false;
     }
-    if (!category.value) {
-      errorMessage += "<br>Category/section is required.";
-      formIsValid = false;
-    }
-
+    
     // assemble the data to submit - unfortunately we can't pass the form object with any additional data here
     var submitData = {};
     var elements = formObject.elements;

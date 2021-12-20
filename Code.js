@@ -378,24 +378,48 @@ function storePageIdAndSlug(id, slug) {
 }
 
 async function insertPageGoogleDocs(data) {
-  var documentID = DocumentApp.getActiveDocument().getId();
-  var documentURL = DocumentApp.getActiveDocument().getUrl();
-  var content = await getCurrentDocContents();
-
   var returnValue = {
     status: "success",
     message: "",
-    data: {}
+    data: {},
+    documentType: "page"
   };
 
+  var activeDoc = DocumentApp.getActiveDocument();
+  var documentID = DocumentApp.getActiveDocument().getId();
+  var documentURL = DocumentApp.getActiveDocument().getUrl();
+
+  if (data['document-id']) {
+    documentID = data['document-id'];
+    documentUrl = data['document-url'];  
+  }
+
+  var document = Docs.Documents.get(documentID);
+  var slug = getArticleSlug();
+  if (!slug) {
+    slug = data['article-slug'];
+  }
+  var elements = document.body.content;
+  var inlineObjects = document.inlineObjects;
+  // used to track which images have already been uploaded
+  var imageList = getImageList(slug);
+
+  var listInfo = {};
+  var listItems = activeDoc.getListItems();
+  listItems.forEach(li => {
+    var id = li.getListId();
+    var glyphType = li.getGlyphType();
+    listInfo[id] = glyphType;
+  })
+
   let pageData = {
-    "slug": data['article-slug'],
+    "id": data['article-id'],
+    "slug": slug,
     "document_id": documentID,
     "url": documentURL,
     "locale_code": data['article-locale'],
     "headline": data['article-headline'],
     "published": data['published'],
-    "content": content,
     "search_description": data['article-search-description'],
     "search_title": data['article-search-title'],
     "twitter_title": data['article-twitter-title'],
@@ -403,39 +427,22 @@ async function insertPageGoogleDocs(data) {
     "facebook_title": data['article-facebook-title'],
     "facebook_description": data['article-facebook-description'],
     "created_by_email": data['created_by_email'],
+    "page_authors": data['article-authors'],
   };
 
+  let response = await previewPage(pageData, slug, elements, listInfo, imageList, inlineObjects);
+  Logger.log("previewPageResponse: " + Object.keys(response).sort());
+  returnValue.data = response.data;
 
-  // Check if page already exists with the given slug for this organization
-  var existingPages = await findPageBySlug(pageData["slug"], pageData["locale_code"]);
-  // Logger.log("existingPages: " + JSON.stringify(existingPages));
-  if (existingPages && existingPages.data && existingPages.data.pages && existingPages.data.pages.length > 0) {
-    returnValue.status = "error";
-    returnValue.message = "Page already exists with the same slug, please pick a unique slug value."
-    returnValue.data = existingPages.data;
-    return returnValue;  
-  }
-
-  if (data["article-id"] === "") {
-    // Logger.log("page data:" + JSON.stringify(pageData));
-    returnValue.data = await fetchGraphQL(
-      insertPageGoogleDocsMutationWithoutId,
-      "AddonInsertPageGoogleDocNoID",
-      pageData
-    );
-    returnValue.message = "Successfully saved the page"
-
+  if (response.status && response.status === 'error') {
+    returnValue.status = 'error';
+    returnValue.message = "An error occurred saving the page."
   } else {
-    pageData["id"] = data['article-id'];
-    // Logger.log("page data:" + JSON.stringify(pageData));
-    returnValue.data = await fetchGraphQL(
-      insertPageGoogleDocsMutation,
-      "AddonInsertPageGoogleDocWithID",
-      pageData
-    );
-    returnValue.message = "Successfully saved the page"
+    Logger.log("Storing image list.");
+    storeImageList(slug, response.updatedImageList);  
+    returnValue.previewUrl = response.previewUrl;
+    returnValue.message = "Successfully saved the page.";
   }
-
   return returnValue;
 }
 
@@ -500,6 +507,9 @@ async function insertArticleGoogleDocs(data) {
 
   var document = Docs.Documents.get(documentID);
   var slug = getArticleSlug();
+  if (!slug) {
+    slug = data['article-slug'];
+  }
   var elements = document.body.content;
   var inlineObjects = document.inlineObjects;
   // used to track which images have already been uploaded
@@ -515,14 +525,13 @@ async function insertArticleGoogleDocs(data) {
 
   let articleData = {
     "id": data['article-id'],
-    "slug": data['article-slug'],
+    "slug": slug,
     "document_id": documentID,
     "url": documentUrl,
     "category_id": data['article-category'],
     "locale_code": data['article-locale'],
     "headline": data['article-headline'],
     "published": data['published'],
-    // "content": response['body'],
     "search_description": data['article-search-description'],
     "search_title": data['article-search-title'],
     "twitter_title": data['article-twitter-title'],
@@ -531,7 +540,6 @@ async function insertArticleGoogleDocs(data) {
     "facebook_description": data['article-facebook-description'],
     "custom_byline": data['article-custom-byline'],
     "created_by_email": data['created_by_email'],
-    // "main_image": response['mainImage'],
     "canonical_url": data['article-custom-canonical-url'],
     "article_tags": data['article-tags'],
     "article_authors": data['article-authors'],
@@ -589,7 +597,7 @@ async function insertArticleGoogleDocs(data) {
   
   if (response.status && response.status === 'error') {
     returnValue.status = 'error';
-    returnValue.message = "An error occurred saving the article"
+    returnValue.message = "An error occurred saving the article."
   } else {
     Logger.log("Storing image list.");
     storeImageList(slug, response.updatedImageList);  
@@ -1181,10 +1189,12 @@ async function hasuraHandlePreview(formObject) {
       return insertPage;
     }
 
-    var data = insertPage.data;
+    var data = insertPage.data[0];
     Logger.log("pageResult: " + JSON.stringify(data))
 
-    var pageID = data.data.insert_pages.returning[0].id;
+    previewUrl = insertPage.previewUrl;
+
+    var pageID = data.id;
 
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
     Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
@@ -1194,19 +1204,19 @@ async function hasuraHandlePreview(formObject) {
     var result = await storePageIdAndSlug(pageID, slug);
     Logger.log("stored page id + slug: " + JSON.stringify(result));
 
-    if (pageID && formObject['article-authors']) {
-      var authors;
-      // ensure this is an array; selecting one in the UI results in a string being sent
-      if (typeof(formObject['article-authors']) === 'string') {
-        authors = [formObject['article-authors']]
-      } else {
-        authors = formObject['article-authors'];
-      }
-      for (var index = 0; index < authors.length; index++) {
-        var author = authors[index];
-        var result = await hasuraCreateAuthorPage(author, pageID);
-      }
-    }
+    // if (pageID && formObject['article-authors']) {
+    //   var authors;
+    //   // ensure this is an array; selecting one in the UI results in a string being sent
+    //   if (typeof(formObject['article-authors']) === 'string') {
+    //     authors = [formObject['article-authors']]
+    //   } else {
+    //     authors = formObject['article-authors'];
+    //   }
+    //   for (var index = 0; index < authors.length; index++) {
+    //     var author = authors[index];
+    //     var result = await hasuraCreateAuthorPage(author, pageID);
+    //   }
+    // }
 
   } else {
     documentType = "article";
@@ -1237,7 +1247,7 @@ async function hasuraHandlePreview(formObject) {
 
   }
 
-  var message = "<a href='" + previewUrl + "' target='_blank'>Preview article in new window</a>";
+  var message = "<a href='" + previewUrl + "' target='_blank'>Preview " + documentType + " in new window</a>";
 
   return {
     message: message,
@@ -1586,6 +1596,55 @@ async function previewArticle(articleData, slug, contents, listInfo, imageList, 
     },
     payload: JSON.stringify({
       articleData: articleData,
+      googleAuthToken: ScriptApp.getOAuthToken(),
+      contents: contents,
+      slug: slug,
+      listInfo: listInfo,
+      imageList: imageList,
+      inlineObjects: inlineObjects
+    }),
+  };
+
+  const result = await UrlFetchApp.fetch(
+    requestURL,
+    options
+  );
+  
+  var responseText = result.getContentText();
+  var responseData;
+  try {
+    responseData = JSON.parse(responseText);
+  } catch(e) {
+    console.error(e)
+    responseData = {
+      status: 'error',
+      data: responseText
+    }
+  }
+
+  return responseData;
+}
+async function previewPage(pageData, slug, contents, listInfo, imageList, inlineObjects) {
+  var scriptConfig = getScriptConfig();
+  var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
+  var API_URL = scriptConfig['DOCUMENT_API_URL'];
+  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+
+  var activeDoc = DocumentApp.getActiveDocument();
+  var documentID = activeDoc.getId();
+
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/preview?token=${API_TOKEN}&documentType=page`
+  Logger.log("REQUEST URL: " + requestURL);
+
+  var options = {
+    method: 'POST',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      "TNC-Organization": ORG_SLUG
+    },
+    payload: JSON.stringify({
+      pageData: pageData,
       googleAuthToken: ScriptApp.getOAuthToken(),
       contents: contents,
       slug: slug,
