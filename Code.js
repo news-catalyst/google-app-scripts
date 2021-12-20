@@ -485,7 +485,8 @@ async function insertArticleGoogleDocs(data) {
   var returnValue = {
     status: "success",
     message: "",
-    data: {}
+    data: {},
+    documentType: "article"
   };
 
   var activeDoc = DocumentApp.getActiveDocument();
@@ -585,7 +586,7 @@ async function insertArticleGoogleDocs(data) {
   let response = await previewArticle(articleData, slug, elements, listInfo, imageList, inlineObjects);
   Logger.log("previewArticleResponse: " + Object.keys(response).sort());
   returnValue.data = response.data;
-
+  
   if (response.status && response.status === 'error') {
     returnValue.status = 'error';
     returnValue.message = "An error occurred saving the article"
@@ -1136,8 +1137,6 @@ async function hasuraHandlePublish(formObject) {
 }
 
 async function hasuraHandlePreview(formObject) {
-  var scriptConfig = getScriptConfig();
-
   // set the email for auditing changes
   var currentUserEmail = Session.getActiveUser().getEmail();
   formObject["created_by_email"] = currentUserEmail;
@@ -1243,6 +1242,7 @@ async function hasuraHandlePreview(formObject) {
   return {
     message: message,
     data: data,
+    documentType: documentType,
     documentID: documentID,
     status: "success"
   }
@@ -1574,7 +1574,7 @@ async function previewArticle(articleData, slug, contents, listInfo, imageList, 
   var activeDoc = DocumentApp.getActiveDocument();
   var documentID = activeDoc.getId();
 
-  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/preview?token=${API_TOKEN}`
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/preview?token=${API_TOKEN}&documentType=article`
   Logger.log("REQUEST URL: " + requestURL);
 
   var options = {
