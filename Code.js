@@ -1110,7 +1110,7 @@ async function hasuraHandlePreview(formObject) {
       return insertPage;
     }
 
-    var data = insertPage.data[0];
+    var data = insertPage.data;
     Logger.log("pageResult: " + JSON.stringify(data))
 
     previewUrl = insertPage.previewUrl;
@@ -1137,14 +1137,8 @@ async function hasuraHandlePreview(formObject) {
 
     previewUrl = insertArticle.previewUrl;
 
-    var data = insertArticle.data[0];
-    var articleID = data.id;
-    var categorySlug = data.category.slug;
-
-    // store slug + article ID in slug versions table
-    var result = await storeArticleIdAndSlug(articleID, slug, categorySlug);
-    Logger.log("stored article id + slug + categorySlug: " + JSON.stringify(result));
-
+    var data = insertArticle.data;
+   
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
     // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
     data.organization_locales = getOrgLocalesResult.data.organization_locales;
