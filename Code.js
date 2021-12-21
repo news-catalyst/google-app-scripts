@@ -1020,15 +1020,9 @@ async function hasuraHandlePublish(formObject) {
 
     publishUrl = insertPage.publishUrl;
 
-    var pageID = data.id;
-
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
     // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
     data.organization_locales = getOrgLocalesResult.data.organization_locales;
-
-    // // store slug + page ID in slug versions table
-    var result = await storePageIdAndSlug(pageID, slug);
-    Logger.log("stored page id + slug: " + JSON.stringify(result));
 
   } else {
     documentType = "article";
@@ -1115,15 +1109,9 @@ async function hasuraHandlePreview(formObject) {
 
     previewUrl = insertPage.previewUrl;
 
-    var pageID = data.id;
-
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
     // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
     data.organization_locales = getOrgLocalesResult.data.organization_locales;
-
-    // store slug + page ID in slug versions table
-    var result = await storePageIdAndSlug(pageID, slug);
-    Logger.log("stored page id + slug: " + JSON.stringify(result));
 
   } else {
     documentType = "article";
