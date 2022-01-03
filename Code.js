@@ -1887,9 +1887,9 @@ async function processDocumentContents(activeDoc, document, slug) {
               }
 
               let specifiedHeight = fullImageData.inlineObjectProperties.embeddedObject.size.height.magnitude;
-              let calculatedHeight = specifiedHeight * .75; // PT to PX conversion
+              let calculatedHeight = specifiedHeight * 4/3; // PT to PX conversion
               let specifiedWidth = fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude;
-              let calculatedWidth = specifiedWidth * .75; // PT to PX conversion
+              let calculatedWidth = specifiedWidth * 4/3; // PT to PX conversion
               var childImage = {
                 index: subElement.endIndex,
                 height: calculatedHeight,
