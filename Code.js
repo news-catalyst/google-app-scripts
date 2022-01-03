@@ -1859,21 +1859,24 @@ async function processDocumentContents(activeDoc, document, slug) {
 
             var fullImageData = inlineObjects[imageID];
             if (fullImageData) {
-              Logger.log("Found full image data: " + JSON.stringify(fullImageData))
               var s3Url = imageList[imageID];
-
+              // Logger.log(imageID + " ==> " + JSON.stringify(imageList))
+              Logger.log("Found full image data: " + JSON.stringify(fullImageData))
+              // Logger.log(`s3Url: ${typeof(s3Url)} -> ${JSON.stringify(s3Url)} (${slug})`)
               var articleSlugMatches = false;
               var assetDomainMatches = false;
-              if (s3Url && s3Url.match(slug)) {
-                articleSlugMatches = true;
+              if (s3Url && typeof(s3Url) === 'string') {
+                if (s3Url.match(slug)) {
+                  articleSlugMatches = true;
+                } 
+                // image URL should be stored as assets.tinynewsco.org not the s3 bucket domain
+                if (s3Url.match(/assets\.tinynewsco\.org/)) {
+                  assetDomainMatches = true;
+                }
               }
 
-              // image URL should be stored as assets.tinynewsco.org not the s3 bucket domain
-              if (s3Url && s3Url.match(/assets\.tinynewsco\.org/)) {
-                assetDomainMatches = true;
-              }
-
-              if (s3Url === null || s3Url === undefined || !articleSlugMatches || !assetDomainMatches) {
+              
+              if (s3Url === null || s3Url === undefined || s3Url === {} || !articleSlugMatches || !assetDomainMatches) {
                 Logger.log(imageID + " " + slug + " has not been uploaded yet, uploading now...")
               
                 s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri, slug);
