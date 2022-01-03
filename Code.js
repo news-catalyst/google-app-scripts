@@ -430,19 +430,38 @@ async function insertPageGoogleDocs(data) {
     "page_authors": data['article-authors'],
   };
 
-  let response = await previewPage(pageData, slug, elements, listInfo, imageList, inlineObjects);
-  Logger.log("previewPageResponse: " + Object.keys(response).sort());
-  returnValue.data = response.data;
-
-  if (response.status && response.status === 'error') {
-    returnValue.status = 'error';
-    returnValue.message = "An error occurred saving the page."
+  if (pageData['published']) {
+    Logger.log("PUBLISH " + typeof(elements) + " (" + elements.length + ") " + JSON.stringify(elements));
+    let response = await publishPage(pageData, slug, elements, listInfo, imageList, inlineObjects);
+    Logger.log("publishPageResponse: " + Object.keys(response).sort());
+    returnValue.data = response.data;
+    
+    if (response.status && response.status === 'error') {
+      returnValue.status = 'error';
+      returnValue.message = "An error occurred saving the page."
+    } else {
+      Logger.log("Storing image list.");
+      storeImageList(slug, response.updatedImageList);  
+      returnValue.publishUrl = response.publishUrl;
+      returnValue.message = "Successfully saved the page.";
+    }
   } else {
-    Logger.log("Storing image list.");
-    storeImageList(slug, response.updatedImageList);  
-    returnValue.previewUrl = response.previewUrl;
-    returnValue.message = "Successfully saved the page.";
+    Logger.log("PREVIEW");
+    let response = await previewPage(pageData, slug, elements, listInfo, imageList, inlineObjects);
+    Logger.log("previewPageResponse: " + Object.keys(response).sort());
+    returnValue.data = response.data;
+    
+    if (response.status && response.status === 'error') {
+      returnValue.status = 'error';
+      returnValue.message = "An error occurred saving the page."
+    } else {
+      Logger.log("Storing image list.");
+      storeImageList(slug, response.updatedImageList);  
+      returnValue.previewUrl = response.previewUrl;
+      returnValue.message = "Successfully saved the page.";
+    }
   }
+
   return returnValue;
 }
 
@@ -1009,6 +1028,7 @@ async function hasuraHandlePublish(formObject) {
 
   if (isStaticPage) {
     documentType = "page";
+    Logger.log("publishing a page " + JSON.stringify(formObject))
     // insert or update page
     var insertPage = await insertPageGoogleDocs(formObject);
     if (insertPage.status === "error") {
@@ -1554,6 +1574,57 @@ async function previewPage(pageData, slug, contents, listInfo, imageList, inline
     }),
   };
 
+  const result = await UrlFetchApp.fetch(
+    requestURL,
+    options
+  );
+  
+  var responseText = result.getContentText();
+  var responseData;
+  try {
+    responseData = JSON.parse(responseText);
+  } catch(e) {
+    console.error(e)
+    responseData = {
+      status: 'error',
+      data: responseText
+    }
+  }
+
+  return responseData;
+}
+
+async function publishPage(pageData, slug, contents, listInfo, imageList, inlineObjects) {
+  var scriptConfig = getScriptConfig();
+  var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
+  var API_URL = scriptConfig['DOCUMENT_API_URL'];
+  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+
+  var activeDoc = DocumentApp.getActiveDocument();
+  var documentID = activeDoc.getId();
+
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/publish?token=${API_TOKEN}&documentType=page`
+  Logger.log("REQUEST URL: " + requestURL);
+
+  var options = {
+    method: 'POST',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      'Content-Type': 'application/json',
+      "TNC-Organization": ORG_SLUG
+    },
+    payload: JSON.stringify({
+      pageData: pageData,
+      googleAuthToken: ScriptApp.getOAuthToken(),
+      contents: contents,
+      slug: slug,
+      listInfo: listInfo,
+      imageList: imageList,
+      inlineObjects: inlineObjects
+    }),
+  };
+  Logger.log("options: " + JSON.stringify(options));
   const result = await UrlFetchApp.fetch(
     requestURL,
     options
