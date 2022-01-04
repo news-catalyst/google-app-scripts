@@ -827,14 +827,6 @@ async function hasuraAssociateArticle(formObject) {
 
 async function hasuraUnpublishArticle(articleId, localeCode) {
 
-  return fetchGraphQL(
-    unpublishArticleMutation,
-    "AddonUnpublishArticle",
-    {
-      article_id: articleId,
-      locale_code: localeCode
-    }
-  );
 }
 
 async function hasuraUnpublishPage(pageId, localeCode) {
@@ -857,40 +849,28 @@ async function hasuraCreateTag(tagData) {
   );
 }
 
-async function hasuraHandleUnpublishPage(formObject) {
-  var pageID = formObject['article-id'];
-  var localeCode = formObject['article-locale'];
-  var response = await hasuraUnpublishPage(pageID, localeCode);
-  
-  var returnValue = {
-    status: "success",
-    message: "Unpublished the page with id " + pageID + " in locale " + localeCode,
-    data: response
-  };
-  if (response.errors) {
-    returnValue.status = "error";
-    returnValue.message = "An unexpected error occurred trying to unpublish the page";
-    returnValue.data = response.errors;
-  } else {
-    // trigger republish of the site to reflect this page no longer being live
-    rebuildSite();
-  }
-  return returnValue;
-}
-
 async function hasuraHandleUnpublish(formObject) {
-  var articleID = formObject['article-id'];
-  var localeCode = formObject['article-locale'];
-  var response = await hasuraUnpublishArticle(articleID, localeCode);
+  var slug = formObject['article-slug'];
+  var documentType;
+  var documentID = DocumentApp.getActiveDocument().getId();
+  var isStaticPage = isPage(documentID);
+
+  if (isStaticPage) {
+    documentType = "page";
+  } else {
+    documentType = "article";
+  }
+  
+  var response = await apiUnpublish(documentType, documentID, slug);
   
   var returnValue = {
     status: "success",
-    message: "Unpublished the article with id " + articleID + " in locale " + localeCode,
+    message: `Successfully unpublished the ${documentType}`,
     data: response
   };
   if (response.errors) {
     returnValue.status = "error";
-    returnValue.message = "An unexpected error occurred trying to unpublish the article";
+    returnValue.message = `An unexpected error occurred trying to unpublish the ${documentType}`;
     returnValue.data = response.errors;
   } else {
     // trigger republish of the site to reflect this article no longer being live
@@ -1544,6 +1524,61 @@ async function apiSaveArticle(articleData, slug, contents, listInfo, imageList, 
 
   return responseData;
 }
+async function apiUnpublish(documentType, documentID, slug) {
+  var scriptConfig = getScriptConfig();
+  var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
+  var API_URL = scriptConfig['DOCUMENT_API_URL'];
+  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+
+  let apiAction = 'unpublish'; // always, probably doesn't have to be a var, just keeping consistent with apiSaveArticle
+  let data = {'published': false}; // this value should ALWAYS be false in this function so we hardcode here 
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/${apiAction}?token=${API_TOKEN}&documentType=${documentType}`
+  Logger.log("REQUEST URL: " + requestURL);
+
+  let payloadData;
+  if (documentType === 'page') {
+    payloadData = JSON.stringify({
+      pageData: data,
+      slug: slug,
+    })
+  } else {
+    payloadData = JSON.stringify({
+      articleData: data,
+      slug: slug,
+    })
+  }
+  Logger.log(payloadData)
+  var options = {
+    method: 'POST',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      "TNC-Organization": ORG_SLUG
+    },
+    payload: payloadData,
+  };
+
+  const result = await UrlFetchApp.fetch(
+    requestURL,
+    options
+  );
+  
+  var responseText = result.getContentText();
+  var responseData;
+  try {
+    responseData = JSON.parse(responseText);
+  } catch(e) {
+    console.error(e)
+    responseData = {
+      status: 'error',
+      data: responseText
+    }
+  }
+
+  return responseData;
+}
+
+
 async function previewPage(pageData, slug, contents, listInfo, imageList, inlineObjects) {
   var scriptConfig = getScriptConfig();
   var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];

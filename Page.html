@@ -1293,16 +1293,11 @@ function displayTranslationTools(id, documentId, documentType, headline, googleD
     } else if (formIsValid && formObject.submitted === "Unpublish") {
       // console.log("valid form + unpublish")
       loadingDiv.innerHTML = "<p class='gray'>Unpublishing " + documentType + " ...</p>"
-      var articleId = document.getElementById('article-id').value;
-      var selectedLocale = document.getElementById('article-locale').value;
+      // var articleId = document.getElementById('article-id').value;
+      // var selectedLocale = document.getElementById('article-locale').value;
 
-      // console.log("Unpublish", documentType, formIsValid, articleId, selectedLocale);
-      if (documentType === "page") {
-        google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublishPage(formObject);
-
-      } else {
-        google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublish(formObject);
-      }
+      google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublish(formObject);
+    
     } else {
         
       // console.log("invalid form")
