@@ -1246,7 +1246,7 @@
           errorMessage += "<br>Search description is required.";
           formIsValid = false;
         }
-        if (!category.value) {
+        if (!category.value && documentType === 'article') {
           errorMessage += "<br>Category/section is required.";
           formIsValid = false;
         }
