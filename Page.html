@@ -241,6 +241,7 @@
           lastSpan.innerHTML = formatDate(publishedInfo.last_published_at);
 
           var translationIdSpan = document.getElementById("translation-id");
+          console.log("displayPublishedInfo pubInfo/translationData", publishedInfo, translationData);
           if (translationData && publishedInfo.id === translationData.id) {
             translationIdSpan.innerHTML = "This translation was published at:";
           } else {
@@ -748,7 +749,6 @@ function handleGetTranslationsForArticle(result) {
       }
       if (data.published_article_translations && data.published_article_translations[0]) {
         publishedInfo = data.published_article_translations[0].article_translation;
-        // console.log("found publishedInfo:", publishedInfo);
       }
 
       displayCategories(data.categories, data.article.category);
@@ -830,8 +830,12 @@ function handleGetTranslationsForArticle(result) {
     }
 
     if (translationData) {
-      setPublishedFlag(translationData.published);
-
+      if (publishedInfo) {
+        console.log("found publishedInfo:", publishedInfo);
+        setPublishedFlag(true);
+      } else {
+        setPublishedFlag(translationData.published);
+      }
       var articleHeadline = document.getElementById('article-headline');
       articleHeadline.value = headline;
 
@@ -1063,13 +1067,11 @@ function displayTranslationTools(id, documentId, documentType, headline, googleD
         slugField.value = articleSlug;
 
         var translations = response.data.article_translations;
-        if (translations[0]) {
-          setPublishedFlag(translations[0].published);
-          console.log("translations[0]:", translations[0]);
-        }
+        
         var publishedInfo = response.data.published_article_translations;
         if (publishedInfo && publishedInfo[0]) {
           console.log("publishedInfo:", publishedInfo[0])
+          setPublishedFlag(true);
           var mostRecentPubInfo = publishedInfo[0].article_translation;
           displayPublishedInfo(mostRecentPubInfo, translations[0]);
           
