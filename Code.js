@@ -701,32 +701,95 @@ async function linkDocToArticle(data) {
   );
 }
 
-async function hasuraInsertGoogleDoc(articleId, docId, localeCode, url) {
-  return fetchGraphQL(
-    insertGoogleDocMutation,
-    "AddonInsertGoogleDoc",
-    {
+async function hasuraInsertArticleGoogleDoc(articleId, documentID, localeCode, url) {
+  var scriptConfig = getScriptConfig();
+  var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
+  var API_URL = scriptConfig['DOCUMENT_API_URL'];
+  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+
+  let apiAction = 'insert';
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/${apiAction}?token=${API_TOKEN}&documentType=article`
+  Logger.log("REQUEST URL: " + requestURL);
+
+  var options = {
+    method: 'POST',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      "TNC-Organization": ORG_SLUG
+    },
+    payload: JSON.stringify({
+      locale_code: localeCode,
       article_id: articleId,
-      document_id: docId,
-      locale_code: localeCode,
-      url: url
-    }
+      document_url: url,
+    }),
+  };
+
+  const result = await UrlFetchApp.fetch(
+    requestURL,
+    options
   );
+  
+  var responseText = result.getContentText();
+  var responseData;
+  try {
+    responseData = JSON.parse(responseText);
+  } catch(e) {
+    console.error(e)
+    responseData = {
+      status: 'error',
+      data: responseText
+    }
+  }
+
+  return responseData;
+
 }
 
-async function hasuraInsertPageGoogleDoc(pageId, docId, localeCode, url) {
-  return fetchGraphQL(
-    insertPageGoogleDocMutation,
-    "AddonInsertPageGoogleDoc",
-    {
+async function hasuraInsertPageGoogleDoc(pageId, documentID, localeCode, url) {
+  var scriptConfig = getScriptConfig();
+  var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
+  var API_URL = scriptConfig['DOCUMENT_API_URL'];
+  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+
+  let apiAction = 'insert';
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/${apiAction}?token=${API_TOKEN}&documentType=article`
+  Logger.log("REQUEST URL: " + requestURL);
+
+  var options = {
+    method: 'POST',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      "TNC-Organization": ORG_SLUG
+    },
+    payload: JSON.stringify({
+      locale_code: localeCode,
       page_id: pageId,
-      document_id: docId,
-      locale_code: localeCode,
-      url: url
-    }
-  );
-}
+      document_url: url,
+    }),
+  };
 
+  const result = await UrlFetchApp.fetch(
+    requestURL,
+    options
+  );
+  
+  var responseText = result.getContentText();
+  var responseData;
+  try {
+    responseData = JSON.parse(responseText);
+  } catch(e) {
+    console.error(e)
+    responseData = {
+      status: 'error',
+      data: responseText
+    }
+  }
+
+  return responseData;
+
+}
 async function hasuraDeleteArticle(articleId) {
   Logger.log("deleting article ID#" + articleId);
   return fetchGraphQL(
@@ -756,8 +819,8 @@ async function hasuraCreateArticleDoc(articleId, newLocale, headline) {
   }
 
   // insert new document ID in google_documents table with newLocale & articleID
-  var response = await hasuraInsertGoogleDoc(articleId, newDocId, newLocale, newDocUrl);
-  Logger.log("hasura insert googleDoc response: " + JSON.stringify(response));
+  var response = await hasuraInsertArticleGoogleDoc(articleId, newDocId, newLocale, newDocUrl);
+  Logger.log("hasura insertArticleGoogleDoc response: " + JSON.stringify(response));
 
   // return new doc ID / url for link?
 
@@ -769,6 +832,7 @@ async function hasuraCreateArticleDoc(articleId, newLocale, headline) {
     data: response
   }
 }
+
 async function hasuraCreatePageDoc(pageId, newLocale, headline) {
   Logger.log("create new doc for page " + pageId + " and locale " + newLocale);
   // create new document in google docs
