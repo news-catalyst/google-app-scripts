@@ -111,23 +111,53 @@ function uploadImageToS3(imageID, contentUri, slug) {
     articleSlug = getArticleSlug();
   }
 
-  // Logger.log("uploading image for org " + orgNameSlug + "and article " + articleSlug);
-
-  var objectName = "image" + imageID + ".png";
+  var objectName = "image-" + imageID;
 
   // get the image data from google first
   var imageData = null;
+  var imageExt = null;
   var googleAuthToken = ScriptApp.getOAuthToken();
   Logger.log("GOOGLE AUTH TOKEN: " + googleAuthToken);
-  var res = UrlFetchApp.fetch(contentUri, {headers: {Authorization: "Bearer " + googleAuthToken}, muteHttpExceptions: true});
+  var res = UrlFetchApp.fetch(contentUri, {headers: {Authorization: "Bearer " + googleAuthToken}, muteHttpExceptions: true});  
   if (res.getResponseCode() == 200) {
+
+    Logger.log(res.getAllHeaders());
     imageData = res.getBlob(); //.setName("image1");
+
+    // try to get content type
+    var imageType = imageData.getContentType();
+    Logger.log("IMAGE TYPE: " + imageType);
+
+    // 'image/bmp', 'image/gif', 'image/jpeg', or 'image/png' 
+    switch(imageType) {
+      case "image/gif":
+        imageExt = "gif";
+        break;
+      case "image/jpeg":
+        imageExt = "jpg";
+        break;
+      case "image/png":
+        imageExt = "png";
+        break;
+      case "image/bmp":
+        imageExt = "bmp";
+        break;
+      case "application/pdf":
+        imageExt = "pdf";
+        break;
+      default:
+        Logger.log(imageType + " is an unknown image type, no file extension given to image!");
+        break;
+    }
   } else {
     Logger.log("Failed to fetch image data for uri: ", contentUri);
     return null;
   }
 
   var destinationPath = orgNameSlug + "/" + articleSlug + "/" + objectName;
+  if (imageExt) {
+    destinationPath += "." + imageExt;
+  }
   var s3;
 
   try {
