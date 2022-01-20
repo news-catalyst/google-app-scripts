@@ -2,7 +2,7 @@
  * The event handler triggered when installing the add-on.
  * @param {Event} e The onInstall event.
  */
-function onInstall(e) {
+ function onInstall(e) {
   onOpen(e);
 }
 
@@ -115,9 +115,10 @@ function uploadImageToS3(imageID, contentUri, slug) {
 
   // get the image data from google first
   var imageData = null;
-  
   var imageExt = null;
-  var res = UrlFetchApp.fetch(contentUri, {headers: {Authorization: "Bearer " + ScriptApp.getOAuthToken()}, muteHttpExceptions: true});
+  var googleAuthToken = ScriptApp.getOAuthToken();
+  Logger.log("GOOGLE AUTH TOKEN: " + googleAuthToken);
+  var res = UrlFetchApp.fetch(contentUri, {headers: {Authorization: "Bearer " + googleAuthToken}, muteHttpExceptions: true});  
   if (res.getResponseCode() == 200) {
 
     Logger.log(res.getAllHeaders());
@@ -176,6 +177,54 @@ function uploadImageToS3(imageID, contentUri, slug) {
 }
 
 /*
+* looks up either an article or a page by google doc ID
+*/
+async function lookupDataForDocument(documentID, documentType) {
+    var scriptConfig = getScriptConfig();
+    var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
+    var API_URL = scriptConfig['DOCUMENT_API_URL'];
+    var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+  
+    var options = {
+      method: 'GET',
+      muteHttpExceptions: true,
+      contentType: 'application/json',
+    };
+  
+    const requestURL = `${API_URL}/api/sidebar/documents/${documentID}?token=${API_TOKEN}&documentType=${documentType}`
+    Logger.log("REQUEST URL: " + requestURL);
+    const result = await UrlFetchApp.fetch(
+      requestURL,
+      options
+    );
+  
+    var responseText = result.getContentText();
+    var responseData = JSON.parse(responseText);
+  
+    responseData.orgSlug = ORG_SLUG;
+    Logger.log(Object.keys(responseData) + " " + responseData.documentType);
+    return responseData;
+  }
+  
+function findAllParents(file) {
+  var allParents = [];
+  function getObjParents(obj, allParents) {
+    var parents = obj.getParents();
+    while (parents.hasNext()) {
+      var parent = parents.next();
+      allParents.push({
+        name: parent.getName(), 
+        id: parent.getId()
+      });
+      getObjParents(parent, allParents);
+    }
+  }
+  getObjParents(file, allParents);
+  return allParents;
+}
+
+
+/*
 .* Gets the script configuration, data available to all users and docs for this add-on
 .*/
 function getScriptConfig() {
@@ -186,17 +235,25 @@ function getScriptConfig() {
   // named for the organisation; for example: 'oaklyn' > 'articles' > 'Article Document'
   if (orgName === null) {
     var documentID = DocumentApp.getActiveDocument().getId();
-    var driveFile = DriveApp.getFileById(documentID)
-    var fileParents = driveFile.getParents();
-    while ( fileParents.hasNext() ) {
-      var folder = fileParents.next();
-      if (folder.getName() === 'articles' || folder.getName() === 'pages') {
-        var folderParents = folder.getParents();
-        while ( folderParents.hasNext() ) {
-          var grandFolder = folderParents.next();
-          orgName = grandFolder.getName();
-          storeOrganizationName(orgName);
-        }
+    var driveFile = DriveApp.getFileById(documentID);
+    
+    var fileParents = findAllParents(driveFile);
+    var articlesFolderData = fileParents.find(function(item) {
+      return item.name.toLowerCase() === 'articles';
+    });
+    var pagesFolderData = fileParents.find(function(item) { 
+      return item.name.toLowerCase() === 'pages';
+    });
+    
+    var containerFolderData = articlesFolderData || pagesFolderData;
+    
+    if (containerFolderData) {
+      var containerFolder = DriveApp.getFolderById(containerFolderData.id);
+      var folderParents = containerFolder.getParents();
+      while (folderParents.hasNext()) {
+        var grandFolder = folderParents.next();
+        orgName = grandFolder.getName();
+        storeOrganizationName(orgName);
       }
     }
   }
@@ -266,6 +323,7 @@ function getValueJSON(key) {
 .* general purpose function (called in the other data storage functions) to set a value at a key
 .*/
 function storeValue(key, value) {
+  // Logger.log(`${key} => ${value}`);
   var documentProperties = PropertiesService.getDocumentProperties();
   documentProperties.setProperty(key, value);
 }
@@ -376,24 +434,48 @@ function storePageIdAndSlug(id, slug) {
 }
 
 async function insertPageGoogleDocs(data) {
-  var documentID = DocumentApp.getActiveDocument().getId();
-  var documentURL = DocumentApp.getActiveDocument().getUrl();
-  var content = await getCurrentDocContents();
-
   var returnValue = {
     status: "success",
     message: "",
-    data: {}
+    data: {},
+    documentType: "page"
   };
 
+  var activeDoc = DocumentApp.getActiveDocument();
+  var documentID = DocumentApp.getActiveDocument().getId();
+  var documentURL = DocumentApp.getActiveDocument().getUrl();
+
+  if (data['document-id']) {
+    documentID = data['document-id'];
+    documentUrl = data['document-url'];  
+  }
+
+  var document = Docs.Documents.get(documentID);
+  var slug = getArticleSlug();
+  if (!slug) {
+    slug = data['article-slug'];
+  }
+  var elements = document.body.content;
+  var inlineObjects = document.inlineObjects;
+  // used to track which images have already been uploaded
+  var imageList = getImageList(slug);
+
+  var listInfo = {};
+  var listItems = activeDoc.getListItems();
+  listItems.forEach(li => {
+    var id = li.getListId();
+    var glyphType = li.getGlyphType();
+    listInfo[id] = glyphType;
+  })
+
   let pageData = {
-    "slug": data['article-slug'],
+    "id": data['article-id'],
+    "slug": slug,
     "document_id": documentID,
     "url": documentURL,
     "locale_code": data['article-locale'],
     "headline": data['article-headline'],
     "published": data['published'],
-    "content": content,
     "search_description": data['article-search-description'],
     "search_title": data['article-search-title'],
     "twitter_title": data['article-twitter-title'],
@@ -401,37 +483,39 @@ async function insertPageGoogleDocs(data) {
     "facebook_title": data['article-facebook-title'],
     "facebook_description": data['article-facebook-description'],
     "created_by_email": data['created_by_email'],
+    "page_authors": data['article-authors'],
   };
 
-
-  // Check if page already exists with the given slug for this organization
-  var existingPages = await findPageBySlug(pageData["slug"], pageData["locale_code"]);
-  // Logger.log("existingPages: " + JSON.stringify(existingPages));
-  if (existingPages && existingPages.data && existingPages.data.pages && existingPages.data.pages.length > 0) {
-    returnValue.status = "error";
-    returnValue.message = "Page already exists with the same slug, please pick a unique slug value."
-    returnValue.data = existingPages.data;
-    return returnValue;  
-  }
-
-  if (data["article-id"] === "") {
-    // Logger.log("page data:" + JSON.stringify(pageData));
-    returnValue.data = await fetchGraphQL(
-      insertPageGoogleDocsMutationWithoutId,
-      "AddonInsertPageGoogleDocNoID",
-      pageData
-    );
-    returnValue.message = "Successfully saved the page"
-
+  if (pageData['published']) {
+    Logger.log("PUBLISH " + typeof(elements) + " (" + elements.length + ") " + JSON.stringify(elements));
+    let response = await publishPage(pageData, slug, elements, listInfo, imageList, inlineObjects);
+    Logger.log("publishPageResponse: " + Object.keys(response).sort());
+    returnValue.data = response.data;
+    
+    if (response.status && response.status === 'error') {
+      returnValue.status = 'error';
+      returnValue.message = "An error occurred saving the page."
+    } else {
+      Logger.log("Storing image list.");
+      storeImageList(slug, response.updatedImageList);  
+      returnValue.publishUrl = response.publishUrl;
+      returnValue.message = "Successfully saved the page.";
+    }
   } else {
-    pageData["id"] = data['article-id'];
-    // Logger.log("page data:" + JSON.stringify(pageData));
-    returnValue.data = await fetchGraphQL(
-      insertPageGoogleDocsMutation,
-      "AddonInsertPageGoogleDocWithID",
-      pageData
-    );
-    returnValue.message = "Successfully saved the page"
+    Logger.log("PREVIEW");
+    let response = await previewPage(pageData, slug, elements, listInfo, imageList, inlineObjects);
+    Logger.log("previewPageResponse: " + Object.keys(response).sort());
+    returnValue.data = response.data;
+    
+    if (response.status && response.status === 'error') {
+      returnValue.status = 'error';
+      returnValue.message = "An error occurred saving the page."
+    } else {
+      Logger.log("Storing image list.");
+      storeImageList(slug, response.updatedImageList);  
+      returnValue.previewUrl = response.previewUrl;
+      returnValue.message = "Successfully saved the page.";
+    }
   }
 
   return returnValue;
@@ -483,33 +567,46 @@ async function insertArticleGoogleDocs(data) {
   var returnValue = {
     status: "success",
     message: "",
-    data: {}
+    data: {},
+    documentType: "article"
   };
 
-  var documentID;
-  var documentUrl;
+  var activeDoc = DocumentApp.getActiveDocument();
+  var documentID = activeDoc.getId();
+  var documentUrl = DocumentApp.getActiveDocument().getUrl();
+
   if (data['document-id']) {
     documentID = data['document-id'];
-    documentUrl = data['document-url'];
-  } else {
-    documentID = DocumentApp.getActiveDocument().getId();
-    documentUrl = DocumentApp.getActiveDocument().getUrl();
+    documentUrl = data['document-url'];  
   }
-  var content = await getCurrentDocContents();
-  Logger.log("insertArticleGoogleDocs content length: " + content.length)
 
-  var mainImageContent = await getMainImage(content);
-  // console.log("*mainImageContent: " + JSON.stringify(mainImageContent))
+  var document = Docs.Documents.get(documentID);
+  var slug = getArticleSlug();
+  if (!slug) {
+    slug = data['article-slug'];
+  }
+  var elements = document.body.content;
+  var inlineObjects = document.inlineObjects;
+  // used to track which images have already been uploaded
+  var imageList = getImageList(slug);
+
+  var listInfo = {};
+  var listItems = activeDoc.getListItems();
+  listItems.forEach(li => {
+    var id = li.getListId();
+    var glyphType = li.getGlyphType();
+    listInfo[id] = glyphType;
+  })
 
   let articleData = {
-    "slug": data['article-slug'],
+    "id": data['article-id'],
+    "slug": slug,
     "document_id": documentID,
     "url": documentUrl,
     "category_id": data['article-category'],
     "locale_code": data['article-locale'],
     "headline": data['article-headline'],
     "published": data['published'],
-    "content": content,
     "search_description": data['article-search-description'],
     "search_title": data['article-search-title'],
     "twitter_title": data['article-twitter-title'],
@@ -518,16 +615,15 @@ async function insertArticleGoogleDocs(data) {
     "facebook_description": data['article-facebook-description'],
     "custom_byline": data['article-custom-byline'],
     "created_by_email": data['created_by_email'],
-    "main_image": mainImageContent,
     "canonical_url": data['article-custom-canonical-url'],
+    "article_tags": data['article-tags'],
+    "article_authors": data['article-authors'],
   };
 
   if (data["first-published-at"]) {
     articleData["first_published_at"] = data["first-published-at"];
     Logger.log("* first published at: " + articleData["first_published_at"]);
   } 
-
-  // console.log("*articleData.main_image: " + JSON.stringify(articleData['main_image']))
 
   var dataSources = [];
   if (data['sources'] !== {} && Object.keys(data['sources']).length > 0) {
@@ -569,33 +665,40 @@ async function insertArticleGoogleDocs(data) {
     articleData['article_sources'] = [];
   }
 
-  // Check if article already exists with the given category_id and slug for this organization
-  var existingArticles = await findArticleByCategoryAndSlug(articleData["category_id"], articleData["slug"], articleData["locale_code"]);
-  if (existingArticles && existingArticles.data && existingArticles.data.articles && existingArticles.data.articles.length > 0) {
-    returnValue.status = "error";
-    returnValue.message = "Article already exists in that category with the same slug, please pick a unique slug value."
-    returnValue.data = existingArticles.data;
-    return returnValue;
+
+  if (articleData['published']) {
+    Logger.log("PUBLISH");
+    let response = await apiSaveArticle(articleData, slug, elements, listInfo, imageList, inlineObjects);
+    Logger.log("publishArticleResponse: " + Object.keys(response).sort());
+    returnValue.data = response.data;
+    
+    if (response.status && response.status === 'error') {
+      returnValue.status = 'error';
+      returnValue.message = "An error occurred saving the article."
+    } else {
+      Logger.log("Storing image list.");
+      storeImageList(slug, response.updatedImageList);  
+      returnValue.publishUrl = response.publishUrl;
+      returnValue.message = "Successfully saved the article.";
+    }
+  } else {
+    Logger.log("PREVIEW");
+    let response = await apiSaveArticle(articleData, slug, elements, listInfo, imageList, inlineObjects);
+    Logger.log("previewArticleResponse: " + Object.keys(response).sort());
+    returnValue.data = response.data;
+    
+    if (response.status && response.status === 'error') {
+      returnValue.status = 'error';
+      returnValue.message = "An error occurred saving the article."
+    } else {
+      Logger.log("Storing image list.");
+      storeImageList(slug, response.updatedImageList);  
+      returnValue.previewUrl = response.previewUrl;
+      returnValue.message = "Successfully saved the article.";
+    }
+  
   }
 
-  // Logger.log("article data:" + JSON.stringify(articleData));
-  if (data["article-id"] === "") {
-    returnValue.data = await fetchGraphQL(
-      insertArticleGoogleDocMutationWithoutId,
-      "AddonInsertArticleGoogleDocNoID",
-      articleData
-    );
-    returnValue.message = "Successfully saved the article.";
-  } else {
-    articleData['id'] = data['article-id'];
-    Logger.log("inserting WITH id: " + articleData["canonical_url"] + " " + JSON.stringify(Object.keys(articleData)))
-    returnValue.data = await fetchGraphQL(
-      insertArticleGoogleDocMutation,
-      "AddonInsertArticleGoogleDocWithID",
-      articleData
-    );
-    returnValue.message = "Successfully saved the article.";
-  }
   return returnValue;
 }
 
@@ -654,32 +757,95 @@ async function linkDocToArticle(data) {
   );
 }
 
-async function hasuraInsertGoogleDoc(articleId, docId, localeCode, url) {
-  return fetchGraphQL(
-    insertGoogleDocMutation,
-    "AddonInsertGoogleDoc",
-    {
+async function hasuraInsertArticleGoogleDoc(articleId, documentID, localeCode, url) {
+  var scriptConfig = getScriptConfig();
+  var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
+  var API_URL = scriptConfig['DOCUMENT_API_URL'];
+  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+
+  let apiAction = 'insert';
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/${apiAction}?token=${API_TOKEN}&documentType=article`
+  Logger.log("REQUEST URL: " + requestURL);
+
+  var options = {
+    method: 'POST',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      "TNC-Organization": ORG_SLUG
+    },
+    payload: JSON.stringify({
+      locale_code: localeCode,
       article_id: articleId,
-      document_id: docId,
-      locale_code: localeCode,
-      url: url
-    }
+      document_url: url,
+    }),
+  };
+
+  const result = await UrlFetchApp.fetch(
+    requestURL,
+    options
   );
+  
+  var responseText = result.getContentText();
+  var responseData;
+  try {
+    responseData = JSON.parse(responseText);
+  } catch(e) {
+    console.error(e)
+    responseData = {
+      status: 'error',
+      data: responseText
+    }
+  }
+
+  return responseData;
+
 }
 
-async function hasuraInsertPageGoogleDoc(pageId, docId, localeCode, url) {
-  return fetchGraphQL(
-    insertPageGoogleDocMutation,
-    "AddonInsertPageGoogleDoc",
-    {
+async function hasuraInsertPageGoogleDoc(pageId, documentID, localeCode, url) {
+  var scriptConfig = getScriptConfig();
+  var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
+  var API_URL = scriptConfig['DOCUMENT_API_URL'];
+  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+
+  let apiAction = 'insert';
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/${apiAction}?token=${API_TOKEN}&documentType=article`
+  Logger.log("REQUEST URL: " + requestURL);
+
+  var options = {
+    method: 'POST',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      "TNC-Organization": ORG_SLUG
+    },
+    payload: JSON.stringify({
+      locale_code: localeCode,
       page_id: pageId,
-      document_id: docId,
-      locale_code: localeCode,
-      url: url
-    }
-  );
-}
+      document_url: url,
+    }),
+  };
 
+  const result = await UrlFetchApp.fetch(
+    requestURL,
+    options
+  );
+  
+  var responseText = result.getContentText();
+  var responseData;
+  try {
+    responseData = JSON.parse(responseText);
+  } catch(e) {
+    console.error(e)
+    responseData = {
+      status: 'error',
+      data: responseText
+    }
+  }
+
+  return responseData;
+
+}
 async function hasuraDeleteArticle(articleId) {
   Logger.log("deleting article ID#" + articleId);
   return fetchGraphQL(
@@ -709,8 +875,8 @@ async function hasuraCreateArticleDoc(articleId, newLocale, headline) {
   }
 
   // insert new document ID in google_documents table with newLocale & articleID
-  var response = await hasuraInsertGoogleDoc(articleId, newDocId, newLocale, newDocUrl);
-  Logger.log("hasura insert googleDoc response: " + JSON.stringify(response));
+  var response = await hasuraInsertArticleGoogleDoc(articleId, newDocId, newLocale, newDocUrl);
+  Logger.log("hasura insertArticleGoogleDoc response: " + JSON.stringify(response));
 
   // return new doc ID / url for link?
 
@@ -722,6 +888,7 @@ async function hasuraCreateArticleDoc(articleId, newLocale, headline) {
     data: response
   }
 }
+
 async function hasuraCreatePageDoc(pageId, newLocale, headline) {
   Logger.log("create new doc for page " + pageId + " and locale " + newLocale);
   // create new document in google docs
@@ -780,14 +947,6 @@ async function hasuraAssociateArticle(formObject) {
 
 async function hasuraUnpublishArticle(articleId, localeCode) {
 
-  return fetchGraphQL(
-    unpublishArticleMutation,
-    "AddonUnpublishArticle",
-    {
-      article_id: articleId,
-      locale_code: localeCode
-    }
-  );
 }
 
 async function hasuraUnpublishPage(pageId, localeCode) {
@@ -810,40 +969,28 @@ async function hasuraCreateTag(tagData) {
   );
 }
 
-async function hasuraHandleUnpublishPage(formObject) {
-  var pageID = formObject['article-id'];
-  var localeCode = formObject['article-locale'];
-  var response = await hasuraUnpublishPage(pageID, localeCode);
-  
-  var returnValue = {
-    status: "success",
-    message: "Unpublished the page with id " + pageID + " in locale " + localeCode,
-    data: response
-  };
-  if (response.errors) {
-    returnValue.status = "error";
-    returnValue.message = "An unexpected error occurred trying to unpublish the page";
-    returnValue.data = response.errors;
-  } else {
-    // trigger republish of the site to reflect this page no longer being live
-    rebuildSite();
-  }
-  return returnValue;
-}
-
 async function hasuraHandleUnpublish(formObject) {
-  var articleID = formObject['article-id'];
-  var localeCode = formObject['article-locale'];
-  var response = await hasuraUnpublishArticle(articleID, localeCode);
+  var slug = formObject['article-slug'];
+  var documentType;
+  var documentID = DocumentApp.getActiveDocument().getId();
+  var isStaticPage = isPage(documentID);
+
+  if (isStaticPage) {
+    documentType = "page";
+  } else {
+    documentType = "article";
+  }
+  
+  var response = await apiUnpublish(documentType, documentID, slug);
   
   var returnValue = {
     status: "success",
-    message: "Unpublished the article with id " + articleID + " in locale " + localeCode,
+    message: `Successfully unpublished the ${documentType}`,
     data: response
   };
   if (response.errors) {
     returnValue.status = "error";
-    returnValue.message = "An unexpected error occurred trying to unpublish the article";
+    returnValue.message = `An unexpected error occurred trying to unpublish the ${documentType}`;
     returnValue.data = response.errors;
   } else {
     // trigger republish of the site to reflect this article no longer being live
@@ -944,8 +1091,6 @@ async function republishArticles(localeCode) {
 }
 
 async function hasuraHandlePublish(formObject) {
-  var scriptConfig = getScriptConfig();
-
   // set the email for auditing changes
   var currentUserEmail = Session.getActiveUser().getEmail();
   formObject["created_by_email"] = currentUserEmail;
@@ -975,169 +1120,66 @@ async function hasuraHandlePublish(formObject) {
   formObject['published'] = true;
 
   var data;
+  var documentType;
+  var publishUrl;
 
   var documentID = DocumentApp.getActiveDocument().getId();
   var isStaticPage = isPage(documentID);
 
-  // construct published article url
-  var publishUrl = scriptConfig['PUBLISH_URL'];
-  var fullPublishUrl;
-  var documentType;
-
   if (isStaticPage) {
     documentType = "page";
+    Logger.log("publishing a page " + JSON.stringify(formObject))
     // insert or update page
     var insertPage = await insertPageGoogleDocs(formObject);
     if (insertPage.status === "error") {
       insertPage["documentID"] = documentID;
       return insertPage;
     }
-    var data = insertPage.data;
+    data = insertPage.data;
     Logger.log("pageResult: " + JSON.stringify(data))
 
-    var pageID = data.data.insert_pages.returning[0].id;
-
-    // store slug + page ID in slug versions table
-    var result = await storePageIdAndSlug(pageID, slug);
-    Logger.log("stored page id + slug: " + JSON.stringify(result));
+    publishUrl = insertPage.publishUrl;
 
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
     // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
     data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
-    if (pageID && formObject['article-authors']) {
-      var authors;
-      // ensure this is an array; selecting one in the UI results in a string being sent
-      if (typeof(formObject['article-authors']) === 'string') {
-        authors = [formObject['article-authors']]
-      } else {
-        authors = formObject['article-authors'];
-      }
-      for (var index = 0; index < authors.length; index++) {
-        var author = authors[index];
-        var result = await hasuraCreateAuthorPage(author, pageID);
-      }
-    }
-    var path = "";
-    if (formObject['article-locale']) {
-      path += formObject['article-locale'];
-    }
-    if (slug !== 'about' && slug !== 'donate' && slug !== 'thank-you') { // these 3 pages have their own special routes
-      path += "/static/" + slug;
-    } else {
-      path += "/" + slug;
-    }
-    fullPublishUrl = publishUrl + path;
-
-    Logger.log("publishUrl: " + publishUrl + " fullPublishUrl: " + fullPublishUrl);
-
   } else {
     documentType = "article";
-    // insert or update article
-    // if (formObject["first-published-at"]) {
-    //   Logger.log("first-published-at datetime: " + formObject["first-published-at"])
-    // }
+ 
     var insertArticle = await insertArticleGoogleDocs(formObject);
-
     if(insertArticle.status === "error") {
       insertArticle["documentID"] = documentID;
       return insertArticle;
     }
+    Logger.log(JSON.stringify(insertArticle));
 
-    var data = insertArticle.data;
-    Logger.log(JSON.stringify(data));
-    Logger.log("translation created: " + JSON.stringify(data.data.insert_articles.returning[0].article_translations));
-    var articleID = data.data.insert_articles.returning[0].id;
-    var categorySlug = data.data.insert_articles.returning[0].category.slug;
-    var articleSlug = data.data.insert_articles.returning[0].slug;
-    var translationID = data.data.insert_articles.returning[0].article_translations[0].id;
+    publishUrl = insertArticle.publishUrl;
 
-    // first delete any previously set authors
-    var deleteAuthorsResult = await hasuraDeleteAuthorArticles(articleID);
-    // Logger.log("Deleted article authors: " + JSON.stringify(deleteAuthorsResult))
+    data = insertArticle.data;
     
-    // and delete any previously set tags
-    var deleteTagsResult = await hasuraDeleteTagArticles(articleID);
-    // Logger.log("Deleted article tags: " + JSON.stringify(deleteTagsResult))
-
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
     // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
     data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
-    if (articleID) {
-      // store slug + article ID in slug versions table
-      var result = await storeArticleIdAndSlug(articleID, slug, categorySlug);
-      Logger.log("stored article id + slug: " + JSON.stringify(result));
-
-      var publishedArticleData = await upsertPublishedArticle(articleID, translationID, formObject['article-locale'])
-      if (publishedArticleData) {
-        // Logger.log("Published Article Data:" + JSON.stringify(publishedArticleData));
-
-        data.data.insert_articles.returning[0].published_article_translations = publishedArticleData.data.insert_published_article_translations.returning;
-      }
-    }
-
-    if (articleID && formObject['article-tags']) {
-      var tags;
-      // ensure this is an array; selecting one in the UI results in a string being sent
-      if (typeof(formObject['article-tags']) === 'string') {
-        tags = [formObject['article-tags']]
-      } else {
-        tags = formObject['article-tags'];
-      }
-      for (var index = 0; index < tags.length; index++) {
-        var tag = tags[index];
-        var tagSlug = slugify(tag);
-        var result = await hasuraCreateTag({
-          slug: tagSlug, 
-          title: tag,
-          article_id: articleID,
-          locale_code: formObject['article-locale']
-        });
-        Logger.log("create tag result:" + JSON.stringify(result))
-      }
-    }
-
-    if (articleID && formObject['article-authors']) {
-      var authors;
-      // ensure this is an array; selecting one in the UI results in a string being sent
-      if (typeof(formObject['article-authors']) === 'string') {
-        authors = [formObject['article-authors']]
-      } else {
-        authors = formObject['article-authors'];
-      }
-      Logger.log("Found authors: " + JSON.stringify(authors));
-      for (var index = 0; index < authors.length; index++) {
-        var author = authors[index];
-        var result = await hasuraCreateAuthorArticle(author, articleID);
-        Logger.log("create author article result:" + JSON.stringify(result))
-      }
-    }
-    if (formObject['article-locale']) {
-      var path = formObject['article-locale'] + "/articles/" + categorySlug + "/" + articleSlug;
-      fullPublishUrl = publishUrl + path;
-    } else {
-      var path = "articles/" + categorySlug + "/" + articleSlug;
-      fullPublishUrl = publishUrl + path;
-    }
   }
 
   // trigger republish of the site to reflect new article
   rebuildSite();
 
   // open preview url in new window
-  var message = "Published the " + documentType + ". <a href='" + fullPublishUrl + "' target='_blank'>Click to view</a>."
+  var message = "Published the " + documentType + ". <a href='" + publishUrl + "' target='_blank'>Click to view</a>."
 
   return {
     message: message,
     data: data,
+    documentType: documentType,
+    documentID: documentID,
     status: "success"
   }
 }
 
 async function hasuraHandlePreview(formObject) {
-  var scriptConfig = getScriptConfig();
-
   // set the email for auditing changes
   var currentUserEmail = Session.getActiveUser().getEmail();
   formObject["created_by_email"] = currentUserEmail;
@@ -1168,6 +1210,7 @@ async function hasuraHandlePreview(formObject) {
 
   var data;
   var documentType;
+  var previewUrl;
 
   var documentID = DocumentApp.getActiveDocument().getId();
   var isStaticPage = isPage(documentID);
@@ -1184,36 +1227,15 @@ async function hasuraHandlePreview(formObject) {
     var data = insertPage.data;
     Logger.log("pageResult: " + JSON.stringify(data))
 
-    var pageID = data.data.insert_pages.returning[0].id;
+    previewUrl = insertPage.previewUrl;
 
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
-    Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
+    // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
     data.organization_locales = getOrgLocalesResult.data.organization_locales;
-
-    // store slug + page ID in slug versions table
-    var result = await storePageIdAndSlug(pageID, slug);
-    Logger.log("stored page id + slug: " + JSON.stringify(result));
-
-    if (pageID && formObject['article-authors']) {
-      var authors;
-      // ensure this is an array; selecting one in the UI results in a string being sent
-      if (typeof(formObject['article-authors']) === 'string') {
-        authors = [formObject['article-authors']]
-      } else {
-        authors = formObject['article-authors'];
-      }
-      for (var index = 0; index < authors.length; index++) {
-        var author = authors[index];
-        var result = await hasuraCreateAuthorPage(author, pageID);
-      }
-    }
 
   } else {
     documentType = "article";
-    // insert or update article
-    // Logger.log("sources:" + JSON.stringify(formObject['sources']));
-
-    // quit here if a duplicate article found with the given slug & return error to browser
+    
     var insertArticle = await insertArticleGoogleDocs(formObject);
     Logger.log("insertArticle response: " + JSON.stringify(insertArticle));
     if (insertArticle.status === "error") {
@@ -1221,74 +1243,22 @@ async function hasuraHandlePreview(formObject) {
       return insertArticle;
     }
 
+    previewUrl = insertArticle.previewUrl;
+
     var data = insertArticle.data;
-    var articleID = data.data.insert_articles.returning[0].id;
-    var categorySlug = data.data.insert_articles.returning[0].category.slug;
-
-    // store slug + article ID in slug versions table
-    var result = await storeArticleIdAndSlug(articleID, slug, categorySlug);
-    Logger.log("stored article id + slug + categorySlug: " + JSON.stringify(result));
-
-    // first delete any previously set authors
-    var deleteAuthorsResult = await hasuraDeleteAuthorArticles(articleID);
-    // Logger.log("Deleted article authors: " + JSON.stringify(deleteAuthorsResult))
-
-    // and delete any previously set tags
-    var deleteTagsResult = await hasuraDeleteTagArticles(articleID);
-    // Logger.log("Deleted article tags: " + JSON.stringify(deleteTagsResult))
-    
+   
     var getOrgLocalesResult = await hasuraGetOrganizationLocales();
     // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
     data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
-    if (articleID && formObject['article-tags']) {
-      var tags;
-      // ensure this is an array; selecting one in the UI results in a string being sent
-      if (typeof(formObject['article-tags']) === 'string') {
-        tags = [formObject['article-tags']]
-      } else {
-        tags = formObject['article-tags'];
-      }
-
-      for (var index = 0; index < tags.length; index++) {
-        var tag = tags[index];
-        var slug = slugify(tag);
-        var result = await hasuraCreateTag({
-          slug: slug, 
-          title: tag,
-          article_id: articleID,
-          locale_code: formObject['article-locale']
-        });
-      }
-    }
-
-    if (articleID && formObject['article-authors']) {
-      var authors;
-      // ensure this is an array; selecting one in the UI results in a string being sent
-      if (typeof(formObject['article-authors']) === 'string') {
-        authors = [formObject['article-authors']]
-      } else {
-        authors = formObject['article-authors'];
-      }
-      Logger.log("Found authors: " + JSON.stringify(authors));
-      for (var index = 0; index < authors.length; index++) {
-        var author = authors[index];
-        var result = await hasuraCreateAuthorArticle(author, articleID);
-      }
-    }
   }
 
-  //construct preview url
-  var fullPreviewUrl = scriptConfig['PREVIEW_URL'];
-  if (documentType === 'page') {
-    fullPreviewUrl += "-static";
-  } 
-  fullPreviewUrl += "?secret=" + scriptConfig['PREVIEW_SECRET'] + "&slug=" + formObject['article-slug'] + "&locale=" + formObject['article-locale'];
-  var message = "<a href='" + fullPreviewUrl + "' target='_blank'>Preview article in new window</a>";
+  var message = "<a href='" + previewUrl + "' target='_blank'>Preview " + documentType + " in new window</a>";
 
   return {
     message: message,
     data: data,
+    documentType: documentType,
     documentID: documentID,
     status: "success"
   }
@@ -1339,7 +1309,7 @@ async function isArticleFeatured(articleId) {
   // Logger.log("data: " + JSON.stringify(data))
   var isFeatured = false;
   if (data && data.homepage_layout_datas) {
-    data.homepage_layout_datas.fo
+    
     data.homepage_layout_datas.forEach(hpData => {
       var values = Object.values(hpData);
       Logger.log(values);
@@ -1444,32 +1414,36 @@ async function getArticleForGoogleDoc(doc_id) {
   // otherwise, it's in the wrong spot and we should throw an error
 function isValid(documentID) {
   var driveFile = DriveApp.getFileById(documentID)
-  var fileParents = driveFile.getParents();
-
-  var docIsValid = false;
-  while ( fileParents.hasNext() ) {
-    var folder = fileParents.next();
-    if (folder.getName() === "pages") {
-      docIsValid = true;
-    } else if (folder.getName() === "articles") {
-      docIsValid = true;
-    }
+  var fileParents = findAllParents(driveFile);
+  
+  var articlesFolderData = fileParents.find(function(item) {
+    return item.name.toLowerCase() === 'articles';
+  });
+  var pagesFolderData = fileParents.find(function(item) { 
+    return item.name.toLowerCase() === 'pages';
+  });
+  
+  if (articlesFolderData || pagesFolderData) {
+    return true;
+  } else {
+    return false;
   }
-  return docIsValid;
 }
 
 function isPage(documentID) {
   // determine if this is a static page or an article - it will usually be an article
   var driveFile = DriveApp.getFileById(documentID)
-  var fileParents = driveFile.getParents();
+  var fileParents = findAllParents(driveFile)
   var isStaticPage = false;
 
-  while ( fileParents.hasNext() ) {
-    var folder = fileParents.next();
-    if (folder.getName() === "pages") {
-      isStaticPage = true;
-    }
+  var pagesFolderData = fileParents.find(function(item) { 
+    return item.name.toLowerCase() === 'pages';
+  });
+  
+  if (pagesFolderData) {
+    isStaticPage = true;
   }
+  
   return isStaticPage;
 }
 
@@ -1545,7 +1519,14 @@ async function hasuraGetArticle() {
   var documentID = document.getId();
   var documentTitle = document.getName();
   Logger.log("documentID: " + documentID);
+  returnValue.documentId = documentID;
 
+  let documentType = 'article';
+  let isStaticPage = isPage(documentID);
+  if (isStaticPage) {
+    documentType = 'page';
+  }
+ 
   var valid = isValid(documentID);
   if (!valid) {
     returnValue.status = "error";
@@ -1553,40 +1534,46 @@ async function hasuraGetArticle() {
     return returnValue;
   }
 
-  var isStaticPage = isPage(documentID);
-  Logger.log("isStaticPage: " + isStaticPage);
-
-  var data;
-  if (isStaticPage) {
-
-    data = await getPageForGoogleDoc(documentID);
-    if (data && data.pages && data.pages[0]) {
-      storeArticleSlug(data.pages[0].slug);
-      returnValue.status = "success";
-      returnValue.message = "Retrieved page with ID: " + data.pages[0].id;
-    } else {
-      Logger.log("getPage notFound data: " + JSON.stringify(data));
-      returnValue.status = "notFound";
-      returnValue.message = "Page not found";
-    }
+  let data = await lookupDataForDocument(documentID, documentType);
+  if (!data.documentType) {
+    data.documentType = documentType;
+  }
+  
+  returnValue.documentType = data.documentType;
+  
+  if (data && data.documentType === 'page' && data.page && data.page.slug) {
+    storeArticleSlug(data.page.slug);
     returnValue.data = data;
+    returnValue.status = "success";
+    returnValue.message = "Retrieved page with ID: " + data.page.id;
+
+  } else if (data && data.documentType === 'page' && !data.page) {
+    Logger.log("page not found: " + JSON.stringify(data));
+    returnValue.data = data;
+    returnValue.status = "notFound";
+    returnValue.message = "Page not found";
+
+  } else if (data && data.documentType === 'article' && data.article && data.article.slug) {
+    storeArticleSlug(data.article.slug);
+    data.headline = documentTitle;
+    data.searchTitle = documentTitle;
+    returnValue.data = data;
+    returnValue.status = "success";
+    returnValue.message = "Retrieved article with ID: " + data.article.id;
+
+  } else if (data && data.documentType === 'article' && !data.article) {
+    Logger.log("article not found: " + JSON.stringify(data));
+    data.headline = documentTitle;
+    data.searchTitle = documentTitle;
+    returnValue.data = data;
+    returnValue.status = "notFound";
+    returnValue.message = "Article not found";
 
   } else {
-    data = await getArticleForGoogleDoc(documentID);
-    // Logger.log("hasuraGetArticle data: " + JSON.stringify(data));
-    if (data && data.articles && data.articles[0]) {
-      storeArticleSlug(data.articles[0].slug);
-      returnValue.status = "success";
-      returnValue.message = "Retrieved article with ID: " + data.articles[0].id;
-    } else {
-      Logger.log("getArticle notFound data: " + JSON.stringify(data));
-      returnValue.status = "notFound";
-      data.headline = documentTitle;
-      data.searchTitle = documentTitle;
-      returnValue.message = "Article not found";
-    }
-    returnValue.documentId = documentID;
+    Logger.log("Something went wrong looking up the document: " + JSON.stringify(data));
     returnValue.data = data;
+    returnValue.status = "error";
+    returnValue.message = "Something went wrong looking up the document" + JSON.stringify(data);
   }
 
   Logger.log("returnValue: " + JSON.stringify(returnValue));
@@ -1603,383 +1590,226 @@ async function hasuraGetArticle() {
 . * Gets the current document's contents
 . */
 async function getCurrentDocContents() {
-  var elements = await getElements();
-
-  // Logger.log("getCurrentDocContents number of elements: " + elements.length)
-  var formattedElements = formatElements(elements);
-  Logger.log(JSON.stringify(formattedElements))
+  
 
   return formattedElements;
 }
 
-async function processDocumentContents(activeDoc, document, slug) {
-  var elements = document.body.content;
-  var inlineObjects = document.inlineObjects;
+async function apiSaveArticle(articleData, slug, contents, listInfo, imageList, inlineObjects) {
+  var scriptConfig = getScriptConfig();
+  var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
+  var API_URL = scriptConfig['DOCUMENT_API_URL'];
+  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
 
-  var orderedElements = [];
+  var activeDoc = DocumentApp.getActiveDocument();
+  var documentID = activeDoc.getId();
 
-  var listInfo = {};
-  var listItems = activeDoc.getListItems();
-  listItems.forEach(li => {
-    var id = li.getListId();
-    var glyphType = li.getGlyphType();
-    listInfo[id] = glyphType;
-  })
+  let apiAction = 'preview';
+  if (articleData['published']) {
+    apiAction = 'publish';
+  }
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/${apiAction}?token=${API_TOKEN}&documentType=article`
+  Logger.log("REQUEST URL: " + requestURL);
 
-  var foundMainImage = false;
-  var storedMainImage = false;
-  var mainImageElement = null;
-  var childImageElement = null;
+  var options = {
+    method: 'POST',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      "TNC-Organization": ORG_SLUG
+    },
+    payload: JSON.stringify({
+      articleData: articleData,
+      googleAuthToken: ScriptApp.getOAuthToken(),
+      contents: contents,
+      slug: slug,
+      listInfo: listInfo,
+      imageList: imageList,
+      inlineObjects: inlineObjects
+    }),
+  };
 
-  // used to track which images have already been uploaded
-  var imageList = getImageList(slug);
-
-  // console.log("imageList: " + JSON.stringify(imageList))
-  // keeping a count of all elements processed so we can store the full image list at the end
-  // and properly return the full list of ordered elements
-  var elementsProcessed = 0;
-  var inSpecialFormatBlock = false;
-  // storeElement is set to false for FORMAT START and FORMAT END only
-  var storeElement = true;
-
-  var elementCount = elements.length;
-
-  elements.forEach(element => {
-    Logger.log("element: " + JSON.stringify(element));
-    if (element.paragraph && element.paragraph.elements) {
-      // Logger.log("paragraph element: " + JSON.stringify(element))  
-
-      var eleData = {
-        children: [],
-        link: null,
-        type: null,
-        index: element.endIndex
-      };
-
-      // handle list items
-      if (element.paragraph.bullet) {
-        storeElement = true;
-
-        eleData.items = [];
-        eleData.type = "list";
-        eleData.index = element.endIndex;
-        var nestingLevel = element.paragraph.bullet.nestingLevel;
-        if (nestingLevel === null || typeof nestingLevel === "undefined") {
-          nestingLevel = 0;
-        }
-        // Find existing element with the same list ID
-        var listID = element.paragraph.bullet.listId;
-
-        var findListElement = (element) => element.type === "list" && element.listId === listID
-        var listElementIndex = orderedElements.findIndex(findListElement);
-        // don't create a new element for an existing list
-        // just append this element's text to the exist list's items
-        if (listElementIndex > 0) {
-          var listElement = orderedElements[listElementIndex];
-          var listElementChildren = [];
-          
-          element.paragraph.elements.forEach(subElement => {
-            // append list items to the main list element's children
-            var listItemChild = {
-              content: cleanContent(subElement.textRun.content),
-              style: cleanStyle(subElement.textRun.textStyle)
-            };
-            if (subElement.textRun.textStyle && subElement.textRun.textStyle.link) {
-              listItemChild.link = subElement.textRun.textStyle.link.url;
-            }
-            // Logger.log("liChild: " + JSON.stringify(listItemChild));
-            listElementChildren.push(listItemChild)
-          });
-          listElement.items.push({
-            children: listElementChildren,
-            index: eleData.index,
-            nestingLevel: nestingLevel
-          })
-          orderedElements[listElementIndex] = listElement;
-        } else {
-          // make a new list element
-          if (listInfo[listID]) {
-            eleData.listType = listInfo[listID];
-          } else {
-            eleData.listType = "BULLET";
-          }
-          eleData.type = "list";
-          eleData.listId = listID;
-          var listElementChildren = [];
-          element.paragraph.elements.forEach(subElement => {
-            // append list items to the main list element's children
-            var listItemChild = {
-              content: cleanContent(subElement.textRun.content),
-              style: cleanStyle(subElement.textRun.textStyle)
-            };
-            if (subElement.textRun.textStyle && subElement.textRun.textStyle.link) {
-              listItemChild.link = subElement.textRun.textStyle.link.url;
-            }
-            // Logger.log("liChild: " + JSON.stringify(listItemChild));
-            listElementChildren.push(listItemChild)
-          });
-          eleData.items.push({
-            nestingLevel: nestingLevel,
-            children: listElementChildren,
-            index: eleData.index
-          })
-          orderedElements.push(eleData);
-        }
-      }
-
-      // filter out blank subelements
-      var subElements = element.paragraph.elements.filter(subElement => subElement.textRun && subElement.textRun.content.trim().length > 0)
-      // try to find an embeddable link: url on its own line matching one of a set of hosts (twitter, youtube, etc)
-      if (subElements.length === 1) {
-        storeElement = true;
-        var foundLink = subElements.find(subElement => subElement.textRun.textStyle.hasOwnProperty('link'))
-        var linkUrl = null;
-        // var embeddableUrlRegex = /twitter\.com|youtube\.com|youtu\.be|google\.com|imgur.com|twitch\.tv|vimeo\.com|mixcloud\.com|instagram\.com|facebook\.com|dailymotion\.com|spotify.com|apple.com/i;
-        var embeddableUrlRegex = /twitter\.com|youtube\.com|youtu\.be|instagram\.com|facebook\.com|spotify\.com|vimeo\.com|apple\.com|tiktok\.com/i;
-        if (foundLink) {
-          linkUrl = foundLink.textRun.textStyle.link.url;
-          // Logger.log("found link: " + linkUrl + " type: " + eleData.type);
-
-        // try to find a URL by itself that google hasn't auto-linked
-        } else if(embeddableUrlRegex.test(subElements[0].textRun.content.trim())) {
-          linkUrl = subElements[0].textRun.content.trim();
-        }
-
-        if ( linkUrl !== null && eleData.type !== "list") {
-          var embeddableUrl = embeddableUrlRegex.test(linkUrl);
-          if (embeddableUrl) {
-            eleData.type = "embed";
-            eleData.link = linkUrl;
-            orderedElements.push(eleData);
-          }
-        }
-      }
-      
-      element.paragraph.elements.forEach(subElement => {
-        // skip lists and embed links - we already processed these above
-        if (eleData.type !== "list" && eleData.type !== "embed") {
-          var namedStyle;
-
-          // found a paragraph of text
-          if (subElement.textRun && subElement.textRun.content) {
-            // handle specially formatted blocks of text
-            // FORMAT START flips the "are we in a specially formatted block?" switch on
-            // FORMAT END turns it off
-            // all lines in between are given a style of FORMATTED_TEXT without any whitespace stripped
-            if (subElement.textRun.content.trim() === "FORMAT START") {
-              // Logger.log("START format block")
-              inSpecialFormatBlock = true;
-              storeElement = false;
-              
-            } else if (subElement.textRun.content.trim() === "FORMAT END") {
-              // Logger.log("END format block")
-              inSpecialFormatBlock = false;
-              storeElement = false;
-              
-            } else {
-              storeElement = true;
-            }
-            eleData.type = "text";
-
-            if (inSpecialFormatBlock) {
-              // Logger.log("IN SPECIAL BLOCK")
-              namedStyle = "FORMATTED_TEXT";
-            } else if (element.paragraph.paragraphStyle.namedStyleType) {
-              namedStyle = element.paragraph.paragraphStyle.namedStyleType;
-            }
-
-            eleData.style = namedStyle;
-
-            // treat any indented text as a blockquote
-            if ((element.paragraph.paragraphStyle.indentStart && element.paragraph.paragraphStyle.indentStart.magnitude) || 
-                (element.paragraph.paragraphStyle.indentFirstLine && element.paragraph.paragraphStyle.indentFirstLine.magnitude)) {
-              // Logger.log("indent para:" + JSON.stringify(element.paragraph));
-              eleData.type = "blockquote";
-            }
-
-            var childElement = {
-              index: subElement.endIndex,
-              style: cleanStyle(subElement.textRun.textStyle),
-            }
-            
-            if (subElement.textRun.textStyle && subElement.textRun.textStyle.link) {
-              childElement.link = subElement.textRun.textStyle.link.url;
-            }
-            if (inSpecialFormatBlock) {
-              childElement.content = subElement.textRun.content.trimEnd();
-            } else {
-              childElement.content = cleanContent(subElement.textRun.content); 
-            }
-
-            var headingRegEx = new RegExp(/^HEADING/, 'i');
-            // if this is a heading with more than one child element 
-            // check if we've already created a heading top-level element
-            // instead of appending another child element onto it, we want to:
-            //  * create a new top-level element
-            //  * bump the total elements & elements processed by one
-            if (headingRegEx.test(eleData.style) && element.paragraph.elements.length > 1 && eleData.children.length === 1) {
-              // Logger.log("Heading element: " + JSON.stringify(eleData));
-              // Logger.log("Heading subelement: " + JSON.stringify(subElement));
-              var newEleData = {
-                type: "text",
-                style: namedStyle,
-                index: eleData.index,
-                children: [childElement]
-              }
-              // Logger.log("new eleData: " + JSON.stringify(newEleData));
-              orderedElements.push(newEleData);
-              elementCount++;
-              elementsProcessed++;
-              // storeElement = false;
-            } else {
-              eleData.children.push(childElement);
-              storeElement = true;
-              // Logger.log("regular eleData:" + JSON.stringify(eleData));
-            }
-
-          // blank content but contains a "horizontalRule" element?
-          } else if (subElement.horizontalRule) {
-            storeElement = true;
-            eleData.type = "hr";
-          }
-
-          // found an image
-          if ( subElement.inlineObjectElement && subElement.inlineObjectElement.inlineObjectId) {
-            Logger.log("FOUND IMAGE: " + JSON.stringify(subElement))
-            storeElement = true;
-            var imageID = subElement.inlineObjectElement.inlineObjectId;
-            eleData.type = "image";
-            // console.log("Found an image:" + JSON.stringify(subElement));
-            // treat the first image as the main article image used in featured links
-            if (!foundMainImage) {
-              eleData.type = "mainImage";
-              foundMainImage = true;
-              Logger.log("treating " + imageID + " as main image: " + JSON.stringify(subElement))
-            }
-
-            var fullImageData = inlineObjects[imageID];
-            if (fullImageData) {
-              var s3Url = imageList[imageID];
-              // Logger.log(imageID + " ==> " + JSON.stringify(imageList))
-              Logger.log("Found full image data: " + JSON.stringify(fullImageData))
-              // Logger.log(`s3Url: ${typeof(s3Url)} -> ${JSON.stringify(s3Url)} (${slug})`)
-              var articleSlugMatches = false;
-              var assetDomainMatches = false;
-              if (s3Url && typeof(s3Url) === 'string') {
-                if (s3Url.match(slug)) {
-                  articleSlugMatches = true;
-                } 
-                // image URL should be stored as assets.tinynewsco.org not the s3 bucket domain
-                if (s3Url.match(/assets\.tinynewsco\.org/)) {
-                  assetDomainMatches = true;
-                }
-              }
-
-              
-              if (s3Url === null || s3Url === undefined || s3Url === {} || !articleSlugMatches || !assetDomainMatches) {
-                Logger.log(imageID + " " + slug + " has not been uploaded yet, uploading now...")
-              
-                s3Url = uploadImageToS3(imageID, fullImageData.inlineObjectProperties.embeddedObject.imageProperties.contentUri, slug);
-                imageList[imageID] = s3Url;
-              } else {
-                Logger.log(slug + " " + imageID + " has already been uploaded: " + articleSlugMatches + " " + s3Url);
-                imageList[imageID] = s3Url;
-              }
-
-              let specifiedHeight = fullImageData.inlineObjectProperties.embeddedObject.size.height.magnitude;
-              let calculatedHeight = specifiedHeight * 4/3; // PT to PX conversion
-              let specifiedWidth = fullImageData.inlineObjectProperties.embeddedObject.size.width.magnitude;
-              let calculatedWidth = specifiedWidth * 4/3; // PT to PX conversion
-              var childImage = {
-                index: subElement.endIndex,
-                height: calculatedHeight,
-                width: calculatedWidth,
-                imageId: subElement.inlineObjectElement.inlineObjectId,
-                imageUrl: s3Url,
-                imageAlt: cleanContent(fullImageData.inlineObjectProperties.embeddedObject.title)
-              };
-              
-              if (eleData.type === "mainImage") {
-                mainImageElement = { 
-                  children:[childImage],
-                  link: null,
-                  type: "mainImage",
-                  index: eleData.index
-                }
-              } else {
-                childImageElement = {
-                  type: "image",
-                  children: [childImage],
-                  link: null,
-                  index: childImage.index
-                }  
-              }
-
-              // if(childImageElement) {
-              //   Logger.log("adding childImage to eleData children(" + eleData.children.length + "): " + JSON.stringify(eleData));
-              //   eleData.children.push(childImage);
+  const result = await UrlFetchApp.fetch(
+    requestURL,
+    options
+  );
   
-              // }
-
-              if (mainImageElement && !storedMainImage) {
-                orderedElements.push(mainImageElement);
-                // bump the total count and the total processed
-                elementCount++;
-                elementsProcessed++;
-                storedMainImage = true;
-                console.log(elementCount + " STORED MAINIMAGE: " + JSON.stringify(mainImageElement));
-              }
-
-              if (childImageElement) {
-                orderedElements.push(childImageElement);
-                elementCount++;
-                elementsProcessed++;
-                console.log(elementCount + " STORED CHILD IMAGE: " + JSON.stringify(childImageElement));
-                childImageElement = null;
-              } 
-              
-              // console.log("mainImageElement: " + JSON.stringify(mainImageElement))
-            } 
-          }
-        }
-      })
-      // skip any blank elements, embeds and lists because they've already been handled above
-      if (storeElement && eleData.type !== null && eleData.type !== "list" && eleData.type !== "embed" && eleData.type !== "image") {
-        Logger.log(elementCount + " STORED TEXT: " + JSON.stringify(eleData));
-        orderedElements.push(eleData);
-      
-      } else if (!storeElement) {
-        Logger.log(elementCount + " NOT storing" + JSON.stringify(eleData));
-      }
+  var responseText = result.getContentText();
+  var responseData;
+  try {
+    responseData = JSON.parse(responseText);
+  } catch(e) {
+    console.error(e)
+    responseData = {
+      status: 'error',
+      data: responseText
     }
-    elementsProcessed++;
-  });
-
-  if (elementsProcessed === elementCount) {
-    Logger.log("done processing " + elementsProcessed + " elements: " + JSON.stringify(orderedElements))
-    storeImageList(slug, imageList);
-    // Logger.log("orderedElements count: " + orderedElements.length)
-    return orderedElements;
-
-  } else {
-    Logger.log("count mismatch: processed " + elementsProcessed + " elements of " + elementCount + " total")
-    return [];
   }
 
-
+  return responseData;
 }
+async function apiUnpublish(documentType, documentID, slug) {
+  var scriptConfig = getScriptConfig();
+  var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
+  var API_URL = scriptConfig['DOCUMENT_API_URL'];
+  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+
+  let apiAction = 'unpublish'; // always, probably doesn't have to be a var, just keeping consistent with apiSaveArticle
+  let data = {'published': false}; // this value should ALWAYS be false in this function so we hardcode here 
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/${apiAction}?token=${API_TOKEN}&documentType=${documentType}`
+  Logger.log("REQUEST URL: " + requestURL);
+
+  let payloadData;
+  if (documentType === 'page') {
+    payloadData = JSON.stringify({
+      pageData: data,
+      slug: slug,
+    })
+  } else {
+    payloadData = JSON.stringify({
+      articleData: data,
+      slug: slug,
+    })
+  }
+  Logger.log(payloadData)
+  var options = {
+    method: 'POST',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      "TNC-Organization": ORG_SLUG
+    },
+    payload: payloadData,
+  };
+
+  const result = await UrlFetchApp.fetch(
+    requestURL,
+    options
+  );
+  
+  var responseText = result.getContentText();
+  var responseData;
+  try {
+    responseData = JSON.parse(responseText);
+  } catch(e) {
+    console.error(e)
+    responseData = {
+      status: 'error',
+      data: responseText
+    }
+  }
+
+  return responseData;
+}
+
+
+async function previewPage(pageData, slug, contents, listInfo, imageList, inlineObjects) {
+  var scriptConfig = getScriptConfig();
+  var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
+  var API_URL = scriptConfig['DOCUMENT_API_URL'];
+  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+
+  var activeDoc = DocumentApp.getActiveDocument();
+  var documentID = activeDoc.getId();
+
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/preview?token=${API_TOKEN}&documentType=page`
+  Logger.log("REQUEST URL: " + requestURL);
+
+  var options = {
+    method: 'POST',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      "TNC-Organization": ORG_SLUG
+    },
+    payload: JSON.stringify({
+      pageData: pageData,
+      googleAuthToken: ScriptApp.getOAuthToken(),
+      contents: contents,
+      slug: slug,
+      listInfo: listInfo,
+      imageList: imageList,
+      inlineObjects: inlineObjects
+    }),
+  };
+
+  const result = await UrlFetchApp.fetch(
+    requestURL,
+    options
+  );
+  
+  var responseText = result.getContentText();
+  var responseData;
+  try {
+    responseData = JSON.parse(responseText);
+  } catch(e) {
+    console.error(e)
+    responseData = {
+      status: 'error',
+      data: responseText
+    }
+  }
+
+  return responseData;
+}
+
+async function publishPage(pageData, slug, contents, listInfo, imageList, inlineObjects) {
+  var scriptConfig = getScriptConfig();
+  var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
+  var API_URL = scriptConfig['DOCUMENT_API_URL'];
+  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+
+  var activeDoc = DocumentApp.getActiveDocument();
+  var documentID = activeDoc.getId();
+
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/publish?token=${API_TOKEN}&documentType=page`
+  Logger.log("REQUEST URL: " + requestURL);
+
+  var options = {
+    method: 'POST',
+    muteHttpExceptions: true,
+    contentType: 'application/json',
+    headers: {
+      'Content-Type': 'application/json',
+      "TNC-Organization": ORG_SLUG
+    },
+    payload: JSON.stringify({
+      pageData: pageData,
+      googleAuthToken: ScriptApp.getOAuthToken(),
+      contents: contents,
+      slug: slug,
+      listInfo: listInfo,
+      imageList: imageList,
+      inlineObjects: inlineObjects
+    }),
+  };
+  Logger.log("options: " + JSON.stringify(options));
+  const result = await UrlFetchApp.fetch(
+    requestURL,
+    options
+  );
+  
+  var responseText = result.getContentText();
+  var responseData;
+  try {
+    responseData = JSON.parse(responseText);
+  } catch(e) {
+    console.error(e)
+    responseData = {
+      status: 'error',
+      data: responseText
+    }
+  }
+
+  return responseData;
+}
+
 /*
 .* Retrieves "elements" from the google doc - which are headings, images, paragraphs, lists
 .* Preserves order, indicates that order with `index` attribute
 .*/
 async function getElements() {
-  var activeDoc = DocumentApp.getActiveDocument();
-  var documentID = activeDoc.getId();
-  var document = Docs.Documents.get(documentID);
-
-  var slug = getArticleSlug();
-  
-  var orderedElements = await processDocumentContents(activeDoc, document, slug);
+ 
   return orderedElements;
 }
 
