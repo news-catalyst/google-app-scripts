@@ -176,6 +176,28 @@ function uploadImageToS3(imageID, contentUri, slug) {
 }
 
 /*
+.* Finds all parent folders for a given Google Drive file object
+ * .getParents() only returns immediate parents, so we must recurse.
+.*/
+
+function findAllParents(file) {
+  var allParents = [];
+  function getObjParents(obj, allParents) {
+    var parents = obj.getParents();
+    while (parents.hasNext()) {
+      var parent = parents.next();
+      allParents.push({
+        name: parent.getName(), 
+        id: parent.getId()
+      });
+      getObjParents(parent, allParents);
+    }
+  }
+  getObjParents(file, allParents);
+  return allParents;
+}
+
+/*
 .* Gets the script configuration, data available to all users and docs for this add-on
 .*/
 function getScriptConfig() {
@@ -186,17 +208,25 @@ function getScriptConfig() {
   // named for the organisation; for example: 'oaklyn' > 'articles' > 'Article Document'
   if (orgName === null) {
     var documentID = DocumentApp.getActiveDocument().getId();
-    var driveFile = DriveApp.getFileById(documentID)
-    var fileParents = driveFile.getParents();
-    while ( fileParents.hasNext() ) {
-      var folder = fileParents.next();
-      if (folder.getName() === 'articles' || folder.getName() === 'pages') {
-        var folderParents = folder.getParents();
-        while ( folderParents.hasNext() ) {
-          var grandFolder = folderParents.next();
-          orgName = grandFolder.getName();
-          storeOrganizationName(orgName);
-        }
+    var driveFile = DriveApp.getFileById(documentID);
+    
+    var fileParents = findAllParents(driveFile);
+    var articlesFolderData = fileParents.find(function(item) {
+      return item.name.toLowerCase() === 'articles';
+    });
+    var pagesFolderData = fileParents.find(function(item) { 
+      return item.name.toLowerCase() === 'pages';
+    });
+    
+    var containerFolderData = articlesFolderData || pagesFolderData;
+    
+    if (containerFolderData) {
+      var containerFolder = DriveApp.getFolderById(containerFolderData.id);
+      var folderParents = containerFolder.getParents();
+      while (folderParents.hasNext()) {
+        var grandFolder = folderParents.next();
+        orgName = grandFolder.getName();
+        storeOrganizationName(orgName);
       }
     }
   }
@@ -1444,32 +1474,36 @@ async function getArticleForGoogleDoc(doc_id) {
   // otherwise, it's in the wrong spot and we should throw an error
 function isValid(documentID) {
   var driveFile = DriveApp.getFileById(documentID)
-  var fileParents = driveFile.getParents();
-
-  var docIsValid = false;
-  while ( fileParents.hasNext() ) {
-    var folder = fileParents.next();
-    if (folder.getName() === "pages") {
-      docIsValid = true;
-    } else if (folder.getName() === "articles") {
-      docIsValid = true;
-    }
+  var fileParents = findAllParents(driveFile);
+  
+  var articlesFolderData = fileParents.find(function(item) {
+    return item.name.toLowerCase() === 'articles';
+  });
+  var pagesFolderData = fileParents.find(function(item) { 
+    return item.name.toLowerCase() === 'pages';
+  });
+  
+  if (articlesFolderData || pagesFolderData) {
+    return true;
+  } else {
+    return false;
   }
-  return docIsValid;
 }
 
 function isPage(documentID) {
   // determine if this is a static page or an article - it will usually be an article
   var driveFile = DriveApp.getFileById(documentID)
-  var fileParents = driveFile.getParents();
+  var fileParents = findAllParents(driveFile)
   var isStaticPage = false;
 
-  while ( fileParents.hasNext() ) {
-    var folder = fileParents.next();
-    if (folder.getName() === "pages") {
-      isStaticPage = true;
-    }
+  var pagesFolderData = fileParents.find(function(item) { 
+    return item.name.toLowerCase() === 'pages';
+  });
+  
+  if (pagesFolderData) {
+    isStaticPage = true;
   }
+  
   return isStaticPage;
 }
 
