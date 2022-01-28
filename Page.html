@@ -1233,9 +1233,9 @@ function displayTranslationTools(id, documentId, documentType, headline, googleD
       formIsValid = false;
     }
     if (!searchTitle.value) {
+      searchTitle.value = headline.value;
       // console.log("search title is missing:", searchTitle.value, typeof(searchTitle.value));
-      errorMessage += "<br>Search title is required.";
-      formIsValid = false;
+      formIsValid = true;
     }
     if (!searchDescription.value) {
       // console.log("searchDescription is missing:", searchDescription.value, typeof(searchDescription.value));
@@ -1465,7 +1465,7 @@ function displayTranslationTools(id, documentId, documentType, headline, googleD
 
           <div class="block form-group">
             <label for="article-search-title">
-              <b>Search title</b> <i>(required)</i>
+              <b>Search title</b>
             </label>
             <input id="article-search-title" name="article-search-title" type="text" />
           </div>
