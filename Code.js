@@ -1002,9 +1002,9 @@ async function hasuraHandlePublish(formObject) {
 
     publishUrl = insertPage.publishUrl;
 
-    var getOrgLocalesResult = await hasuraGetOrganizationLocales();
-    // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    data.organization_locales = getOrgLocalesResult.data.organization_locales;
+    // var getOrgLocalesResult = await hasuraGetOrganizationLocales();
+    // // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
+    // data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
   } else {
     documentType = "article";
@@ -1020,9 +1020,9 @@ async function hasuraHandlePublish(formObject) {
 
     data = insertArticle.data;
     
-    var getOrgLocalesResult = await hasuraGetOrganizationLocales();
-    // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    data.organization_locales = getOrgLocalesResult.data.organization_locales;
+    // var getOrgLocalesResult = await hasuraGetOrganizationLocales();
+    // // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
+    // data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
   }
 
@@ -1091,9 +1091,9 @@ async function hasuraHandlePreview(formObject) {
 
     previewUrl = insertPage.previewUrl;
 
-    var getOrgLocalesResult = await hasuraGetOrganizationLocales();
-    // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    data.organization_locales = getOrgLocalesResult.data.organization_locales;
+    // var getOrgLocalesResult = await hasuraGetOrganizationLocales();
+    // // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
+    // data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
   } else {
     documentType = "article";
@@ -1109,9 +1109,9 @@ async function hasuraHandlePreview(formObject) {
 
     var data = insertArticle.data;
    
-    var getOrgLocalesResult = await hasuraGetOrganizationLocales();
+    // var getOrgLocalesResult = await hasuraGetOrganizationLocales();
     // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    data.organization_locales = getOrgLocalesResult.data.organization_locales;
+    // data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
   }
 
