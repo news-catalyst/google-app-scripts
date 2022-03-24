@@ -140,8 +140,6 @@
             let translatedTag = tag.tag_translations.find( ({locale_code}) => locale_code === 'en-US');
             if (translatedTag) {
               option.text = translatedTag.title;
-            } else {
-              option.text = tag.tag_translations[0].title;
             }
             option.value = tag.slug;
 
