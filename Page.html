@@ -121,7 +121,7 @@
         })
       }
 
-      function displayTags(localeCode, tags, articleTags) {
+      function displayTags(tags, articleTags) {
         // console.log("displayTags:", tags, articleTags)
         var articleTagsSelect = document.getElementById('article-tags');
 
@@ -137,13 +137,10 @@
           var selectorString = "#article-tags option[value='" + tag.slug + "']";
           if ( $(selectorString).length <= 0 ) {
             var option = document.createElement("option");
-            // console.log(localeCode, "tag.tag_translations:", tag.tag_translations.length, tag.tag_translations);
-            let translatedTag = tag.tag_translations.find( ({locale_code}) => locale_code === localeCode);
+            let translatedTag = tag.tag_translations.find( ({locale_code}) => locale_code === 'en-US');
             if (translatedTag) {
-              // console.log(localeCode, "found translatedTag:", translatedTag);
               option.text = translatedTag.title;
             } else {
-              // console.log(localeCode, "using first translation of tag:", tag.tag_translations[0]);
               option.text = tag.tag_translations[0].title;
             }
             option.value = tag.slug;
@@ -159,49 +156,7 @@
         })
       }
 
-      function displayLocales(locales, currentLocale) {
-        var articleLocaleSelect = document.getElementById('article-locale');
 
-        var selectOption = document.createElement("option");
-        selectOption.text = "Please select:";
-        selectOption.value = "";
-        articleLocaleSelect.add(selectOption);
-
-        if (locales) {
-          locales.forEach(localeData => {
-            // first check if this option already exists; don't add dupes!
-            var selectorString = "#article-locale option[value='" + localeData.locale.code + "']";
-            if ( $(selectorString).length <= 0 ) {
-              var option = document.createElement("option");
-              if (localeData.locale.code) {
-                option.text = localeData.locale.code;
-              } else {
-                option.text = "(BUG) unknown locale";
-              }
-              // mark this locale as selected if it's the article's locale ID -or- is the default locale
-              if (currentLocale === localeData.locale.code) {
-                option.selected = true;
-              }
-              option.value = localeData.locale.code;
-              articleLocaleSelect.add(option);
-            }
-          })
-
-        } else {
-          var option = document.createElement("option");
-          option.text = currentLocale;
-          option.selected = true;
-          option.value = currentLocale;
-          articleLocaleSelect.add(option);
-        }
-
-        var localeContainer = document.getElementById('locale-container');
-        if (locales.length > 1) {
-          localeContainer.style.display = 'block';
-        } else {
-          localeContainer.style.display = 'none';
-        }
-      }
 
       function displayAuthors(authors, articleAuthors) {
         var articleAuthorSelect = document.getElementById('article-authors');
@@ -286,38 +241,6 @@
           pubInfoDiv.style.display = "none";
         }
         // isPublishedSpan.innerHTML = isPublishedYesNo;
-      }
-
-      function onSuccessCreateDoc(contents) {
-        // console.log("onSuccessCreateDoc: ", contents);
-
-        var buttonId = 'translate-button-top-' + contents.locale;
-        var button = document.getElementById(buttonId);
-        button.innerHTML = "Open Translation";
-
-        button.setAttribute("class", "blue");
-        button.setAttribute("type", "button");
-
-        var buttonOpenLink = "window.open('" + contents.url + "', '_blank')";
-        button.setAttribute("onClick", buttonOpenLink);
-        // button.innerHTML = "Open " + doc.locale_code;
-        button.href = contents.url;
-
-        window.open(contents.url, '_blank');
-      }
-
-      function handleCreateDoc(el) {
-        var localeCode = $(el).data('locale'); 
-        var docType = $(el).data('doc-type');
-        var headline = $(el).data('headline');
-        var id;
-        if (docType === "page") {
-          id = $(el).data('page-id');
-          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessCreateDoc).hasuraCreatePageDoc(id, localeCode, headline);
-        } else {
-          id = $(el).data('article-id');
-          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessCreateDoc).hasuraCreateArticleDoc(id, localeCode, headline);
-        }
       }
 
       
@@ -629,7 +552,7 @@ function handleGetTranslationsForArticle(result) {
   
   var articleId;
   var pageId;
-  var localeCode;
+  var localeCode = 'en-US';
   var typeHiddenField = document.getElementById('document-type');
   var documentType = "article";
 
@@ -646,13 +569,6 @@ function handleGetTranslationsForArticle(result) {
     if (data.article.canonical_url) {
       var canonicalUrlField = document.getElementById('article-custom-canonical-url');
       canonicalUrlField.value = data.article.canonical_url;
-    }
-
-    if (
-      data.article.article_google_documents && 
-      data.article.article_google_documents[0] && 
-      data.article.article_google_documents[0].google_document) {
-        localeCode = data.article.article_google_documents[0].google_document.locale_code;
     }
 
     var blankSource = {
@@ -717,10 +633,6 @@ function handleGetTranslationsForArticle(result) {
     });
 
     pageId = data.page.id;
-    // console.log("hasuraGetPage id:", pageId);
-    if (data.page.page_google_documents && data.page.page_google_documents[0] && data.page.page_google_documents[0].google_document) {
-      localeCode = data.page.page_google_documents[0].google_document.locale_code;
-    }
   }
 
   if (!localeCode) {
@@ -728,15 +640,11 @@ function handleGetTranslationsForArticle(result) {
   }
   
   if ( (articleId || pageId) && localeCode) {
-    // console.log("FOUND articleId: " + articleId + ", pageId: " + pageId + ", localeCode: " + localeCode);
     var googleDocs;
     var translationData;
     var publishedInfo;
     var headline;
     var id;
-
-    console.log("data:", data);
-    displayLocales(data.organization_locales, localeCode);
 
     if (data.article) {
       id = data.article.id;
@@ -752,7 +660,7 @@ function handleGetTranslationsForArticle(result) {
       }
 
       displayCategories(data.categories, data.article.category);
-      displayTags(localeCode, data.tags, data.article.tag_articles);
+      displayTags(data.tags, data.article.tag_articles);
       displayAuthors(data.authors, data.article.author_articles);
 
       var slugField = document.getElementById('article-slug');
@@ -805,7 +713,7 @@ function handleGetTranslationsForArticle(result) {
     } else {
       headline = "tk";
     }
-    displayTranslationTools(id, data.documentId, documentType, headline, googleDocs, data.organization_locales);
+    
 
     if (publishedInfo) {
       displayPublishedInfo(publishedInfo, translationData);
@@ -874,8 +782,6 @@ function handleGetTranslationsForArticle(result) {
     if (!localeCode) {
       localeCode = "en-US";
     }
-    console.log("Failed to find stored data, new document? Using localeCode: " + localeCode);
-
     // TBD: where to get the active doc headline from - pretty sure this html doc can't access it?
     if (data && data.headline && data.headline !== "Untitled document") {
       // console.log("setting default article headline to:", data.data.headline)
@@ -888,9 +794,6 @@ function handleGetTranslationsForArticle(result) {
     }
 
     setPublishedFlag(false); // new article is not published, ensure correct action buttons display
-
-    console.log("data:", data);
-    displayLocales(data.organization_locales, localeCode);
           
     if (documentType === "article") {
       // console.log("data:", data);
@@ -898,7 +801,7 @@ function handleGetTranslationsForArticle(result) {
         displayCategories(data.categories, null);
       }
       if (data && data.tags) {
-        displayTags(localeCode, data.tags, null);
+        displayTags(data.tags, null);
       }
       if (data && data.authors) {
         displayAuthors(data.authors, null);
@@ -943,94 +846,6 @@ function handleGetTranslationsForArticle(result) {
 function handleGetArticle() {
   google.script.run.withFailureHandler(onFailure).withSuccessHandler(handleGetTranslationsForArticle).hasuraGetArticle();
 }
-
-function displayTranslationTools(id, documentId, documentType, headline, googleDocs, organizationLocales) {
-    // console.log("displaying translation tools:", id, documentId, headline, googleDocs, organizationLocales);
-
-    var existingDocsOtherLocales = [];
-    var availableLocales = [];
-
-    var selectedLocale = document.getElementById('article-locale').value;
-
-    // console.log("organizationLocales:", organizationLocales)
-    if (googleDocs) {
-      organizationLocales.forEach( (orgLocale) => {
-        var foundLocaleDoc = false;
-        // loop over each google doc associated with this article
-        googleDocs.forEach( (doc) => {
-          // if google doc is not the current one we have open...
-          if (doc.google_document.document_id !== documentId) {
-            // ... and this org locale is equal to the google doc's locale
-            if (orgLocale.locale.code === doc.google_document.locale_code) {
-              // add it to the list of documents available that are translations of this article
-              existingDocsOtherLocales.push(doc.google_document);
-              foundLocaleDoc = true;
-            }
-          // current document
-          } else {
-            if (orgLocale.locale.code === doc.google_document.locale_code) {
-              foundLocaleDoc = true;
-            }
-          }
-        });
-        // if we didn't find a google document for this org locale, mark it as available
-        if (!foundLocaleDoc) {
-          availableLocales.push(orgLocale.locale);
-        }
-      })
-
-      // console.log("availableLocales:", availableLocales, "existingDocsOtherLocales:", existingDocsOtherLocales);
-
-      if (availableLocales && availableLocales.length > 0) {
-        availableLocales.forEach(availableLocale => {
-          if (availableLocale.code !== selectedLocale) {
-            // TODO: make another version of this button for the bottom of the sidebar?
-            var buttonId = "translate-button-top-" + availableLocale.code;
-            if (!document.getElementById(buttonId)) { // avoid adding multiple instances of the same button
-              var button = document.createElement("button");
-              button.setAttribute("class", "blue");
-              button.setAttribute("type", "button");
-              button.setAttribute("id", buttonId);
-              button.setAttribute("data-headline", headline);
-              button.setAttribute("data-doc-type", documentType);
-              if (documentType === "page") {
-                button.setAttribute("data-page-id", id);
-              } else {
-                button.setAttribute("data-article-id", id);
-              }
-              button.setAttribute("data-locale", availableLocale.code);
-              button.setAttribute("onClick", "handleCreateDoc(this)");
-              button.innerHTML = 'Translate to ' + availableLocale.name;
-              // console.log(availableLocale, "button:", button);
-              var buttonsTopContainer = document.getElementById('action-buttons-top');
-              buttonsTopContainer.appendChild(button);
-            }
-          }
-        })
-      }
-
-      if (existingDocsOtherLocales.length > 0) {
-        existingDocsOtherLocales.forEach(doc => {
-          // console.log("existing doc:", doc)
-          if (doc.locale.code !== selectedLocale) {
-            console.log(doc.locale.code, selectedLocale);
-            var buttonId = "translate-button-top-" + doc.locale.code;
-            if (!document.getElementById(buttonId)) { // avoid adding multiple instances of the same button
-              var button = document.createElement("button");
-              button.setAttribute("id", buttonId);
-              button.setAttribute("class", "blue");
-              button.setAttribute("type", "button");
-              var buttonOpenLink = "window.open('" + doc.url + "', '_blank')";
-              button.setAttribute("onClick", buttonOpenLink);
-              button.innerHTML = "Open in " + doc.locale.name;
-              var buttonsTopContainer = document.getElementById('action-buttons-top');
-              buttonsTopContainer.appendChild(button);
-            }
-          }
-        });
-      }
-    }
-  }
 
   function onSuccessPreviewPublish(response) {
     var configDiv = document.getElementById('config');
@@ -1094,29 +909,11 @@ function displayTranslationTools(id, documentId, documentType, headline, googleD
           }
         }
 
-        // console.log("response:", response);
-        var googleDocs = response.data.article_google_documents;
-        var organizationLocales = response.data.organization_locales;
-        var documentID = response.documentID;
-        console.log("googleDocs:", googleDocs, "organizationLocales:", organizationLocales, "documentID:", documentID);
-    
-        displayTranslationTools(articleID, documentID, "article", translations[0].headline, googleDocs, organizationLocales);
-
       } else if (response.data && response.documentType === 'page') { 
         var pageID = response.data.id;
         // console.log("page ID:", pageID)
         var idHiddenField = document.getElementById('article-id');
         idHiddenField.value = pageID;
-
-        var pageData = response.data;
-        
-        var googleDocs = pageData.page_google_documents;
-        var translations = pageData.page_translations;
-        console.log("translations:", translations);
-        var organizationLocales = response.data.organization_locales;
-        var documentID = response.documentID;
-
-        displayTranslationTools(pageID, documentID, "page", translations[0].headline, googleDocs, organizationLocales);
 
       } else if (response.data && response.data.data && response.data.data.update_article_translations) { // TODO get rid of this?? not sure what it's for
         // console.log("unpublished article:", response.data);
@@ -1295,8 +1092,6 @@ function displayTranslationTools(id, documentId, documentType, headline, googleD
     } else if (formIsValid && formObject.submitted === "Unpublish") {
       // console.log("valid form + unpublish")
       loadingDiv.innerHTML = "<p class='gray'>Unpublishing " + documentType + " ...</p>"
-      // var articleId = document.getElementById('article-id').value;
-      // var selectedLocale = document.getElementById('article-locale').value;
 
       google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublish(formObject);
     
@@ -1410,13 +1205,6 @@ function displayTranslationTools(id, documentId, documentType, headline, googleD
             <span class="small">
               Used as a general article description around the site in addition to search engine metadata.
             </span>
-          </div>
-
-          <div id="locale-container" class="block form-group hidden">
-            <label for="article-locale">
-              <b>Locale</b>
-            </label>
-            <select style="width: 100%" id="article-locale" name="article-locale"></select>
           </div>
 
           <div class="block form-group">

@@ -95,86 +95,6 @@ function slugify(value) {
 .* This uploads an image in the Google Doc to S3
 .* destination URL determined by: Organization Name, Article Title, and image ID
 .*/
-function uploadImageToS3(imageID, contentUri, slug) {
-  var scriptConfig = getScriptConfig();
-  var AWS_ACCESS_KEY_ID = scriptConfig['AWS_ACCESS_KEY_ID'];
-  var AWS_SECRET_KEY = scriptConfig['AWS_SECRET_KEY'];
-  var AWS_BUCKET = scriptConfig['AWS_BUCKET'];
-
-  var orgName = getOrganizationName();
-  var orgNameSlug = slugify(orgName);
-  var articleSlug;
-  
-  if (slug) {
-    articleSlug = slug;
-  } else {
-    articleSlug = getArticleSlug();
-  }
-
-  var objectName = "image-" + imageID;
-
-  // get the image data from google first
-  var imageData = null;
-  var imageExt = null;
-  var googleAuthToken = ScriptApp.getOAuthToken();
-  Logger.log("GOOGLE AUTH TOKEN: " + googleAuthToken);
-  var res = UrlFetchApp.fetch(contentUri, {headers: {Authorization: "Bearer " + googleAuthToken}, muteHttpExceptions: true});  
-  if (res.getResponseCode() == 200) {
-
-    Logger.log(res.getAllHeaders());
-    imageData = res.getBlob(); //.setName("image1");
-
-    // try to get content type
-    var imageType = imageData.getContentType();
-    Logger.log("IMAGE TYPE: " + imageType);
-
-    // 'image/bmp', 'image/gif', 'image/jpeg', or 'image/png' 
-    switch(imageType) {
-      case "image/gif":
-        imageExt = "gif";
-        break;
-      case "image/jpeg":
-        imageExt = "jpg";
-        break;
-      case "image/png":
-        imageExt = "png";
-        break;
-      case "image/bmp":
-        imageExt = "bmp";
-        break;
-      case "application/pdf":
-        imageExt = "pdf";
-        break;
-      default:
-        Logger.log(imageType + " is an unknown image type, no file extension given to image!");
-        break;
-    }
-  } else {
-    Logger.log("Failed to fetch image data for uri: ", contentUri);
-    return null;
-  }
-
-  var destinationPath = orgNameSlug + "/" + articleSlug + "/" + objectName;
-  if (imageExt) {
-    destinationPath += "." + imageExt;
-  }
-  var s3;
-
-  try {
-    s3 = getInstance(AWS_ACCESS_KEY_ID, AWS_SECRET_KEY);
-  } catch (e) {
-    Logger.log("Failed getting S3 instance: ", e)
-  }
-
-  try {
-    s3.putObject(AWS_BUCKET, destinationPath, imageData, {logRequests:false});
-  } catch (e) {
-    Logger.log("Failed putting object: ", e)
-  }
-  var s3Url = "http://assets.tinynewsco.org/" + destinationPath;
-  Logger.log("s3Url: " + s3Url)
-  return s3Url;
-}
 
 /*
  * looks up either an article or a page by google doc ID
@@ -183,7 +103,7 @@ async function lookupDataForDocument(documentID, documentType) {
     var scriptConfig = getScriptConfig();
     var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
     var API_URL = scriptConfig['DOCUMENT_API_URL'];
-    var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+    var SITE = scriptConfig['SITE'];
   
     var options = {
       method: 'GET',
@@ -191,7 +111,7 @@ async function lookupDataForDocument(documentID, documentType) {
       contentType: 'application/json',
     };
   
-    const requestURL = `${API_URL}/api/sidebar/documents/${documentID}?token=${API_TOKEN}&documentType=${documentType}`
+    const requestURL = `${API_URL}/api/sidebar/documents/${documentID}?token=${API_TOKEN}&documentType=${documentType}&site=${SITE}`
     Logger.log("REQUEST URL: " + requestURL);
     const result = await UrlFetchApp.fetch(
       requestURL,
@@ -201,7 +121,7 @@ async function lookupDataForDocument(documentID, documentType) {
     var responseText = result.getContentText();
     var responseData = JSON.parse(responseText);
   
-    responseData.orgSlug = ORG_SLUG;
+    responseData.site = SITE;
     Logger.log(Object.keys(responseData) + " " + responseData.documentType);
     return responseData;
   }
@@ -476,7 +396,7 @@ async function insertPageGoogleDocs(data) {
     "slug": slug,
     "document_id": documentID,
     "url": documentURL,
-    "locale_code": data['article-locale'],
+    "locale_code": 'en-US',
     "headline": data['article-headline'],
     "published": data['published'],
     "search_description": data['article-search-description'],
@@ -607,7 +527,7 @@ async function insertArticleGoogleDocs(data) {
     "document_id": documentID,
     "url": documentUrl,
     "category_id": data['article-category'],
-    "locale_code": data['article-locale'],
+    "locale_code": 'en-US',
     "headline": data['article-headline'],
     "published": data['published'],
     "search_description": data['article-search-description'],
@@ -754,7 +674,7 @@ async function linkDocToArticle(data) {
     {
       article_id: data['article-id'],
       document_id: data['document-id'],
-      locale_code: data['article-locale'],
+      locale_code: 'en-US',
       url: data['document-url']
     }
   );
@@ -764,18 +684,19 @@ async function hasuraInsertArticleGoogleDoc(articleId, documentID, localeCode, u
   var scriptConfig = getScriptConfig();
   var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
   var API_URL = scriptConfig['DOCUMENT_API_URL'];
-  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+  var SITE = scriptConfig['SITE'];
 
   let apiAction = 'insert';
-  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/${apiAction}?token=${API_TOKEN}&documentType=article`
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/${apiAction}?token=${API_TOKEN}&documentType=article&site=${SITE}`
   Logger.log("REQUEST URL: " + requestURL);
 
+  // TODO Remove TNC-Site header - pretty sure it's NOT required here and is only a relic from when this request was directly sent to Hasura
   var options = {
     method: 'POST',
     muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
-      "TNC-Organization": ORG_SLUG
+      "TNC-Site": SITE
     },
     payload: JSON.stringify({
       locale_code: localeCode,
@@ -809,18 +730,19 @@ async function hasuraInsertPageGoogleDoc(pageId, documentID, localeCode, url) {
   var scriptConfig = getScriptConfig();
   var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
   var API_URL = scriptConfig['DOCUMENT_API_URL'];
-  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+  var SITE = scriptConfig['SITE'];
 
   let apiAction = 'insert';
-  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/${apiAction}?token=${API_TOKEN}&documentType=article`
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/${apiAction}?token=${API_TOKEN}&documentType=article&site=${SITE}`
   Logger.log("REQUEST URL: " + requestURL);
 
+  // TODO Remove TNC-Site header - pretty sure it's NOT required here and is only a relic from when this request was directly sent to Hasura
   var options = {
     method: 'POST',
     muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
-      "TNC-Organization": ORG_SLUG
+      "TNC-Site": SITE
     },
     payload: JSON.stringify({
       locale_code: localeCode,
@@ -860,69 +782,6 @@ async function hasuraDeleteArticle(articleId) {
   )
 }
 
-async function hasuraCreateArticleDoc(articleId, newLocale, headline) {
-  Logger.log("create new doc for article " + articleId + " and locale " + newLocale);
-  // create new document in google docs
-  var currentDocId = DocumentApp.getActiveDocument().getId();
-  var newDocId;
-  var newDocUrl;
-  var localisedHeadline = newLocale + " - " + headline;
-  var driveFile = DriveApp.getFileById(currentDocId);
-  var newFile = driveFile.makeCopy(localisedHeadline);
-  if (newFile) {
-    newDocId = newFile.getId();
-    newDocUrl = newFile.getUrl();
-  } else {
-    Logger.log("failed creating new file via DriveApp")
-    return null;
-  }
-
-  // insert new document ID in google_documents table with newLocale & articleID
-  var response = await hasuraInsertArticleGoogleDoc(articleId, newDocId, newLocale, newDocUrl);
-  Logger.log("hasura insertArticleGoogleDoc response: " + JSON.stringify(response));
-
-  // return new doc ID / url for link?
-
-  return {
-    articleId: articleId,
-    locale: newLocale,
-    docId: newDocId,
-    url: newDocUrl,
-    data: response
-  }
-}
-
-async function hasuraCreatePageDoc(pageId, newLocale, headline) {
-  Logger.log("create new doc for page " + pageId + " and locale " + newLocale);
-  // create new document in google docs
-  var currentDocId = DocumentApp.getActiveDocument().getId();
-  var newDocId;
-  var newDocUrl;
-  var localisedHeadline = newLocale + " - " + headline;
-  var driveFile = DriveApp.getFileById(currentDocId);
-  var newFile = driveFile.makeCopy(localisedHeadline);
-  if (newFile) {
-    newDocId = newFile.getId();
-    newDocUrl = newFile.getUrl();
-  } else {
-    Logger.log("failed creating new file via DriveApp")
-    return null;
-  }
-
-  // insert new document ID in google_documents table with newLocale & articleID
-  var response = await hasuraInsertPageGoogleDoc(pageId, newDocId, newLocale, newDocUrl);
-  Logger.log("hasura insert page googleDoc response: " + JSON.stringify(response));
-
-  // return new doc ID / url for link?
-
-  return {
-    pageId: pageId,
-    locale: newLocale,
-    docId: newDocId,
-    url: newDocUrl,
-    data: response
-  }
-}
 
 async function hasuraAssociateArticle(formObject) {
   var currentDocument = DocumentApp.getActiveDocument();
@@ -1602,7 +1461,7 @@ async function apiSaveArticle(articleData, slug, contents, listInfo, imageList, 
   var scriptConfig = getScriptConfig();
   var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
   var API_URL = scriptConfig['DOCUMENT_API_URL'];
-  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+  var SITE = scriptConfig['SITE'];
 
   var activeDoc = DocumentApp.getActiveDocument();
   var documentID = activeDoc.getId();
@@ -1611,15 +1470,16 @@ async function apiSaveArticle(articleData, slug, contents, listInfo, imageList, 
   if (articleData['published']) {
     apiAction = 'publish';
   }
-  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/${apiAction}?token=${API_TOKEN}&documentType=article`
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/${apiAction}?token=${API_TOKEN}&documentType=article&site=${SITE}`
   Logger.log("REQUEST URL: " + requestURL);
 
+  // TODO Remove TNC-Site header - pretty sure it's NOT required here and is only a relic from when this request was directly sent to Hasura
   var options = {
     method: 'POST',
     muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
-      "TNC-Organization": ORG_SLUG
+      "TNC-Site": SITE
     },
     payload: JSON.stringify({
       articleData: articleData,
@@ -1655,11 +1515,11 @@ async function apiUnpublish(documentType, documentID, slug) {
   var scriptConfig = getScriptConfig();
   var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
   var API_URL = scriptConfig['DOCUMENT_API_URL'];
-  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+  var SITE = scriptConfig['SITE'];
 
   let apiAction = 'unpublish'; // always, probably doesn't have to be a var, just keeping consistent with apiSaveArticle
   let data = {'published': false}; // this value should ALWAYS be false in this function so we hardcode here 
-  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/${apiAction}?token=${API_TOKEN}&documentType=${documentType}`
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/${apiAction}?token=${API_TOKEN}&documentType=${documentType}&site=${SITE}`
   Logger.log("REQUEST URL: " + requestURL);
 
   let payloadData;
@@ -1675,12 +1535,13 @@ async function apiUnpublish(documentType, documentID, slug) {
     })
   }
   Logger.log(payloadData)
+  // TODO Remove TNC-Site header - pretty sure it's NOT required here and is only a relic from when this request was directly sent to Hasura
   var options = {
     method: 'POST',
     muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
-      "TNC-Organization": ORG_SLUG
+      "TNC-Site": SITE
     },
     payload: payloadData,
   };
@@ -1710,20 +1571,21 @@ async function previewPage(pageData, slug, contents, listInfo, imageList, inline
   var scriptConfig = getScriptConfig();
   var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
   var API_URL = scriptConfig['DOCUMENT_API_URL'];
-  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+  var SITE = scriptConfig['SITE'];
 
   var activeDoc = DocumentApp.getActiveDocument();
   var documentID = activeDoc.getId();
 
-  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/preview?token=${API_TOKEN}&documentType=page`
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/preview?token=${API_TOKEN}&documentType=page&site=${SITE}`
   Logger.log("REQUEST URL: " + requestURL);
 
+  // TODO Remove TNC-Site header - pretty sure it's NOT required here and is only a relic from when this request was directly sent to Hasura
   var options = {
     method: 'POST',
     muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
-      "TNC-Organization": ORG_SLUG
+      "TNC-Site": SITE
     },
     payload: JSON.stringify({
       pageData: pageData,
@@ -1760,21 +1622,22 @@ async function publishPage(pageData, slug, contents, listInfo, imageList, inline
   var scriptConfig = getScriptConfig();
   var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
   var API_URL = scriptConfig['DOCUMENT_API_URL'];
-  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
+  var SITE = scriptConfig['SITE'];
 
   var activeDoc = DocumentApp.getActiveDocument();
   var documentID = activeDoc.getId();
 
-  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/publish?token=${API_TOKEN}&documentType=page`
+  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/publish?token=${API_TOKEN}&documentType=page&site=${SITE}`
   Logger.log("REQUEST URL: " + requestURL);
 
+  // TODO Remove TNC-Site header - pretty sure it's NOT required here and is only a relic from when this request was directly sent to Hasura
   var options = {
     method: 'POST',
     muteHttpExceptions: true,
     contentType: 'application/json',
     headers: {
       'Content-Type': 'application/json',
-      "TNC-Organization": ORG_SLUG
+      "TNC-Site": SITE
     },
     payload: JSON.stringify({
       pageData: pageData,
