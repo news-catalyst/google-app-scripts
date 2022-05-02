@@ -28,9 +28,9 @@
           error: err,
         }).then(function(notice) {
           if (notice.id) {
-            console.log('notice id:', notice.id);
+            // console.log('notice id:', notice.id);
           } else {
-            console.log('notify failed:', notice.error);
+            // console.log('notify failed:', notice.error);
           }
         });
       }
@@ -194,7 +194,7 @@
           lastSpan.innerHTML = formatDate(publishedInfo.last_published_at);
 
           var translationIdSpan = document.getElementById("translation-id");
-          console.log("displayPublishedInfo pubInfo/translationData", publishedInfo, translationData);
+          // console.log("displayPublishedInfo pubInfo/translationData", publishedInfo, translationData);
           if (translationData && publishedInfo.id === translationData.id) {
             translationIdSpan.innerHTML = "This translation was published at:";
           } else {
@@ -262,7 +262,7 @@
       }
 
       function onFailureFeatured(error) {
-        console.log("onFailureFeatured error:", error);
+        // console.log("onFailureFeatured error:", error);
         try {
           alertAirbrake(error);
         } catch(e) {
@@ -271,7 +271,7 @@
       }
 
       function onFailure(error) {
-        console.log("onFailure error:", error);
+        // console.log("onFailure error:", error);
         
         try {
           alertAirbrake(error);
@@ -511,16 +511,9 @@
         sourceContainer.appendChild(formDiv);
 
       }
-      function onSuccessGetArticle(data) {
-// console.log("contents onSuccessGetArticle:", contents);
-// var typeHiddenField = document.getElementById('document-type');
-// var documentType = typeHiddenField.value;
-
-
-}
-
+      
 function handleGetTranslationsForArticle(result) {
-  console.log("result:", result);
+  // console.log("result:", result);
 
   var configDiv = document.getElementById('config');
   configDiv.style.display = 'none';
@@ -737,7 +730,7 @@ function handleGetTranslationsForArticle(result) {
 
     if (translationData) {
       if (publishedInfo) {
-        console.log("found publishedInfo:", publishedInfo);
+        // console.log("found publishedInfo:", publishedInfo);
         setPublishedFlag(true);
       } else {
         setPublishedFlag(translationData.published);
@@ -788,7 +781,7 @@ function handleGetTranslationsForArticle(result) {
       var searchTitle = document.getElementById('article-search-title');
       searchTitle.value = data.headline;
     } else {
-      console.log("data.headline is undefined:", data);
+      // console.log("data.headline is undefined:", data);
     }
 
     setPublishedFlag(false); // new article is not published, ensure correct action buttons display
@@ -851,12 +844,12 @@ function handleGetArticle() {
     var div = document.getElementById('loading');
     div.style.display = 'block';
 
-    console.log("onSuccessPreviewPublish:", response);
+    // console.log("onSuccessPreviewPublish:", response);
 
     if (response.data.errors || response.status === 'error') {
-      console.log("error:", response);
+      // console.log("error:", response);
       if (response.data.errors) {
-        console.log("response.data.errors:", response.data.errors);
+        // console.log("response.data.errors:", response.data.errors);
         div.innerHTML = "<p class='error'>An error occurred: " + JSON.stringify(response.data.errors) + '</p>';
         try {
           alertAirbrake(JSON.stringify(response.data.errors));
@@ -864,7 +857,7 @@ function handleGetArticle() {
           console.error("Failed to log error with Airbrake:", e);
         }
       } else {
-        console.log("response.message:", response.message);
+        // console.log("response.message:", response.message);
         div.innerHTML = "<p class='error'>" + response.message + '</p>';
       }
     } else {
@@ -873,7 +866,7 @@ function handleGetArticle() {
         var articleID = response.data.id;
         var idHiddenField = document.getElementById('article-id');
         idHiddenField.value = articleID;
-        console.log("set", idHiddenField, "to id#", articleID);
+        // console.log("set", idHiddenField, "to id#", articleID);
 
         var articleSlug = response.data.slug;
         var slugField = document.getElementById('article-slug');
@@ -883,7 +876,7 @@ function handleGetArticle() {
         
         var publishedInfo = response.data.published_article_translations;
         if (publishedInfo && publishedInfo[0]) {
-          console.log("publishedInfo:", publishedInfo[0])
+          // console.log("publishedInfo:", publishedInfo[0])
           setPublishedFlag(true);
           var mostRecentPubInfo = publishedInfo[0].article_translation;
           displayPublishedInfo(mostRecentPubInfo, translations[0]);
@@ -917,7 +910,7 @@ function handleGetArticle() {
         // console.log("unpublished article:", response.data);
         setPublishedFlag(false);
       } else {
-        console.log("unknown response: ", response);
+        // console.log("unknown response: ", response);
       }
     }
 
@@ -941,7 +934,7 @@ function handleGetArticle() {
 
     var typeHiddenField = document.getElementById('document-type');
     var documentType = typeHiddenField.value;
-    console.log("handleClick for docType:", documentType);
+    // console.log("handleClick for docType:", documentType);
 
     var headline = document.getElementById('article-headline');
     var searchTitle = document.getElementById('article-search-title');

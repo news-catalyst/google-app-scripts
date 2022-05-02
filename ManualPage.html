@@ -276,16 +276,6 @@
         google.script.run.withSuccessHandler(onSuccessSearch).withFailureHandler(onFailure).hasuraSearchArticles(formObject);
       }
 
-      function republishArticles() {
-        if (window.confirm("This will process all published article google docs and republish to the web: are you sure?")) { 
-          var div = document.getElementById('republish-info');
-          div.style.display = 'block';
-          div.innerHTML = "<p><i>Republishing all articles now, this may take a few minutes...</i></p>";
-          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessRepublish).republishArticles();
-        } else {
-          console.log("cancelled republish all")
-        }
-      }
       function deleteArticle() {
         if (window.confirm("Are you sure that you want to completely delete this article? There is no undo!")) { 
           var articleIdEl = document.getElementById('current-data-id');
@@ -482,9 +472,6 @@
       <div class="block">
         <hr/>
         <button onclick="toggleConfigForm()">Toggle Config Form</button>
-        <hr/>
-        <button onclick="republishArticles()">Republish All</button>
-        <div id="republish-info"></div>
         <hr/>
         <button onclick="deleteArticle()">Delete Article</button>
       </div>
