@@ -141,7 +141,7 @@
       function displayConfigFormMessage(text) {
         var configDiv = document.getElementById('loading');
         configDiv.innerHTML = JSON.stringify(text);
-
+        configDiv.style.display = 'block';
         // hideConfigForm();
         // showSearchForm();
       }
@@ -168,24 +168,6 @@
 
         var publishUrl = document.getElementById('publish-url');
         publishUrl.value = data.publishUrl ? data.publishUrl : data['PUBLISH_URL'];
-
-        var previewUrl = document.getElementById('preview-url');
-        previewUrl.value = data.previewUrl ? data.previewUrl : data['PREVIEW_URL'];
-
-        var previewSecret = document.getElementById('preview-secret');
-        previewSecret.value = data.previewSecret ? data.previewSecret : data['PREVIEW_SECRET'];
-
-        var awsAccessKey = document.getElementById('aws-access-key');
-        awsAccessKey.value = data.awsAccessKey ? data.awsAccessKey : data['AWS_ACCESS_KEY_ID'];
-
-        var awsSecretKey = document.getElementById('aws-secret-key');
-        awsSecretKey.value = data.awsSecretKey ? data.awsSecretKey : data['AWS_SECRET_KEY'];
-
-        var awsBucket = document.getElementById('aws-bucket');
-        awsBucket.value = data.awsBucket ? data.awsBucket : data['AWS_BUCKET'];
-
-        var vercelWebhook = document.getElementById('vercel-webhook');
-        vercelWebhook.value = data.vercelWebhook ? data.vercelWebhook : data['VERCEL_WEBHOOK'];
 
         showConfigForm();
       }
@@ -252,6 +234,8 @@
       function onFailureConfig(error) {
         var configDiv = document.getElementById('loading');
         configDiv.innerHTML = "<p class='error'>An error occurred. This may be due to being logged into multiple google accounts at once. Try opening this doc in an incognito window.</p>";
+        configDiv.style.display = 'block';
+
       }
 
       // this assembles document properties and figures out the orgName based on folder hierarchy
@@ -342,7 +326,7 @@
       .button, button, input[type="button"] {
         min-width: 0 !important;
       }
-      </style>
+    </style>
 
   </head>
   <body>
@@ -388,51 +372,16 @@
           <label for="editor-url">
             <b>Homepage Editor URL</b>
           </label>
-          <input id="editor-url" name="EDITOR_URL" type="text" placeholder="http://localhost:3000/tinycms/homepage" />
+          <input id="editor-url" name="EDITOR_URL" type="text" placeholder="http://next-tinynewsdemo.localhost:3000/tinycms/homepage" />
         </div>
 
         <div class="block form-group">
           <label for="publish-url">
             <b>Publish Host URL</b>
           </label>
-          <input id="publish-url" name="PUBLISH_URL" type="text" placeholder="http://localhost:3000" />
+          <input id="publish-url" name="PUBLISH_URL" type="text" placeholder="http://next-tinynewsdemo.localhost:3000" />
         </div>
-        <div class="block form-group">
-          <label for="preview-url">
-            <b>Preview Host URL</b>
-          </label>
-          <input id="preview-url" name="PREVIEW_URL" type="text" placeholder="http://localhost:3000/api/preview" />
-        </div>
-        <div class="block form-group">
-          <label for="preview-secret">
-            <b>Preview Secret Param</b>
-          </label>
-          <input id="preview-secret" name="PREVIEW_SECRET" type="text" />
-        </div>
-        <div class="block form-group">
-          <label for="aws-access-key">
-            <b>AWS Access Key ID</b>
-          </label>
-          <input id="aws-access-key" name="AWS_ACCESS_KEY_ID" type="text" />
-        </div>
-        <div class="block form-group">
-          <label for="aws-secret-key">
-            <b>AWS Secret Key</b>
-          </label>
-          <input id="aws-secret-key" name="AWS_SECRET_KEY" type="text" />
-        </div>
-        <div class="block form-group">
-          <label for="aws-bucket">
-            <b>AWS Bucket</b>
-          </label>
-          <input id="aws-bucket" name="AWS_BUCKET" type="text" />
-        </div>
-        <div class="block form-group">
-          <label for="vercel-webhook">
-            <b>Vercel Webhook</b>
-          </label>
-          <input id="vercel-webhook" name="VERCEL_WEBHOOK" type="text" />
-        </div>
+
         <div class="block">
           <button class="blue">Save Config</button>
         </div>
