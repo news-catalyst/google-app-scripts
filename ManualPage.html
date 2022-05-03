@@ -15,7 +15,7 @@
         // if the config form is being displayed, hide it
         if (scriptForm.style.display === "block") {
           hideConfigForm();
-          showSearchForm();
+          // showSearchForm();
 
         // otherwise, display it
         } else {
@@ -142,8 +142,8 @@
         var configDiv = document.getElementById('loading');
         configDiv.innerHTML = JSON.stringify(text);
 
-        hideConfigForm();
-        showSearchForm();
+        // hideConfigForm();
+        // showSearchForm();
       }
 
       function onSuccessConfigFormValues(data) {
@@ -191,7 +191,7 @@
       }
 
       function getConfigAndDisplayForm() {
-        hideSearchForm();
+        // hideSearchForm();
         showConfigForm();
       }
 
@@ -241,8 +241,8 @@
         if (data !== null && data !== {} && Object.keys(data).length > 0) {
           // loadingDiv.innerHTML = "<div class='success'>Configuration loaded.</div><hr/>"
           onSuccessConfigFormValues(data);
-          hideConfigForm();
-          showSearchForm();
+          // hideConfigForm();
+          // showSearchForm();
         } else {
           showConfigForm();
           loadingDiv.innerHTML = "<div class='error'>No script config found. Fill in the form to use publishing tools.</div><hr/>"
@@ -322,9 +322,9 @@
       window.addEventListener('load', preventFormSubmit);
 
       window.onload = (function(){
-        hideSearchForm();
-        hideArticleForm();
-        hideConfigForm();
+        // hideSearchForm();
+        // hideArticleForm();
+        // hideConfigForm();
         
         handleScriptConfig();
         handleGetArticle();
@@ -452,7 +452,7 @@
           </div>
         </form>
       </div> -->
-
+<!-- 
       <div id="associate-article-form" class="block">
         <form onsubmit="handleAssociate(this)">
           <div class="block form-group">
@@ -466,7 +466,7 @@
             <input type="submit" name="link" id="link-button" class="blue" value="Link" />
           </div>
         </form>
-      </div>
+      </div> -->
 
 
       <div class="block">
