@@ -301,38 +301,6 @@ function getImageList(slug) {
   return imageList;
 }
 
-async function fetchGraphQL(operationsDoc, operationName, variables) {
-  var scriptConfig = getScriptConfig();
-  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
-  var API_URL = scriptConfig['CONTENT_API'];
-
-  var options = {
-    method: 'POST',
-    muteHttpExceptions: true,
-    contentType: 'application/json',
-    headers: {
-      "TNC-Organization": ORG_SLUG
-    },
-    payload: JSON.stringify({
-      query: operationsDoc,
-      variables: variables,
-      operationName: operationName
-    }),
-  };
-
-  const result = await UrlFetchApp.fetch(
-    API_URL,
-    options
-  );
-
-  var responseText = result.getContentText();
-  var responseData = JSON.parse(responseText);
-
-  responseData.orgSlug = ORG_SLUG;
-  Logger.log(Object.keys(responseData), responseData.orgSlug);
-  return responseData;
-}
-
 async function insertPageGoogleDocs(data) {
   var returnValue = {
     status: "success",
@@ -560,54 +528,6 @@ async function insertArticleGoogleDocs(data) {
   return returnValue;
 }
 
-async function linkDocToArticle(data) {
-  return fetchGraphQL(
-    linkDocToArticleMutation,
-    "AddonLinkGoogleDocToArticle",
-    {
-      article_id: data['article-id'],
-      document_id: data['document-id'],
-      locale_code: 'en-US',
-      url: data['document-url']
-    }
-  );
-}
-
-async function hasuraDeleteArticle(articleId) {
-  Logger.log("deleting article ID#" + articleId);
-  return fetchGraphQL(
-    deleteArticleMutation,
-    "AddonDeleteArticleMutation",
-    {
-      article_id: articleId
-    }
-  )
-}
-
-async function hasuraAssociateArticle(formObject) {
-  var currentDocument = DocumentApp.getActiveDocument();
-  var documentId = currentDocument.getId();
-  var documentUrl = currentDocument.getUrl();
-
-  formObject['document-id'] = documentId;
-  formObject['document-url'] = documentUrl;
-
-  Logger.log("formObject: " + JSON.stringify(formObject));
-  var data = await linkDocToArticle(formObject);
-  Logger.log(data);
-  var returnValue = {
-    status: "success",
-    message: "Successfully linked document to article",
-    data: data
-  };
-
-  if (data && data.errors) {
-    returnValue.message = data.errors[0].message;
-    returnValue.status = "error";
-  }
-  return returnValue;
-}
-
 async function hasuraHandleUnpublish(formObject) {
   var slug = formObject['article-slug'];
   var documentType;
@@ -633,17 +553,6 @@ async function hasuraHandleUnpublish(formObject) {
     returnValue.data = response.errors;
   }
   return returnValue;
-}
-
-
-async function hasuraGetPublishedArticles(localeCode) {
-  return fetchGraphQL(
-    getPublishedArticles,
-    "AddonGetPublishedArticles",
-    {
-      locale_code: localeCode
-    }
-  );  
 }
 
 async function hasuraHandlePublish(formObject) {
@@ -696,10 +605,6 @@ async function hasuraHandlePublish(formObject) {
 
     publishUrl = insertPage.publishUrl;
 
-    // var getOrgLocalesResult = await hasuraGetOrganizationLocales();
-    // // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    // data.organization_locales = getOrgLocalesResult.data.organization_locales;
-
   } else {
     documentType = "article";
  
@@ -713,11 +618,6 @@ async function hasuraHandlePublish(formObject) {
     publishUrl = insertArticle.publishUrl;
 
     data = insertArticle.data;
-    
-    // var getOrgLocalesResult = await hasuraGetOrganizationLocales();
-    // // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    // data.organization_locales = getOrgLocalesResult.data.organization_locales;
-
   }
 
   // open preview url in new window
@@ -782,10 +682,6 @@ async function hasuraHandlePreview(formObject) {
 
     previewUrl = insertPage.previewUrl;
 
-    // var getOrgLocalesResult = await hasuraGetOrganizationLocales();
-    // // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    // data.organization_locales = getOrgLocalesResult.data.organization_locales;
-
   } else {
     documentType = "article";
     
@@ -799,10 +695,6 @@ async function hasuraHandlePreview(formObject) {
     previewUrl = insertArticle.previewUrl;
 
     var data = insertArticle.data;
-   
-    // var getOrgLocalesResult = await hasuraGetOrganizationLocales();
-    // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    // data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
   }
 
@@ -817,139 +709,8 @@ async function hasuraHandlePreview(formObject) {
   }
 }
 
-
-function hasuraGetOrganizationLocales() {
-  return fetchGraphQL(
-    getOrganizationLocalesQuery,
-    "AddonGetOrganizationLocales"
-  );
-}
-
-function fetchArticleForGoogleDoc(doc_id) {
-  return fetchGraphQL(
-    getArticleByGoogleDocQuery,
-    "AddonGetArticleByGoogleDoc",
-    {"doc_id": doc_id}
-  );
-}
-
-function fetchPageForGoogleDoc(doc_id) {
-  return fetchGraphQL(
-    getPageForGoogleDocQuery,
-    "AddonGetPageForGoogleDoc",
-    {"doc_id": doc_id}
-  );
-}
-
-function fetchFeaturedArticles() {
-  return fetchGraphQL(
-    getHomepageFeaturedArticles,
-    "AddonGetHomepageFeaturedArticles"
-  );
-}
-
-async function isArticleFeatured(articleId) {
-  const { errors, data } = await fetchFeaturedArticles();
-
-  if (errors) {
-    console.error("errors:" + JSON.stringify(errors));
-    throw errors;
-  }
-
-  var scriptConfig = getScriptConfig();
-  var editorUrl = scriptConfig['EDITOR_URL'];
-
-  // Logger.log("data: " + JSON.stringify(data))
-  var isFeatured = false;
-  if (data && data.homepage_layout_datas) {
-    
-    data.homepage_layout_datas.forEach(hpData => {
-      var values = Object.values(hpData);
-      Logger.log(values);
-      if (values.includes(articleId)){
-        isFeatured = true;
-        Logger.log(articleId + " article is featured")
-      }
-    });
-  }
-  return {
-    featured: isFeatured,
-    editorUrl: editorUrl
-  };
-}
-
-/*
-.* called from ManualPage.html, this function searches for a matching article by headline
-.*/
-function hasuraSearchArticles(formObject) {
-  var localeCode = formObject["locale-code"];
-  if (localeCode === undefined || localeCode === null) {
-    localeCode = "en-US" // TODO should we default this way?
-  }
-  var term = "%" + formObject["article-search"] + "%";
-  return fetchGraphQL(
-    searchArticlesByHeadlineQuery,
-    "AddonSearchArticlesByHeadline",
-    {"term": term, "locale_code": localeCode}
-  );
-}
-
-/*
- * looks up a page by google doc ID and locale
- */
-async function getPageForGoogleDoc(doc_id) {
-  const { errors, data } = await fetchPageForGoogleDoc(doc_id);
-
-  if (errors) {
-    console.error("errors:" + JSON.stringify(errors));
-    throw errors;
-  }
-
-  return data;
-}
-
-function fetchTranslationDataForPage(docId, pageId, localeCode) {
-  return fetchGraphQL(
-    getPageTranslationForIdAndLocale,
-    "AddonGetPageTranslationByLocaleAndID",
-    {"doc_id": docId, "page_id": pageId, "locale_code": localeCode}
-  );
-}
-
-function fetchTranslationDataForArticle(docId, articleId, localeCode) {
-  return fetchGraphQL(
-    getArticleTranslationForIdAndLocale,
-    "AddonGetArticleTranslationByLocaleAndID",
-    {"doc_id": docId, "article_id": articleId, "locale_code": localeCode}
-  );
-}
-
-async function getTranslationDataForPage(docId, pageId, localeCode) {
-  const { errors, data } = await fetchTranslationDataForPage(docId, pageId, localeCode);
-
-  if (errors) {
-    console.error("errors:" + JSON.stringify(errors));
-    throw errors;
-  }
-
-  return data;
-}
-
-async function getTranslationDataForArticle(docId, articleId, localeCode) {
-  const {errors, data, orgSlug } = await fetchTranslationDataForArticle(docId, articleId, localeCode);
-
-  data.orgSlug = orgSlug;
-  Logger.log("getTranslationDataForArticle orgSlug: " + orgSlug + " data keys: " + JSON.stringify(Object.keys(data)));
-
-  if (errors) {
-    console.error("errors:" + JSON.stringify(errors));
-    throw errors;
-  }
-
-  return data;
-}
-  // this logs whether the doc is in an "articles" or "pages" folder
-  // otherwise, it's in the wrong spot and we should throw an error
+// this determines whether the doc is in an "articles" or "pages" folder
+// otherwise, it's in the wrong spot and we should throw an error
 function isValid(documentID) {
   var driveFile = DriveApp.getFileById(documentID)
   var fileParents = findAllParents(driveFile);
@@ -968,8 +729,8 @@ function isValid(documentID) {
   }
 }
 
+// determine if this is a static page or an article - it will usually be an article
 function isPage(documentID) {
-  // determine if this is a static page or an article - it will usually be an article
   var driveFile = DriveApp.getFileById(documentID)
   var fileParents = findAllParents(driveFile)
   var isStaticPage = false;
@@ -985,63 +746,6 @@ function isPage(documentID) {
   return isStaticPage;
 }
 
-async function hasuraGetTranslations(pageOrArticleId, localeCode) {
-  var returnValue = {
-    localeCode: localeCode,
-    articleId: pageOrArticleId,
-    status: "",
-    message: "",
-    data: {}
-  };
-
-  var document = DocumentApp.getActiveDocument();
-  var documentID = document.getId();
-  var documentTitle = document.getName();
-
-  returnValue.documentTitle = documentTitle;
-  returnValue.documentId = documentID;
-
-  var isStaticPage = isPage(documentID);
-
-  var data;
-  try {
-    if (isStaticPage) {
-      returnValue.docType = "page";
-      returnValue.status = "success";
-
-      data = await getTranslationDataForPage(documentID, pageOrArticleId, localeCode);
-      
-      if (data && data.page_translations && data.page_translations[0]) {
-        returnValue.message = "Retrieved page translation with ID: " + data.page_translations[0].id;
-      } else if (!data) {
-        returnValue.status = "error";
-        returnValue.message = "An error occurred retrieving page translations.";
-      }
-      returnValue.data = data;
-
-    } else {
-      returnValue.docType = "article";
-      returnValue.status = "success";
-
-      data = await getTranslationDataForArticle(documentID, pageOrArticleId, localeCode);
-      if (data && data.article_translations && data.article_translations[0]) {
-        returnValue.message = "Retrieved article translation with ID: " + data.article_translations[0].id;
-      } else if (!data) {
-        returnValue.status = "error";
-        returnValue.message = "An error occurred retrieving article translations.";
-      }
-      returnValue.data = data;
-    }
-
-  } catch (err) {
-    Logger.log(JSON.stringify(err));
-    returnValue.status = "error";
-    returnValue.message = "An error occurred getting the article or page";
-    returnValue.data = err;
-  }
-
-  return returnValue;
-}
 /*
 . * Returns metadata about the article, including its id, whether it was published
 . * headline and byline

@@ -672,8 +672,6 @@ function handleGetTranslationsForArticle(result) {
 
       displayFeaturedMessage(articleIsFeatured, data.editorUrl);
 
-      // google.script.run.withFailureHandler(onFailureFeatured).withSuccessHandler(onSuccessFeatured).isArticleFeatured(data.id);
-    
     } else if (data.page) {
       id = data.page.id;
       if (data.page.page_translations) {
