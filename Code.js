@@ -301,61 +301,6 @@ function getImageList(slug) {
   return imageList;
 }
 
-async function fetchGraphQL(operationsDoc, operationName, variables) {
-  var scriptConfig = getScriptConfig();
-  var ORG_SLUG = scriptConfig['ACCESS_TOKEN'];
-  var API_URL = scriptConfig['CONTENT_API'];
-
-  var options = {
-    method: 'POST',
-    muteHttpExceptions: true,
-    contentType: 'application/json',
-    headers: {
-      "TNC-Organization": ORG_SLUG
-    },
-    payload: JSON.stringify({
-      query: operationsDoc,
-      variables: variables,
-      operationName: operationName
-    }),
-  };
-
-  const result = await UrlFetchApp.fetch(
-    API_URL,
-    options
-  );
-
-  var responseText = result.getContentText();
-  var responseData = JSON.parse(responseText);
-
-  responseData.orgSlug = ORG_SLUG;
-  Logger.log(Object.keys(responseData), responseData.orgSlug);
-  return responseData;
-}
-
-function storeArticleIdAndSlug(id, slug, categorySlug) {
-  return fetchGraphQL(
-    insertArticleSlugVersion,
-    "AddonInsertArticleSlugVersion",
-    {
-      article_id: id,
-      slug: slug,
-      category_slug: categorySlug
-    }
-  );
-}
-
-function storePageIdAndSlug(id, slug) {
-  return fetchGraphQL(
-    insertPageSlugVersion,
-    "AddonInsertPageSlugVersion",
-    {
-      page_id: id,
-      slug: slug
-    }
-  );
-}
-
 async function insertPageGoogleDocs(data) {
   var returnValue = {
     status: "success",
@@ -442,48 +387,6 @@ async function insertPageGoogleDocs(data) {
   }
 
   return returnValue;
-}
-
-function upsertPublishedArticle(articleId, translationId, localeCode) {
-  return fetchGraphQL(
-    upsertPublishedArticleTranslationMutation,
-    "AddonUpsertPublishedArticleTranslation",
-    {
-      article_id: articleId,
-      locale_code: localeCode,
-      article_translation_id: translationId
-    }
-  );
-}
-
-
-async function findPageBySlug(slug, localeCode) {
-  var documentID = DocumentApp.getActiveDocument().getId();
-
-  return fetchGraphQL(
-    findPageBySlugQuery,
-    "AddonFindPageBySlug",
-    {
-      document_id: documentID,
-      slug: slug,
-      locale_code: localeCode,
-    }
-  );
-}
-
-async function findArticleByCategoryAndSlug(category_id, slug, localeCode) {
-  var documentID = DocumentApp.getActiveDocument().getId();
-
-  return fetchGraphQL(
-    findArticleByCategoryAndSlugQuery,
-    "AddonFindArticleByCategorySlug",
-    {
-      category_id: category_id,
-      document_id: documentID,
-      slug: slug,
-      locale_code: localeCode,
-    }
-  );
 }
 
 async function insertArticleGoogleDocs(data) {
@@ -592,7 +495,7 @@ async function insertArticleGoogleDocs(data) {
   if (articleData['published']) {
     Logger.log("PUBLISH");
     let response = await apiSaveArticle(articleData, slug, elements, listInfo, imageList, inlineObjects);
-    Logger.log("publishArticleResponse: " + Object.keys(response).sort());
+    Logger.log("publishArticleResponse: " + JSON.stringify(response));
     returnValue.data = response.data;
     
     if (response.status && response.status === 'error') {
@@ -625,212 +528,6 @@ async function insertArticleGoogleDocs(data) {
   return returnValue;
 }
 
-async function hasuraCreateAuthorPage(authorId, pageId) {
-  return fetchGraphQL(
-    insertAuthorPageMutation,
-    "AddonInsertAuthorPage",
-    {
-      page_id: pageId,
-      author_id: authorId
-    }
-  );
-}
-
-async function hasuraDeleteTagArticles(articleId) {
-  return fetchGraphQL(
-    deleteTagArticlesMutation,
-    "AddonDeleteTagArticles",
-    {
-      article_id: articleId
-    }
-  );
-}
-
-async function hasuraDeleteAuthorArticles(articleId) {
-  return fetchGraphQL(
-    deleteAuthorArticlesMutation,
-    "AddonDeleteAuthorArticles",
-    {
-      article_id: articleId
-    }
-  );
-}
-
-async function hasuraCreateAuthorArticle(authorId, articleId) {
-  return fetchGraphQL(
-    insertAuthorArticleMutation,
-    "AddonInsertAuthorArticle",
-    {
-      article_id: articleId,
-      author_id: authorId
-    }
-  );
-}
-
-async function linkDocToArticle(data) {
-  return fetchGraphQL(
-    linkDocToArticleMutation,
-    "AddonLinkGoogleDocToArticle",
-    {
-      article_id: data['article-id'],
-      document_id: data['document-id'],
-      locale_code: 'en-US',
-      url: data['document-url']
-    }
-  );
-}
-
-async function hasuraInsertArticleGoogleDoc(articleId, documentID, localeCode, url) {
-  var scriptConfig = getScriptConfig();
-  var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
-  var API_URL = scriptConfig['DOCUMENT_API_URL'];
-  var SITE = scriptConfig['SITE'];
-
-  let apiAction = 'insert';
-  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/${apiAction}?token=${API_TOKEN}&documentType=article&site=${SITE}`
-  Logger.log("REQUEST URL: " + requestURL);
-
-  // TODO Remove TNC-Site header - pretty sure it's NOT required here and is only a relic from when this request was directly sent to Hasura
-  var options = {
-    method: 'POST',
-    muteHttpExceptions: true,
-    contentType: 'application/json',
-    headers: {
-      "TNC-Site": SITE
-    },
-    payload: JSON.stringify({
-      locale_code: localeCode,
-      article_id: articleId,
-      document_url: url,
-    }),
-  };
-
-  const result = await UrlFetchApp.fetch(
-    requestURL,
-    options
-  );
-  
-  var responseText = result.getContentText();
-  var responseData;
-  try {
-    responseData = JSON.parse(responseText);
-  } catch(e) {
-    console.error(e)
-    responseData = {
-      status: 'error',
-      data: responseText
-    }
-  }
-
-  return responseData;
-
-}
-
-async function hasuraInsertPageGoogleDoc(pageId, documentID, localeCode, url) {
-  var scriptConfig = getScriptConfig();
-  var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
-  var API_URL = scriptConfig['DOCUMENT_API_URL'];
-  var SITE = scriptConfig['SITE'];
-
-  let apiAction = 'insert';
-  const requestURL = `${API_URL}/api/sidebar/documents/${documentID}/${apiAction}?token=${API_TOKEN}&documentType=article&site=${SITE}`
-  Logger.log("REQUEST URL: " + requestURL);
-
-  // TODO Remove TNC-Site header - pretty sure it's NOT required here and is only a relic from when this request was directly sent to Hasura
-  var options = {
-    method: 'POST',
-    muteHttpExceptions: true,
-    contentType: 'application/json',
-    headers: {
-      "TNC-Site": SITE
-    },
-    payload: JSON.stringify({
-      locale_code: localeCode,
-      page_id: pageId,
-      document_url: url,
-    }),
-  };
-
-  const result = await UrlFetchApp.fetch(
-    requestURL,
-    options
-  );
-  
-  var responseText = result.getContentText();
-  var responseData;
-  try {
-    responseData = JSON.parse(responseText);
-  } catch(e) {
-    console.error(e)
-    responseData = {
-      status: 'error',
-      data: responseText
-    }
-  }
-
-  return responseData;
-
-}
-async function hasuraDeleteArticle(articleId) {
-  Logger.log("deleting article ID#" + articleId);
-  return fetchGraphQL(
-    deleteArticleMutation,
-    "AddonDeleteArticleMutation",
-    {
-      article_id: articleId
-    }
-  )
-}
-
-
-async function hasuraAssociateArticle(formObject) {
-  var currentDocument = DocumentApp.getActiveDocument();
-  var documentId = currentDocument.getId();
-  var documentUrl = currentDocument.getUrl();
-
-  formObject['document-id'] = documentId;
-  formObject['document-url'] = documentUrl;
-
-  Logger.log("formObject: " + JSON.stringify(formObject));
-  var data = await linkDocToArticle(formObject);
-  Logger.log(data);
-  var returnValue = {
-    status: "success",
-    message: "Successfully linked document to article",
-    data: data
-  };
-
-  if (data && data.errors) {
-    returnValue.message = data.errors[0].message;
-    returnValue.status = "error";
-  }
-  return returnValue;
-}
-
-async function hasuraUnpublishArticle(articleId, localeCode) {
-
-}
-
-async function hasuraUnpublishPage(pageId, localeCode) {
-
-  return fetchGraphQL(
-    unpublishPageMutation,
-    "AddonUnpublishPage",
-    {
-      page_id: pageId,
-      locale_code: localeCode
-    }
-  );
-}
-
-async function hasuraCreateTag(tagData) {
-  return fetchGraphQL(
-    insertTagMutation,
-    "AddonInsertTag",
-    tagData
-  );
-}
-
 async function hasuraHandleUnpublish(formObject) {
   var slug = formObject['article-slug'];
   var documentType;
@@ -854,101 +551,7 @@ async function hasuraHandleUnpublish(formObject) {
     returnValue.status = "error";
     returnValue.message = `An unexpected error occurred trying to unpublish the ${documentType}`;
     returnValue.data = response.errors;
-  } else {
-    // trigger republish of the site to reflect this article no longer being live
-    rebuildSite();
   }
-  return returnValue;
-}
-
-
-async function hasuraGetPublishedArticles(localeCode) {
-  return fetchGraphQL(
-    getPublishedArticles,
-    "AddonGetPublishedArticles",
-    {
-      locale_code: localeCode
-    }
-  );  
-}
-
-async function republishArticles(localeCode) {
-  if (localeCode === undefined || localeCode === null) {
-    localeCode = "en-US" // TODO should we default this way?
-  }
-  var response = await hasuraGetPublishedArticles(localeCode);
-  var returnValue = {
-    status: "success",
-    message: "Republishing all articles",
-    data: response
-  };
-
-  var currentUserEmail = Session.getActiveUser().getEmail();
-
-  var googleDocIDs = [];
-  var results = [];
-  if (response.errors) {
-    returnValue.status = "error";
-    returnValue.message = "An unexpected error occurred trying to republish all articles";
-    returnValue.data = response.errors;
-  } else {  
-    response.data.articles.forEach(article => {
-      
-      var googleDocID = article.article_google_documents[0].google_document.document_id;
-      googleDocIDs.push(googleDocID);
-
-      var googleDocURL = article.article_google_documents[0].google_document.url;
-
-      var id = article.id;
-      var slug = article.slug;
-      
-      var activeDoc = DocumentApp.openById(googleDocID);
-      // Logger.log("processing google doc ID#" + googleDocID);
-      
-      var document = Docs.Documents.get(googleDocID);
-      
-      processDocumentContents(activeDoc, document, slug).then(orderedElements => {
-        // Logger.log(googleDocID +  " ordered elements:" + orderedElements.length);
-        var formattedElements = formatElements(orderedElements);
-        var mainImageContent = getMainImage(formattedElements);
-        // Logger.log(googleDocID + " mainImageContent: " + JSON.stringify(mainImageContent));
-
-        var categoryID = article.category.id;
-        var translation = article.article_translations[0];
-
-        var articleData = {
-          "id": id,
-          "slug": slug,
-          "document_id": googleDocID,
-          "url": googleDocURL,
-          "category_id": categoryID,
-          "locale_code": localeCode,
-          "headline": translation.headline,
-          "published": true,
-          "content": formattedElements,
-          "search_description": translation.search_description,
-          "search_title": translation.search_title,
-          "twitter_title": translation.twitter_title,
-          "twitter_description": translation.twitter_description,
-          "facebook_title": translation.facebook_title,
-          "facebook_description": translation.facebook_description,
-          "custom_byline": translation.custom_byline,
-          "created_by_email": currentUserEmail,
-          "main_image": mainImageContent,
-        }
-        // Logger.log(googleDocID + " articleData: " + JSON.stringify(articleData))
-        fetchGraphQL(
-          insertArticleGoogleDocMutationWithoutSources,
-          "AddonInsertArticleGoogleDocWithoutSources",
-          articleData
-        ).then( (data) => {
-          results.push(data);
-        })
-        
-      }) 
-    });
-    returnValue.data = results;
-  }  
   return returnValue;
 }
 
@@ -1002,10 +605,6 @@ async function hasuraHandlePublish(formObject) {
 
     publishUrl = insertPage.publishUrl;
 
-    // var getOrgLocalesResult = await hasuraGetOrganizationLocales();
-    // // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    // data.organization_locales = getOrgLocalesResult.data.organization_locales;
-
   } else {
     documentType = "article";
  
@@ -1019,15 +618,7 @@ async function hasuraHandlePublish(formObject) {
     publishUrl = insertArticle.publishUrl;
 
     data = insertArticle.data;
-    
-    // var getOrgLocalesResult = await hasuraGetOrganizationLocales();
-    // // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    // data.organization_locales = getOrgLocalesResult.data.organization_locales;
-
   }
-
-  // trigger republish of the site to reflect new article
-  rebuildSite();
 
   // open preview url in new window
   var message = "Published the " + documentType + ". <a href='" + publishUrl + "' target='_blank'>Click to view</a>."
@@ -1091,10 +682,6 @@ async function hasuraHandlePreview(formObject) {
 
     previewUrl = insertPage.previewUrl;
 
-    // var getOrgLocalesResult = await hasuraGetOrganizationLocales();
-    // // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    // data.organization_locales = getOrgLocalesResult.data.organization_locales;
-
   } else {
     documentType = "article";
     
@@ -1108,10 +695,6 @@ async function hasuraHandlePreview(formObject) {
     previewUrl = insertArticle.previewUrl;
 
     var data = insertArticle.data;
-   
-    // var getOrgLocalesResult = await hasuraGetOrganizationLocales();
-    // Logger.log("Get Org Locales:" + JSON.stringify(getOrgLocalesResult));
-    // data.organization_locales = getOrgLocalesResult.data.organization_locales;
 
   }
 
@@ -1126,154 +709,8 @@ async function hasuraHandlePreview(formObject) {
   }
 }
 
-
-function hasuraGetOrganizationLocales() {
-  return fetchGraphQL(
-    getOrganizationLocalesQuery,
-    "AddonGetOrganizationLocales"
-  );
-}
-
-function fetchArticleForGoogleDoc(doc_id) {
-  return fetchGraphQL(
-    getArticleByGoogleDocQuery,
-    "AddonGetArticleByGoogleDoc",
-    {"doc_id": doc_id}
-  );
-}
-
-function fetchPageForGoogleDoc(doc_id) {
-  return fetchGraphQL(
-    getPageForGoogleDocQuery,
-    "AddonGetPageForGoogleDoc",
-    {"doc_id": doc_id}
-  );
-}
-
-function fetchFeaturedArticles() {
-  return fetchGraphQL(
-    getHomepageFeaturedArticles,
-    "AddonGetHomepageFeaturedArticles"
-  );
-}
-
-async function isArticleFeatured(articleId) {
-  const { errors, data } = await fetchFeaturedArticles();
-
-  if (errors) {
-    console.error("errors:" + JSON.stringify(errors));
-    throw errors;
-  }
-
-  var scriptConfig = getScriptConfig();
-  var editorUrl = scriptConfig['EDITOR_URL'];
-
-  // Logger.log("data: " + JSON.stringify(data))
-  var isFeatured = false;
-  if (data && data.homepage_layout_datas) {
-    
-    data.homepage_layout_datas.forEach(hpData => {
-      var values = Object.values(hpData);
-      Logger.log(values);
-      if (values.includes(articleId)){
-        isFeatured = true;
-        Logger.log(articleId + " article is featured")
-      }
-    });
-  }
-  return {
-    featured: isFeatured,
-    editorUrl: editorUrl
-  };
-}
-
-/*
-.* called from ManualPage.html, this function searches for a matching article by headline
-.*/
-function hasuraSearchArticles(formObject) {
-  var localeCode = formObject["locale-code"];
-  if (localeCode === undefined || localeCode === null) {
-    localeCode = "en-US" // TODO should we default this way?
-  }
-  var term = "%" + formObject["article-search"] + "%";
-  return fetchGraphQL(
-    searchArticlesByHeadlineQuery,
-    "AddonSearchArticlesByHeadline",
-    {"term": term, "locale_code": localeCode}
-  );
-}
-
-/*
- * looks up a page by google doc ID and locale
- */
-async function getPageForGoogleDoc(doc_id) {
-  const { errors, data } = await fetchPageForGoogleDoc(doc_id);
-
-  if (errors) {
-    console.error("errors:" + JSON.stringify(errors));
-    throw errors;
-  }
-
-  return data;
-}
-
-function fetchTranslationDataForPage(docId, pageId, localeCode) {
-  return fetchGraphQL(
-    getPageTranslationForIdAndLocale,
-    "AddonGetPageTranslationByLocaleAndID",
-    {"doc_id": docId, "page_id": pageId, "locale_code": localeCode}
-  );
-}
-
-function fetchTranslationDataForArticle(docId, articleId, localeCode) {
-  return fetchGraphQL(
-    getArticleTranslationForIdAndLocale,
-    "AddonGetArticleTranslationByLocaleAndID",
-    {"doc_id": docId, "article_id": articleId, "locale_code": localeCode}
-  );
-}
-
-async function getTranslationDataForPage(docId, pageId, localeCode) {
-  const { errors, data } = await fetchTranslationDataForPage(docId, pageId, localeCode);
-
-  if (errors) {
-    console.error("errors:" + JSON.stringify(errors));
-    throw errors;
-  }
-
-  return data;
-}
-
-async function getTranslationDataForArticle(docId, articleId, localeCode) {
-  const {errors, data, orgSlug } = await fetchTranslationDataForArticle(docId, articleId, localeCode);
-
-  data.orgSlug = orgSlug;
-  Logger.log("getTranslationDataForArticle orgSlug: " + orgSlug + " data keys: " + JSON.stringify(Object.keys(data)));
-
-  if (errors) {
-    console.error("errors:" + JSON.stringify(errors));
-    throw errors;
-  }
-
-  return data;
-}
-
-/*
- * looks up an article by google doc ID and locale
- */
-async function getArticleForGoogleDoc(doc_id) {
-  const { errors, data } = await fetchArticleForGoogleDoc(doc_id);
-
-  if (errors) {
-    console.error("errors:" + JSON.stringify(errors));
-    throw errors;
-  }
-
-  return data;
-}
-
-  // this logs whether the doc is in an "articles" or "pages" folder
-  // otherwise, it's in the wrong spot and we should throw an error
+// this determines whether the doc is in an "articles" or "pages" folder
+// otherwise, it's in the wrong spot and we should throw an error
 function isValid(documentID) {
   var driveFile = DriveApp.getFileById(documentID)
   var fileParents = findAllParents(driveFile);
@@ -1292,8 +729,8 @@ function isValid(documentID) {
   }
 }
 
+// determine if this is a static page or an article - it will usually be an article
 function isPage(documentID) {
-  // determine if this is a static page or an article - it will usually be an article
   var driveFile = DriveApp.getFileById(documentID)
   var fileParents = findAllParents(driveFile)
   var isStaticPage = false;
@@ -1309,63 +746,6 @@ function isPage(documentID) {
   return isStaticPage;
 }
 
-async function hasuraGetTranslations(pageOrArticleId, localeCode) {
-  var returnValue = {
-    localeCode: localeCode,
-    articleId: pageOrArticleId,
-    status: "",
-    message: "",
-    data: {}
-  };
-
-  var document = DocumentApp.getActiveDocument();
-  var documentID = document.getId();
-  var documentTitle = document.getName();
-
-  returnValue.documentTitle = documentTitle;
-  returnValue.documentId = documentID;
-
-  var isStaticPage = isPage(documentID);
-
-  var data;
-  try {
-    if (isStaticPage) {
-      returnValue.docType = "page";
-      returnValue.status = "success";
-
-      data = await getTranslationDataForPage(documentID, pageOrArticleId, localeCode);
-      
-      if (data && data.page_translations && data.page_translations[0]) {
-        returnValue.message = "Retrieved page translation with ID: " + data.page_translations[0].id;
-      } else if (!data) {
-        returnValue.status = "error";
-        returnValue.message = "An error occurred retrieving page translations.";
-      }
-      returnValue.data = data;
-
-    } else {
-      returnValue.docType = "article";
-      returnValue.status = "success";
-
-      data = await getTranslationDataForArticle(documentID, pageOrArticleId, localeCode);
-      if (data && data.article_translations && data.article_translations[0]) {
-        returnValue.message = "Retrieved article translation with ID: " + data.article_translations[0].id;
-      } else if (!data) {
-        returnValue.status = "error";
-        returnValue.message = "An error occurred retrieving article translations.";
-      }
-      returnValue.data = data;
-    }
-
-  } catch (err) {
-    Logger.log(JSON.stringify(err));
-    returnValue.status = "error";
-    returnValue.message = "An error occurred getting the article or page";
-    returnValue.data = err;
-  }
-
-  return returnValue;
-}
 /*
 . * Returns metadata about the article, including its id, whether it was published
 . * headline and byline
@@ -1440,21 +820,7 @@ async function hasuraGetArticle() {
 
   Logger.log("returnValue: " + JSON.stringify(returnValue));
 
-    // Logger.log("error: " + JSON.stringify(err));
-    // returnValue.status = "error";
-    // returnValue.message = "An error occurred getting the article or page";
-    // returnValue.data = err;
-
   return returnValue;
-}
-
-/**
-. * Gets the current document's contents
-. */
-async function getCurrentDocContents() {
-  
-
-  return formattedElements;
 }
 
 async function apiSaveArticle(articleData, slug, contents, listInfo, imageList, inlineObjects) {
@@ -1511,6 +877,7 @@ async function apiSaveArticle(articleData, slug, contents, listInfo, imageList, 
 
   return responseData;
 }
+
 async function apiUnpublish(documentType, documentID, slug) {
   var scriptConfig = getScriptConfig();
   var API_TOKEN = scriptConfig['DOCUMENT_API_TOKEN'];
@@ -1565,7 +932,6 @@ async function apiUnpublish(documentType, documentID, slug) {
 
   return responseData;
 }
-
 
 async function previewPage(pageData, slug, contents, listInfo, imageList, inlineObjects) {
   var scriptConfig = getScriptConfig();
@@ -1667,78 +1033,5 @@ async function publishPage(pageData, slug, contents, listInfo, imageList, inline
     }
   }
 
-  return responseData;
-}
-
-/*
-.* Retrieves "elements" from the google doc - which are headings, images, paragraphs, lists
-.* Preserves order, indicates that order with `index` attribute
-.*/
-async function getElements() {
- 
-  return orderedElements;
-}
-
-
-/*
-.* Gets elements and formats them into JSON structure for us to work with on the front-end
-.*/
-function formatElements(elements) {
-  var formattedElements = [];
-  elements.sort(function (a, b) {
-    if (a.index > b.index) {
-      return 1;
-    } else {
-      return -1;
-    }
-  }).forEach(element => {
-    Logger.log("element.type: " + element.type + " - " + JSON.stringify(element))
-    var formattedElement = {
-      type: element.type,
-      style: element.style,
-      link: element.link,
-      listType: element.listType
-    };
-    if (formattedElement.type === "list") {
-      formattedElement.listType = element.listType;
-      formattedElement.items = element.items;
-    } else {
-      formattedElement.children = element.children;
-    }
-    formattedElements.push(formattedElement);
-  })
-
-  return formattedElements;
-}
-
-async function getMainImage(elements) {
-  var mainImageNodes = elements.filter(element => element.type === 'mainImage');
-
-  if (!mainImageNodes[0]) {
-    // console.log("no mainImage type found in elements " + JSON.stringify(elements))
-    return {}
-  }
-  // Logger.log("mainImageNodes[0]: " + JSON.stringify(mainImageNodes[0]));
-  return mainImageNodes[0];
-}
-/**
- * Rebuilds the site by POSTing to deploy hook
- */
-function rebuildSite() {
-  var scriptConfig = getScriptConfig();
-  var WEBHOOK = scriptConfig['VERCEL_WEBHOOK'];
-
-  var options = {
-    method: 'post',
-    muteHttpExceptions: true,
-    contentType: 'application/json'
-  };
-
-  var response = UrlFetchApp.fetch(
-    WEBHOOK,
-    options
-  );
-  var responseText = response.getContentText();
-  var responseData = JSON.parse(responseText);
   return responseData;
 }
