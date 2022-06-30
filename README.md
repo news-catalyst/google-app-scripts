@@ -1,41 +1,16 @@
-# Google App Scripts for tinynews
+# TinyCMS Publishing Tools
 
-This repo is a collection of scripts for a Google Docs publishing add-on for tinynewsco sites.
+This repo contains the Google Apps Script project that controls the TinyCMS Publishing Tools, allowing TNC members to publish stories from Google Docs.
 
-The add-on is in release v3 (`02Sept2020`) published as `version 31` in the Google SDK Marketplace - private, for News Catalyst Google users.
+## Development and deployment process
 
-## Howto
+The actual Google Apps Script project is managed in the [Google Apps Script editor](https://script.google.com). This repo is mostly so we have the project in some form of version control. To work on this codebase, use the following steps.
 
-You can create, edit, test-run and publish apps scripts from the Google Script Editor at https://script.google.com/
-
-* [URLFetchApp info](https://developers.google.com/apps-script/reference/url-fetch/url-fetch-app)
-* [HTML Service - used to display the sidebar](https://developers.google.com/apps-script/guides/html)
-* [Running server side JS functinos from the sidebar](https://developers.google.com/apps-script/guides/html/communication)
-
-More info tk.
-
-## Scripts
-
-* `Code.js` contains functions used to get content from the current Google Doc and to post it to Webiny's content API
-* `Page.html` is what the add-on's sidebar displays
-* `appsscript.json` tells the add-on what oauth scopes it can use (several are required for interacting with the document and with third party services)
-
-## Features
-
-### Preview Article
-
-Saves the article as a draft in Webiny and returns a (currently localhost only) url to preview it.
-
-### Publish Article
-
-Saves the contents of the current document in Webiny as a draft then publishes it. It does the following:
-
-* checks for a stored localeID
-  * if none found, gets the list of locales from webiny, selects the default locale, and stores its ID as the localeID
-* checks for a stored articleID
-  * if none found, calls the CreateBasicArticle mutation, then stores the new articleID
-  * if found, calls the CreateArticleFrom mutation
-
-### Get Locales
-
-Requests the list of locales from Webiny. Right now this is all that happens. There are some issues to be worked out here, starting with how to authenticate against the webiny graphql API. It's... complicated. Details can be found in [issue #7](https://github.com/news-catalyst/google-app-scripts/issues/7)
+1. Write code locally by cloning this repo to your local machine and editing the code.
+2. When you're ready to test, copy and paste your local code into the Google Apps Script editor
+3. Click "Deploy" in the top right and select "Test Deployments."
+4. Either use one of the saved tests or create a new test against a new document. When you've selected the test document you want to run, click "Execute." This will open a new tab with your test document. Run the sidebar in this tab to test your new functionality.
+5. When your code is correct, commit the final version to this repository in a feature branch, and submit a pull request for review.
+6. The code reviewer should test the code via the same test document the original developer used in step 4. Once the code is reviewed, the reviewer should merge the pull request.
+7. Back in the Google Apps Script editor, create a new deployment by clicking "Deploy", then "New deployment." Select your deployment type as "Add-on", then describe the deployment with the same name as the pull request you just merged. Click deploy. Note the version number of the new deployment.
+8. Finally, go to [this page](https://console.cloud.google.com/apis/api/appsmarket-component.googleapis.com/googleapps_sdk?authuser=0&project=webiny-sidebar-publishing) for the Google Workspace Marketplace SDK, and scroll down to "Docs Add-on script version." Increment the version number to the new version. Click save at the bottom of the page.
