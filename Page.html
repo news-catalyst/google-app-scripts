@@ -28,9 +28,9 @@
           error: err,
         }).then(function(notice) {
           if (notice.id) {
-            console.log('notice id:', notice.id);
+            // console.log('notice id:', notice.id);
           } else {
-            console.log('notify failed:', notice.error);
+            // console.log('notify failed:', notice.error);
           }
         });
       }
@@ -121,7 +121,7 @@
         })
       }
 
-      function displayTags(localeCode, tags, articleTags) {
+      function displayTags(tags, articleTags) {
         // console.log("displayTags:", tags, articleTags)
         var articleTagsSelect = document.getElementById('article-tags');
 
@@ -137,14 +137,9 @@
           var selectorString = "#article-tags option[value='" + tag.slug + "']";
           if ( $(selectorString).length <= 0 ) {
             var option = document.createElement("option");
-            // console.log(localeCode, "tag.tag_translations:", tag.tag_translations.length, tag.tag_translations);
-            let translatedTag = tag.tag_translations.find( ({locale_code}) => locale_code === localeCode);
+            let translatedTag = tag.tag_translations.find( ({locale_code}) => locale_code === 'en-US');
             if (translatedTag) {
-              // console.log(localeCode, "found translatedTag:", translatedTag);
               option.text = translatedTag.title;
-            } else {
-              // console.log(localeCode, "using first translation of tag:", tag.tag_translations[0]);
-              option.text = tag.tag_translations[0].title;
             }
             option.value = tag.slug;
 
@@ -159,43 +154,7 @@
         })
       }
 
-      function displayLocales(locales, currentLocale) {
-        var articleLocaleSelect = document.getElementById('article-locale');
-        if (locales) {
-          locales.forEach(localeData => {
-            // first check if this option already exists; don't add dupes!
-            var selectorString = "#article-locale option[value='" + localeData.locale.code + "']";
-            if ( $(selectorString).length <= 0 ) {
-              var option = document.createElement("option");
-              if (localeData.locale.code) {
-                option.text = localeData.locale.code;
-              } else {
-                option.text = "(BUG) unknown locale";
-              }
-              // mark this locale as selected if it's the article's locale ID -or- is the default locale
-              if (currentLocale === localeData.locale.code) {
-                option.selected = true;
-              }
-              option.value = localeData.locale.code;
-              articleLocaleSelect.add(option);
-            }
-          })
 
-        } else {
-          var option = document.createElement("option");
-          option.text = currentLocale;
-          option.selected = true;
-          option.value = currentLocale;
-          articleLocaleSelect.add(option);
-        }
-
-        var localeContainer = document.getElementById('locale-container');
-        if (locales.length > 1) {
-          localeContainer.style.display = 'block';
-        } else {
-          localeContainer.style.display = 'none';
-        }
-      }
 
       function displayAuthors(authors, articleAuthors) {
         var articleAuthorSelect = document.getElementById('article-authors');
@@ -235,6 +194,7 @@
           lastSpan.innerHTML = formatDate(publishedInfo.last_published_at);
 
           var translationIdSpan = document.getElementById("translation-id");
+          // console.log("displayPublishedInfo pubInfo/translationData", publishedInfo, translationData);
           if (translationData && publishedInfo.id === translationData.id) {
             translationIdSpan.innerHTML = "This translation was published at:";
           } else {
@@ -281,227 +241,15 @@
         // isPublishedSpan.innerHTML = isPublishedYesNo;
       }
 
-      function onSuccessCreateDoc(contents) {
-        // console.log("onSuccessCreateDoc: ", contents);
-
-        var buttonId = 'translate-button-top-' + contents.locale;
-        var button = document.getElementById(buttonId);
-        button.innerHTML = "Open Translation";
-
-        button.setAttribute("class", "blue");
-        button.setAttribute("type", "button");
-
-        var buttonOpenLink = "window.open('" + contents.url + "', '_blank')";
-        button.setAttribute("onClick", buttonOpenLink);
-        // button.innerHTML = "Open " + doc.locale_code;
-        button.href = contents.url;
-
-        window.open(contents.url, '_blank');
-      }
-
-      function handleCreateDoc(el) {
-        var localeCode = $(el).data('locale'); 
-        var docType = $(el).data('doc-type');
-        var headline = $(el).data('headline');
-        var id;
-        if (docType === "page") {
-          id = $(el).data('page-id');
-          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessCreateDoc).hasuraCreatePageDoc(id, localeCode, headline);
-        } else {
-          id = $(el).data('article-id');
-          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessCreateDoc).hasuraCreateArticleDoc(id, localeCode, headline);
-        }
-      }
-
-      function onSuccessGetArticle(contents) {
-
-        var configDiv = document.getElementById('config');
-        configDiv.style.display = 'none';
-        var div = document.getElementById('loading');
-        div.style.display = 'block';
-        var form = document.getElementById('article-form');
-        form.style.display = "block";
-
-        var buttonsDivBottom = document.getElementById('action-buttons-bottom')
-        buttonsDivBottom.style.display = "block";
-        var buttonsDivTop = document.getElementById('action-buttons-top')
-        buttonsDivTop.style.display = "block";
-
-        if (contents && contents.status && contents.status === "error") {
-          div.innerHTML = "<p class='error'>An error occurred: " + contents.message + '</p>';
-          
-          try {
-            alertAirbrake(JSON.stringify(contents));
-          } catch(e) {
-            console.error("Failed to log error with Airbrake:", e);
-          }
-        } else {
-          div.innerHTML = '<p style="color: #48C774;">' + contents.message + "</p>";
-        }
-
-        // console.log("contents onSuccessGetArticle:", contents);
-        var typeHiddenField = document.getElementById('document-type');
-        var documentType = typeHiddenField.value;
-
-        // hide form fields that are relevant for articles only from documents that are static pages
-        if (documentType !== "article") {
-          [].forEach.call(document.querySelectorAll('.articles-only'), function (el) {
-            el.style.display = 'none';
-          });
-        }
-
-        var data;
-        var googleDocs;
-        var translationData;
-        var publishedInfo;
-        var headline;
-        
-        var localeCode = contents.localeCode;
-        if (!localeCode) {
-          localeCode = "en-US";
-        }
-
-        if (contents.data.articles) {
-          if (contents.data.articles[0]) {
-            data = contents.data.articles[0]
-          }
-          if (contents.data.article_translations) {
-              translationData = contents.data.article_translations[0];
-          }
-          if (contents.data.article_google_documents) {
-            googleDocs = contents.data.article_google_documents;
-          }
-          if (contents.data.published_article_translations && contents.data.published_article_translations[0]) {
-            publishedInfo = contents.data.published_article_translations[0].article_translation;
-            // console.log("found publishedInfo:", publishedInfo);
-          }
-        } else if (contents.data.pages) {
-          documentType = "page"
-          if (contents.data.pages[0]) {
-            data = contents.data.pages[0]
-            
-          }
-          if (contents.data.page_translations) {
-            translationData = contents.data.page_translations[0];
-          }
-
-          if (contents.data.page_google_documents) {
-            googleDocs = contents.data.page_google_documents;
-          }
-        }
-
-        if (translationData) {
-          headline = translationData.headline;
-        } else if (contents.documentTitle && contents.documentTitle !== "Untitled document") {
-          headline = contents.documentTitle;
-        } else {
-          headline = "tk";
-        }
-        displayTranslationTools(data.id, contents.documentId, documentType, headline, googleDocs, contents.data.organization_locales);
-        
-        if (publishedInfo) {
-          displayPublishedInfo(publishedInfo, translationData);
-        }
-
-        // if (contents.data.organization_locales) {
-          displayLocales(contents.data.organization_locales, localeCode);
-        // }
-        
-        if (documentType === "article") {
-          displayCategories(contents.data.categories, data.category);
-          displayTags(localeCode, contents.data.tags, data.tag_articles);
-          displayAuthors(contents.data.authors, data.author_articles);
-        }
-
-        if (data) {
-          // console.log("contents:", contents, "data:", data);
-          var slugField = document.getElementById('article-slug');
-          slugField.value = data.slug;
-
-          if (contents && contents.data && contents.data.orgSlug) {
-            var orgSlugField = document.getElementById('org-slug');
-            orgSlugField.value = contents.data.orgSlug;
-          }
-
-          var idHiddenField = document.getElementById('article-id');
-          idHiddenField.value = data.id;
-          
-        }
-
-        // var selectedLocale = document.getElementById('selected-locale');
-        if (translationData) {
-          setPublishedFlag(translationData.published);
-
-          var articleHeadline = document.getElementById('article-headline');
-          articleHeadline.value = translationData.headline;
-
-          // selectedLocale.innerHTML = translationData.locale_code;
-
-          setValueOrDefault('article-custom-byline', translationData.custom_byline, "");
-          setValueOrDefault('article-search-title', translationData.search_title, translationData.search_title);
-          setValueOrDefault('article-search-description', translationData.search_description, translationData.search_description);
-          setValueOrDefault('article-facebook-title', translationData.facebook_title, translationData.facebook_title);
-          setValueOrDefault('article-facebook-description', translationData.facebook_description, translationData.facebook_description);
-          setValueOrDefault('article-twitter-title', translationData.twitter_title, translationData.twitter_title);
-          setValueOrDefault('article-twitter-description', translationData.twitter_description, translationData.twitter_description);
-        } else {
-          // selectedLocale.innerHTML = localeCode;
-        }
-
-        $('#article-authors').select2({
-          width: 'resolve',
-        });
-
-        $('#article-tags').select2({
-          width: 'resolve',
-          tags: true,
-          createTag: function (params) {
-            var term = $.trim(params.term);
-
-            if (term === '') {
-              return null;
-            }
-
-            return {
-              id: term,
-              text: term,
-              newTag: true // add additional parameters
-            }
-          }
-        });
-
-        // console.log("publishedInfo:", publishedInfo);
-        if (publishedInfo) {
-          var firstPubDate = new Date(publishedInfo.first_published_at);
-          // console.log("setting published date to ", firstPubDate, publishedInfo.first_published_at);
-
-          flatpickr('input[name="article-first-published-date"]', {
-            enableTime: true,
-            dateFormat: "Y-m-d h:i K",
-            defaultDate: firstPubDate
-          });
-        } else {
-          var today = new Date();
-          flatpickr('input[name="article-first-published-date"]', {
-            enableTime: true,
-            dateFormat: "Y-m-d h:i K",
-            defaultDate: today
-          });
-        }
-
-        if (data && documentType === "article") {
-          google.script.run.withFailureHandler(onFailureFeatured).withSuccessHandler(onSuccessFeatured).isArticleFeatured(data.id);
-        }
-      }
       
-      function onSuccessFeatured(result) {
-        if (result && result.featured) {
+      function displayFeaturedMessage(featured, url) {
+        if (featured) {
           
           var div = document.getElementById('featured');
           div.style.display = "block";
           var message = "<b>This article is featured on the homepage</b>";
-          if (result.editorUrl) {
-            message += ": <a target='_new' href='" + result.editorUrl + "'>edit</a>"
+          if (url) {
+            message += ": <a target='_new' href='" + url + "'>edit</a>"
           }
           div.innerHTML = message;
 
@@ -514,7 +262,7 @@
       }
 
       function onFailureFeatured(error) {
-        console.log("onFailureFeatured error:", error);
+        // console.log("onFailureFeatured error:", error);
         try {
           alertAirbrake(error);
         } catch(e) {
@@ -523,7 +271,7 @@
       }
 
       function onFailure(error) {
-        console.log("onFailure error:", error);
+        // console.log("onFailure error:", error);
         
         try {
           alertAirbrake(error);
@@ -535,7 +283,7 @@
         loadingDiv.style.display = "block";
         loadingDiv.innerHTML = "<p class='error'>An error occurred: " + error + "</p>";
         var form = document.getElementById('article-form');
-        form.style.display = "none";
+        form.style.display = "block";
       }
 
       function createTextInputDiv(id, label, name, value) {
@@ -763,572 +511,590 @@
         sourceContainer.appendChild(formDiv);
 
       }
+      
+function handleGetTranslationsForArticle(result) {
+  // console.log("result:", result);
 
-      function handleGetTranslationsForArticle(data) {
+  var configDiv = document.getElementById('config');
+  configDiv.style.display = 'none';
+  var div = document.getElementById('loading');
+  div.style.display = 'block';
+  var form = document.getElementById('article-form');
+  form.style.display = "block";
 
-        if (data && data.status === "error") {
-          onFailure(data.message);
-          return;
+  var buttonsDivBottom = document.getElementById('action-buttons-bottom')
+  buttonsDivBottom.style.display = "block";
+  var buttonsDivTop = document.getElementById('action-buttons-top')
+  buttonsDivTop.style.display = "block";
+
+  if (result && result.status && result.status === "error") {
+    div.innerHTML = "<p class='error'>An error occurred: " + result.message + '</p>';
+    
+    try {
+      alertAirbrake(JSON.stringify(result));
+    } catch(e) {
+      console.error("Failed to log error with Airbrake:", e);
+    }
+
+    return;
+  } else {
+    div.innerHTML = '<p style="color: #48C774;">' + result.message + "</p>";
+  }
+  
+  var articleId;
+  var pageId;
+  var localeCode = 'en-US';
+  var typeHiddenField = document.getElementById('document-type');
+  var documentType = "article";
+
+  var data = result.data;
+
+  if (data && data.documentType) {
+    documentType = data.documentType;
+  }
+  typeHiddenField.value = documentType;
+
+  if (documentType === "article" && data.article && data.article.id) {
+    articleId = data.article.id;
+
+    if (data.article.canonical_url) {
+      var canonicalUrlField = document.getElementById('article-custom-canonical-url');
+      canonicalUrlField.value = data.article.canonical_url;
+    }
+
+    var blankSource = {
+      name: "",
+      race: "",
+      zip: "",
+      affiliation: "",
+      phone: "",
+      email: "",
+      gender: "",
+      sexual_orientation: "",
+      ethnicity: "",
+      role: "",
+      age: ""
+    }
+
+    var sourceContainer = document.getElementById('sources-container');
+    var sourcesCounter = 0;
+    sourcesCounter += 1;
+
+    // first add an empty set of form fields to the top of the sources-container
+    addAnotherSource("new_1", blankSource);
+    sourcesCounter += 1;
+
+    var sourceListContainer = document.getElementById('sources-list-container');
+    var sourceUnorderedList = document.createElement("ul");
+
+    // then loop over existing sources and render the filled-in set of form fields
+    if (data.article.article_sources) {
+      var sources = data.article.article_sources;
+      // console.log("found " + sources.length + " sources");
+      sources.forEach(sourceData => {
+        sourcesCounter += 1;
+        var source = sourceData.source;
+        // console.log("found source id# " + source.id);
+
+        addAnotherSource(source.id, source);
+
+        var sourceListItem = document.createElement("li");
+        sourceListItem.style.cursor = "pointer";
+        sourceListItem.innerHTML = "<a onClick='expandSource(" + source.id + ")'>" + source.name + "</a>";
+        sourceUnorderedList.appendChild(sourceListItem)
+      });
+    }
+
+    sourceListContainer.appendChild(sourceUnorderedList);
+
+    var counterField = document.getElementById("source-tracking-counter");
+    counterField.value = sourcesCounter;
+  }
+
+  if (documentType === "page" && data.page) {
+    // hide the source tracking form
+    var sourceListContainer = document.getElementById('sources-list-container');
+    sourceListContainer.style.display = "none";
+    var addSourceButton = document.getElementById('add-another-source');
+    addSourceButton.style.display = "none";
+
+    // hide fields that are for articles only
+    [].forEach.call(document.querySelectorAll('.articles-only'), function (el) {
+      el.style.display = 'none';
+    });
+
+    pageId = data.page.id;
+  }
+
+  if (!localeCode) {
+    localeCode = "en-US";
+  }
+  
+  if ( (articleId || pageId) && localeCode) {
+    var googleDocs;
+    var translationData;
+    var publishedInfo;
+    var headline;
+    var id;
+
+    if (data.article) {
+      id = data.article.id;
+
+      if (data.article.article_translations) {
+        translationData = data.article.article_translations[0];
+      }
+      if (data.article_google_documents) {
+        googleDocs = data.article_google_documents;
+      }
+      if (data.published_article_translations && data.published_article_translations[0]) {
+        publishedInfo = data.published_article_translations[0].article_translation;
+      }
+
+      displayCategories(data.categories, data.article.category);
+      displayTags(data.tags, data.article.tag_articles);
+      displayAuthors(data.authors, data.article.author_articles);
+
+      var slugField = document.getElementById('article-slug');
+      slugField.value = data.article.slug;
+
+      if (data.orgSlug) {
+        var orgSlugField = document.getElementById('org-slug');
+        orgSlugField.value = data.orgSlug;
+      }
+
+      var idHiddenField = document.getElementById('article-id');
+      idHiddenField.value = id;
+    
+      let articleIsFeatured = false;
+      data.homepage_layout_datas.forEach((homepageSpots) => {
+        articleIsFeatured = Object.values(homepageSpots).includes(id);
+      });
+
+      displayFeaturedMessage(articleIsFeatured, data.editorUrl);
+
+    } else if (data.page) {
+      id = data.page.id;
+      if (data.page.page_translations) {
+        translationData = data.page.page_translations[0];
+      }
+
+      if (data.page_google_documents) {
+        googleDocs = data.page_google_documents;
+      }
+
+      var slugField = document.getElementById('article-slug');
+      slugField.value = data.page.slug;
+
+      if (data.orgSlug) {
+        var orgSlugField = document.getElementById('org-slug');
+        orgSlugField.value = data.orgSlug;
+      }
+
+      var idHiddenField = document.getElementById('article-id');
+      idHiddenField.value = id;
+    
+    }
+
+    if (translationData) {
+      headline = translationData.headline;
+    } else if (data.documentTitle && data.documentTitle !== "Untitled document") {
+      headline = data.documentTitle;
+    } else {
+      headline = "tk";
+    }
+    
+
+    if (publishedInfo) {
+      displayPublishedInfo(publishedInfo, translationData);
+
+      var firstPubDate = new Date(publishedInfo.first_published_at);
+      // console.log("setting published date to ", firstPubDate, publishedInfo.first_published_at);
+
+      flatpickr('input[name="article-first-published-date"]', {
+        enableTime: true,
+        dateFormat: "Y-m-d h:i K",
+        defaultDate: firstPubDate
+      });
+
+    } else {
+      var today = new Date();
+      flatpickr('input[name="article-first-published-date"]', {
+        enableTime: true,
+        dateFormat: "Y-m-d h:i K",
+        defaultDate: today
+      });
+    
+    }
+
+    if (translationData) {
+      if (publishedInfo) {
+        // console.log("found publishedInfo:", publishedInfo);
+        setPublishedFlag(true);
+      } else {
+        setPublishedFlag(translationData.published);
+      }
+      var articleHeadline = document.getElementById('article-headline');
+      articleHeadline.value = headline;
+
+      setValueOrDefault('article-custom-byline', translationData.custom_byline, "");
+      setValueOrDefault('article-search-title', translationData.search_title, translationData.search_title);
+      setValueOrDefault('article-search-description', translationData.search_description, translationData.search_description);
+      setValueOrDefault('article-facebook-title', translationData.facebook_title, translationData.facebook_title);
+      setValueOrDefault('article-facebook-description', translationData.facebook_description, translationData.facebook_description);
+      setValueOrDefault('article-twitter-title', translationData.twitter_title, translationData.twitter_title);
+      setValueOrDefault('article-twitter-description', translationData.twitter_description, translationData.twitter_description);
+    }
+
+    $('#article-authors').select2({
+      width: 'resolve',
+    });
+
+    $('#article-tags').select2({
+      width: 'resolve',
+      tags: true,
+      createTag: function (params) {
+        var term = $.trim(params.term);
+
+        if (term === '') {
+          return null;
         }
-        var articleId;
-        var pageId;
-        var localeCode;
-        var typeHiddenField = document.getElementById('document-type');
-        var documentType = "article";
-        
-        if (data && data.data && data.data.articles) {
-          documentType = "article";
+
+        return {
+          id: term,
+          text: term,
+          newTag: true // add additional parameters
         }
-        if (data && data.data && data.data.pages) {
-          documentType = "page";
-        }
+      }
+    });
 
-        typeHiddenField.value = documentType;
+  } else {
+    if (!localeCode) {
+      localeCode = "en-US";
+    }
+    // TBD: where to get the active doc headline from - pretty sure this html doc can't access it?
+    if (data && data.headline && data.headline !== "Untitled document") {
+      // console.log("setting default article headline to:", data.data.headline)
+      var headline = document.getElementById('article-headline');
+      headline.value = data.headline;
+      var searchTitle = document.getElementById('article-search-title');
+      searchTitle.value = data.headline;
+    } else {
+      // console.log("data.headline is undefined:", data);
+    }
 
-        if (documentType === "article" && data && data.data && data.data.articles && data.data.articles[0]) {
-
-          articleId = data.data.articles[0].id;
-
-          if (data.data.articles[0].canonical_url) {
-            var canonicalUrlField = document.getElementById('article-custom-canonical-url');
-            canonicalUrlField.value = data.data.articles[0].canonical_url;
-          }
-
-          if (
-            data.data.articles[0] && 
-            data.data.articles[0].article_google_documents && 
-            data.data.articles[0].article_google_documents[0] && 
-            data.data.articles[0].article_google_documents[0].google_document) {
-              localeCode = data.data.articles[0].article_google_documents[0].google_document.locale_code;
-            }
-
-            var blankSource = {
-              name: "",
-              race: "",
-              zip: "",
-              affiliation: "",
-              phone: "",
-              email: "",
-              gender: "",
-              sexual_orientation: "",
-              ethnicity: "",
-              role: "",
-              age: ""
-            }
-
-            var sourceContainer = document.getElementById('sources-container');
-            var sourcesCounter = 0;
-            sourcesCounter += 1;
-
-            // first add an empty set of form fields to the top of the sources-container
-            addAnotherSource("new_1", blankSource);
-            sourcesCounter += 1;
-
-            var sourceListContainer = document.getElementById('sources-list-container');
-            var sourceUnorderedList = document.createElement("ul");
-
-            // then loop over existing sources and render the filled-in set of form fields
-            if (
-              data.data.articles[0] &&
-              data.data.articles[0].article_sources
-              ) {
-                var sources = data.data.articles[0].article_sources;
-                // console.log("found " + sources.length + " sources");
-                sources.forEach(sourceData => {
-                  sourcesCounter += 1;
-                  var source = sourceData.source;
-                  // console.log("found source id# " + source.id);
-
-                  addAnotherSource(source.id, source);
-
-                  var sourceListItem = document.createElement("li");
-                  sourceListItem.style.cursor = "pointer";
-                  sourceListItem.innerHTML = "<a onClick='expandSource(" + source.id + ")'>" + source.name + "</a>";
-                  sourceUnorderedList.appendChild(sourceListItem)
-                });
-            }
-
-            sourceListContainer.appendChild(sourceUnorderedList);
-
-            var counterField = document.getElementById("source-tracking-counter");
-            counterField.value = sourcesCounter;
-        }
-
-        if (documentType === "page" && data.data.pages[0]) {
-          // hide the source tracking form
-          var sourceListContainer = document.getElementById('sources-list-container');
-          sourceListContainer.style.display = "none";
-          var addSourceButton = document.getElementById('add-another-source');
-          addSourceButton.style.display = "none";
-
-          typeHiddenField.value = documentType;
-          pageId = data.data.pages[0].id;
-          // console.log("hasuraGetPage id:", pageId);
-          if (
-            data.data.pages[0] && 
-            data.data.pages[0].page_google_documents && 
-            data.data.pages[0].page_google_documents[0] && 
-            data.data.pages[0].page_google_documents[0].google_document) {
-              localeCode = data.data.pages[0].page_google_documents[0].google_document.locale_code;
-            }
-        }
-
-        if (articleId && localeCode) {
-          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(articleId, localeCode);
-        } else if (pageId && localeCode) {
-          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(pageId, localeCode);
-        } else {
-
-          if (!localeCode) {
-            localeCode = "en-US";
-          }
-
-          if (data && data.data && data.data.headline && data.data.headline !== "Untitled document") {
-            // console.log("setting default article headline to:", data.data.headline)
-            var headline = document.getElementById('article-headline');
-            headline.value = data.data.headline;
-            var searchTitle = document.getElementById('article-search-title');
-            searchTitle.value = data.data.headline;
-          } else {
-            // console.log("data.headline is undefined:", data);
-          }
-          var configDiv = document.getElementById('config');
-          configDiv.style.display = 'none';
-
-          var div = document.getElementById('loading');
-          div.style.display = 'block';
-          div.innerHTML = data.message;
-          var form = document.getElementById('article-form');
-          form.style.display = "block";
-          var buttonsDivBottom = document.getElementById('action-buttons-bottom')
-          buttonsDivBottom.style.display = "block";
-          var buttonsDivTop = document.getElementById('action-buttons-top')
-          buttonsDivTop.style.display = "block";
-          setPublishedFlag(false); // new article is not published, ensure correct action buttons display
-
-          displayLocales(data.data.organization_locales, localeCode);
+    setPublishedFlag(false); // new article is not published, ensure correct action buttons display
           
-          if (documentType === "article") {
-            // console.log("data:", data);
-            if (data && data.data && data.data.categories) {
-              displayCategories(data.data.categories, null);
-            }
-            if (data && data.data && data.data.tags) {
-              displayTags(localeCode, data.data.tags, null);
-            }
-            if (data && data.data && data.data.authors) {
-              displayAuthors(data.data.authors, null);
-            }
+    if (documentType === "article") {
+      // console.log("data:", data);
+      if (data && data.categories) {
+        displayCategories(data.categories, null);
+      }
+      if (data && data.tags) {
+        displayTags(data.tags, null);
+      }
+      if (data && data.authors) {
+        displayAuthors(data.authors, null);
+      }
 
+      var today = new Date();
+      flatpickr('input[name="article-first-published-date"]', {
+        enableTime: true,
+        dateFormat: "Y-m-d h:i K",
+        defaultDate: today
+      });
+
+      $('#article-authors').select2({
+        width: 'resolve',
+      });
+
+      $('#article-tags').select2({
+        width: 'resolve',
+        tags: true,
+        createTag: function (params) {
+          var term = $.trim(params.term);
+
+          if (term === '') {
+            return null;
+          }
+
+          return {
+            id: term,
+            text: term,
+            newTag: true // add additional parameters
+          }
+        }
+      });
+    } else {
+      [].forEach.call(document.querySelectorAll('.articles-only'), function (el) {
+        el.style.display = 'none';
+      });
+    }
+  }
+}
+
+function handleGetArticle() {
+  google.script.run.withFailureHandler(onFailure).withSuccessHandler(handleGetTranslationsForArticle).hasuraGetArticle();
+}
+
+  function onSuccessPreviewPublish(response) {
+    var configDiv = document.getElementById('config');
+    configDiv.style.display = 'none';
+    var div = document.getElementById('loading');
+    div.style.display = 'block';
+
+    // console.log("onSuccessPreviewPublish:", response);
+
+    if (response.data.errors || response.status === 'error') {
+      // console.log("error:", response);
+      if (response.data.errors) {
+        // console.log("response.data.errors:", response.data.errors);
+        div.innerHTML = "<p class='error'>An error occurred: " + JSON.stringify(response.data.errors) + '</p>';
+        try {
+          alertAirbrake(JSON.stringify(response.data.errors));
+        } catch(e) {
+          console.error("Failed to log error with Airbrake:", e);
+        }
+      } else {
+        // console.log("response.message:", response.message);
+        div.innerHTML = "<p class='error'>" + response.message + '</p>';
+      }
+    } else {
+      div.innerHTML = '<p style="color: #48C774;">' + response.message + "</p>";
+      if (response.data && response.documentType && response.documentType === 'article') {
+        var articleID = response.data.id;
+        var idHiddenField = document.getElementById('article-id');
+        idHiddenField.value = articleID;
+        // console.log("set", idHiddenField, "to id#", articleID);
+
+        var articleSlug = response.data.slug;
+        var slugField = document.getElementById('article-slug');
+        slugField.value = articleSlug;
+
+        var translations = response.data.article_translations;
+        
+        var publishedInfo = response.data.published_article_translations;
+        if (publishedInfo && publishedInfo[0]) {
+          // console.log("publishedInfo:", publishedInfo[0])
+          setPublishedFlag(true);
+          var mostRecentPubInfo = publishedInfo[0].article_translation;
+          displayPublishedInfo(mostRecentPubInfo, translations[0]);
+          
+          // console.log("publishedInfo:", mostRecentPubInfo);
+          if (mostRecentPubInfo) {
+            var firstPubDate = new Date(mostRecentPubInfo.first_published_at);
+            // console.log("setting published date to ", firstPubDate, mostRecentPubInfo.first_published_at);
+            flatpickr('input[name="article-first-published-date"]', {
+              enableTime: true,
+              dateFormat: "Y-m-d h:i K",
+              defaultDate: firstPubDate
+            });
+          } else {
             var today = new Date();
             flatpickr('input[name="article-first-published-date"]', {
               enableTime: true,
               dateFormat: "Y-m-d h:i K",
               defaultDate: today
             });
-
-            $('#article-authors').select2({
-              width: 'resolve',
-            });
-
-            $('#article-tags').select2({
-              width: 'resolve',
-              tags: true,
-              createTag: function (params) {
-                var term = $.trim(params.term);
-
-                if (term === '') {
-                  return null;
-                }
-
-                return {
-                  id: term,
-                  text: term,
-                  newTag: true // add additional parameters
-                }
-              }
-            });
-          } else {
-            [].forEach.call(document.querySelectorAll('.articles-only'), function (el) {
-              el.style.display = 'none';
-            });
           }
         }
+
+      } else if (response.data && response.documentType === 'page') { 
+        var pageID = response.data.id;
+        // console.log("page ID:", pageID)
+        var idHiddenField = document.getElementById('article-id');
+        idHiddenField.value = pageID;
+
+      } else if (response.data && response.data.data && response.data.data.update_article_translations) { // TODO get rid of this?? not sure what it's for
+        // console.log("unpublished article:", response.data);
+        setPublishedFlag(false);
+      } else {
+        // console.log("unknown response: ", response);
       }
+    }
 
-      function handleGetArticle() {
-         google.script.run.withFailureHandler(onFailure).withSuccessHandler(handleGetTranslationsForArticle).hasuraGetArticle();
-      }
+    var form = document.getElementById('article-form');
+    form.style.display = "block";
+  }
 
-      function displayTranslationTools(id, documentId, documentType, headline, googleDocs, organizationLocales) {
-        // console.log("displaying translation tools:", id, documentId, headline, googleDocs, organizationLocales);
+  function handleClick(formObject) {
+    var form = document.getElementById('article-form');
+    form.style.display = "none";
 
-        var existingDocsOtherLocales = [];
-        var availableLocales = [];
+    var formIsValid = true;
 
-        var selectedLocale = document.getElementById('article-locale').value;
+    var configDiv = document.getElementById('config');
+    configDiv.style.display = "none";
 
-        // console.log("organizationLocales:", organizationLocales)
-        if (googleDocs) {
-          organizationLocales.forEach( (orgLocale) => {
-            var foundLocaleDoc = false;
-            // loop over each google doc associated with this article
-            googleDocs.forEach( (doc) => {
-              // if google doc is not the current one we have open...
-              if (doc.google_document.document_id !== documentId) {
-                // ... and this org locale is equal to the google doc's locale
-                if (orgLocale.locale.code === doc.google_document.locale_code) {
-                  // add it to the list of documents available that are translations of this article
-                  existingDocsOtherLocales.push(doc.google_document);
-                  foundLocaleDoc = true;
-                }
-              // current document
-              } else {
-                if (orgLocale.locale.code === doc.google_document.locale_code) {
-                  foundLocaleDoc = true;
-                }
-              }
-            });
-            // if we didn't find a google document for this org locale, mark it as available
-            if (!foundLocaleDoc) {
-              availableLocales.push(orgLocale.locale);
-            }
-          })
+    var loadingDiv = document.getElementById('loading');
+    loadingDiv.style.display = "block";
 
-          // console.log("availableLocales:", availableLocales, "existingDocsOtherLocales:", existingDocsOtherLocales);
+    var errorMessage = "";
 
-          if (availableLocales && availableLocales.length > 0) {
-            availableLocales.forEach(availableLocale => {
-              if (availableLocale.code !== selectedLocale) {
-                // TODO: make another version of this button for the bottom of the sidebar?
-                var buttonId = "translate-button-top-" + availableLocale.code;
-                if (!document.getElementById(buttonId)) { // avoid adding multiple instances of the same button
-                  var button = document.createElement("button");
-                  button.setAttribute("class", "blue");
-                  button.setAttribute("type", "button");
-                  button.setAttribute("id", buttonId);
-                  button.setAttribute("data-headline", headline);
-                  button.setAttribute("data-doc-type", documentType);
-                  if (documentType === "page") {
-                    button.setAttribute("data-page-id", id);
-                  } else {
-                    button.setAttribute("data-article-id", id);
-                  }
-                  button.setAttribute("data-locale", availableLocale.code);
-                  button.setAttribute("onClick", "handleCreateDoc(this)");
-                  button.innerHTML = 'Translate to ' + availableLocale.name;
-                  // console.log(availableLocale, "button:", button);
-                  var buttonsTopContainer = document.getElementById('action-buttons-top');
-                  buttonsTopContainer.appendChild(button);
-                }
-              }
-            })
+    var typeHiddenField = document.getElementById('document-type');
+    var documentType = typeHiddenField.value;
+    // console.log("handleClick for docType:", documentType);
+
+    var headline = document.getElementById('article-headline');
+    var searchTitle = document.getElementById('article-search-title');
+    var searchDescription = document.getElementById('article-search-description');
+    var category = document.getElementById('article-category');
+
+    const calendar = flatpickr('input[name="article-first-published-date"]', {enableTime: true,
+        dateFormat: "Y-m-d h:i K"});
+    
+    var publishedDate = calendar.selectedDates[0];
+    // 2018-08-28T12:30:00+05:30
+    // var formattedPubDate = calendar.formatDate(publishedDate, "y-m-dT")
+    // console.log("storing pub date as:", publishedDate);
+
+    var sources = {};
+
+    if (documentType !== "page")  {
+      var elements = formObject.elements;
+
+      // build up an object with source data
+      // keys are source ids
+      for (var i = 0, element; element = elements[i++];) {
+        var elementMatch = element.name.match(/source\[(.*?)\]\.(.*?)$/);
+        if (elementMatch) {
+          var id = elementMatch[1];
+          if (sources[id] === undefined) {
+            sources[id] = {};
           }
-
-          if (existingDocsOtherLocales.length > 0) {
-            existingDocsOtherLocales.forEach(doc => {
-              // console.log("existing doc:", doc)
-              if (doc.locale.code !== selectedLocale) {
-                
-                var buttonId = "translate-button-top-" + doc.locale.code;
-                if (!document.getElementById(buttonId)) { // avoid adding multiple instances of the same button
-                  var button = document.createElement("button");
-                  button.setAttribute("id", buttonId);
-                  button.setAttribute("class", "blue");
-                  button.setAttribute("type", "button");
-                  var buttonOpenLink = "window.open('" + doc.url + "', '_blank')";
-                  button.setAttribute("onClick", buttonOpenLink);
-                  button.innerHTML = "Open in " + doc.locale.name;
-                  var buttonsTopContainer = document.getElementById('action-buttons-top');
-                  buttonsTopContainer.appendChild(button);
-                }
-              }
-            });
-          }
+          var fieldName = elementMatch[2];
+          var value = element.value;
+          sources[id][fieldName] = value
         }
       }
+      // loop over sources and check that each has either an email or phone specified
+      Object.keys(sources).forEach(id => {
+        var email = sources[id]['email'];
+        var phone = sources[id]['phone'];
+        var name = sources[id]['name'];
+        
+        // name is required
+        if (!/new_/.test(id) && !name) {
+          errorMessage += "<br>'Name' is required on all sources.";
+          delete sources[id];
+          formIsValid = false;
 
-      function onSuccessPreviewPublish(response) {
-        var configDiv = document.getElementById('config');
-        configDiv.style.display = 'none';
-        var div = document.getElementById('loading');
-        div.style.display = 'block';
+        // new source form that lacks a name, email and phone should be omitted
+        } else if (/new_/.test(id) && (!name && !email && !phone) ) {
+          // remove blank source from the list
+          delete sources[id];
+          // console.log(sources);
 
-        if (response.data.errors) {
-          div.innerHTML = "<p class='error'>An error occurred: " + JSON.stringify(response.data.errors) + '</p>';
-          try {
-            alertAirbrake(JSON.stringify(response.data.errors));
-          } catch(e) {
-            console.error("Failed to log error with Airbrake:", e);
-          }
         } else {
-          div.innerHTML = '<p style="color: #48C774;">' + response.message + "</p>";
-          if (response.data && response.data.data && response.data.data.insert_articles) {
-            var articleID = response.data.data.insert_articles.returning[0].id;
-            var idHiddenField = document.getElementById('article-id');
-            idHiddenField.value = articleID;
-
-            var articleSlug = response.data.data.insert_articles.returning[0].slug;
-            var slugField = document.getElementById('article-slug');
-            slugField.value = articleSlug;
-
-            var articleID = response.data.data.insert_articles.returning[0].id;
-            var idHiddenField = document.getElementById('article-id');
-            idHiddenField.value = articleID;
-
-            var translations = response.data.data.insert_articles.returning[0].article_translations;
-            if (translations[0]) {
-              setPublishedFlag(translations[0].published);
-            }
-            var publishedInfo = response.data.data.insert_articles.returning[0].published_article_translations;
-            if (publishedInfo && publishedInfo[0]) {
-              var mostRecentPubInfo = publishedInfo[0].article_translation;
-              displayPublishedInfo(mostRecentPubInfo, translations[0]);
-              
-              // console.log("publishedInfo:", mostRecentPubInfo);
-              if (mostRecentPubInfo) {
-                var firstPubDate = new Date(mostRecentPubInfo.first_published_at);
-                // console.log("setting published date to ", firstPubDate, mostRecentPubInfo.first_published_at);
-                flatpickr('input[name="article-first-published-date"]', {
-                  enableTime: true,
-                  dateFormat: "Y-m-d h:i K",
-                  defaultDate: firstPubDate
-                });
-              } else {
-                var today = new Date();
-                flatpickr('input[name="article-first-published-date"]', {
-                  enableTime: true,
-                  dateFormat: "Y-m-d h:i K",
-                  defaultDate: today
-                });
-              }
-            }
-
-            // console.log("response:", response);
-            var googleDocs = response.data.data.insert_articles.returning[0].article_google_documents;
-            var organizationLocales = response.data.organization_locales;
-            var documentID = response.documentID;
-            // console.log("googleDocs:", googleDocs, "organizationLocales:", organizationLocales, "documentID:", documentID);
-        
-            displayTranslationTools(articleID, documentID, "article", translations[0].headline, googleDocs, organizationLocales);
-
-          } else if (response.data && response.data.data && response.data.data.insert_pages) {
-            var pageID = response.data.data.insert_pages.returning[0].id;
-            // console.log("page ID:", pageID)
-            var idHiddenField = document.getElementById('article-id');
-            idHiddenField.value = pageID;
-
-            var pageData = response.data.data.insert_pages.returning[0];
-            
-            var googleDocs = pageData.page_google_documents;
-            var translations = pageData.page_translations;
-            var organizationLocales = response.data.organization_locales;
-            var documentID = response.documentID;
-
-            displayTranslationTools(pageID, documentID, "page", translations[0].headline, googleDocs, organizationLocales);
-
-          } else if (response.data && response.data.data && response.data.data.update_article_translations) {
-            // console.log("unpublished article:", response.data);
-            setPublishedFlag(false);
+          if (name && (phone || email)) {
+            // console.log(name, "has a name + a phone or email:", phone, email);
+          } else if (!name) {
+            // console.log("source is missing a name")
+            errorMessage += "<br>'Name' is required on all sources.";
+            delete sources[id];
+            formIsValid = false;
           } else {
-            console.log("unknown: ", response);
-          }
-        }
-
-        var form = document.getElementById('article-form');
-        form.style.display = "block";
-      }
-
-      function handleClick(formObject) {
-        var form = document.getElementById('article-form');
-        form.style.display = "none";
-
-        var formIsValid = true;
-
-        var configDiv = document.getElementById('config');
-        configDiv.style.display = "none";
-
-        var loadingDiv = document.getElementById('loading');
-        loadingDiv.style.display = "block";
-
-        var errorMessage = "";
-
-        var typeHiddenField = document.getElementById('document-type');
-        var documentType = typeHiddenField.value;
-
-        var headline = document.getElementById('article-headline');
-        var searchTitle = document.getElementById('article-search-title');
-        var searchDescription = document.getElementById('article-search-description');
-        var category = document.getElementById('article-category');
-
-        const calendar = flatpickr('input[name="article-first-published-date"]', {enableTime: true,
-            dateFormat: "Y-m-d h:i K"});
-        
-        var publishedDate = calendar.selectedDates[0];
-        // 2018-08-28T12:30:00+05:30
-        // var formattedPubDate = calendar.formatDate(publishedDate, "y-m-dT")
-        // console.log("storing pub date as:", publishedDate);
-
-        var sources = {};
-
-        if (documentType !== "page")  {
-          var elements = formObject.elements;
-
-          // build up an object with source data
-          // keys are source ids
-          for (var i = 0, element; element = elements[i++];) {
-            var elementMatch = element.name.match(/source\[(.*?)\]\.(.*?)$/);
-            if (elementMatch) {
-              var id = elementMatch[1];
-              if (sources[id] === undefined) {
-                sources[id] = {};
-              }
-              var fieldName = elementMatch[2];
-              var value = element.value;
-              sources[id][fieldName] = value
-            }
-          }
-          // loop over sources and check that each has either an email or phone specified
-          Object.keys(sources).forEach(id => {
-            var email = sources[id]['email'];
-            var phone = sources[id]['phone'];
-            var name = sources[id]['name'];
-            
-            // name is required
-            if (!/new_/.test(id) && !name) {
-              errorMessage += "<br>'Name' is required on all sources.";
-              delete sources[id];
-              formIsValid = false;
-
-            // new source form that lacks a name, email and phone should be omitted
-            } else if (/new_/.test(id) && (!name && !email && !phone) ) {
-              // remove blank source from the list
-              delete sources[id];
-              // console.log(sources);
-
-            } else {
-              if (name && (phone || email)) {
-                // console.log(name, "has a name + a phone or email:", phone, email);
-              } else if (!name) {
-                // console.log("source is missing a name")
-                errorMessage += "<br>'Name' is required on all sources.";
-                delete sources[id];
-                formIsValid = false;
-              } else {
-                // console.log(id, name, "is missing a phone/email")
-                delete sources[id];
-                errorMessage += "<br>All sources must have either a phone or email.";
-                formIsValid = false;
-              }
-            }
-          })
-
-          var selectedAuthors = $('#article-authors').select2('data');
-          var customByline = document.getElementById("article-custom-byline").value;
-          if ( (selectedAuthors === undefined || selectedAuthors.length <= 0) && ( customByline === null || customByline === undefined || customByline === "") ) {
-            // console.log("selectedAuthors:", selectedAuthors, "customByline:", customByline)
-            errorMessage += "<br>Author or custom byline is required.";
+            // console.log(id, name, "is missing a phone/email")
+            delete sources[id];
+            errorMessage += "<br>All sources must have either a phone or email.";
             formIsValid = false;
           }
         }
-        if (!headline.value) {
-          // console.log("headline is missing:", headline.value, typeof(headline.value));
-          errorMessage += "<br>Headline is required.";
-          formIsValid = false;
-        }
-        if (!searchTitle.value) {
-          // console.log("search title is missing:", searchTitle.value, typeof(searchTitle.value));
-          errorMessage += "<br>Search title is required.";
-          formIsValid = false;
-        }
-        if (!searchDescription.value) {
-          // console.log("searchDescription is missing:", searchDescription.value, typeof(searchDescription.value));
-          errorMessage += "<br>Search description is required.";
-          formIsValid = false;
-        }
-        if (!category.value && documentType === 'article') {
-          errorMessage += "<br>Category/section is required.";
-          formIsValid = false;
-        }
+      })
 
-        // assemble the data to submit - unfortunately we can't pass the form object with any additional data here
-        var submitData = {};
-        var elements = formObject.elements;
-        for (var i = 0, element; element = elements[i++];) {
-          var key = element.name;
-          var value = element.value;
-          if ( !(/source/).test(key) ) {
-            submitData[key] = value;
-          }
-        }
-        if (documentType === "article") {
-          var selectedTags = $('#article-tags').select2('data');
-          submitData["article-tags"] = [];
-          for (var i = 0, tag; tag = selectedTags[i++];) {
-            submitData["article-tags"].push(tag.text);
-          }
-          var formattedPubDate = toIsoString(publishedDate);
-          submitData["first-published-at"] = formattedPubDate;
-          // console.log('formattedPubDate:', formattedPubDate);
-          submitData["sources"] = sources;
-          submitData['article-authors'] = [];
-          for (var i = 0, author; author = selectedAuthors[i++];) {
-            submitData["article-authors"].push(author.id);
-          }
-        }
-        
-        if (formIsValid && formObject.submitted === "Preview") {
-          // console.log("valid form + preview")
-          loadingDiv.innerHTML = "<p class='gray'>Loading preview...</p>"
-          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePreview(submitData);
-        } else if ( formIsValid && (formObject.submitted === "Publish" || formObject.submitted === "Re-publish") ) {
-          // console.log("valid form + ", formIsValid, formObject.submitted)
-          if (documentType === "article" && $.isEmptyObject(sources)) {
-            if (!window.confirm("You're trying to publish an article without any source tracking info: are you sure?")) { 
-              form.style.display = "block";
-              loadingDiv.innerHTML = "Please enter source tracking info, then try publishing again.";
-              const redrawCalendar = flatpickr('input[name="article-first-published-date"]', {
-                enableTime: true,
-                dateFormat: "Y-m-d h:i K",
-              });
-
-            } else {
-              loadingDiv.innerHTML = "<p class='gray'>Publishing without any sources... </p>"
-              google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(submitData);
-            }
-          } else {
-            loadingDiv.innerHTML = "<p class='gray'>Publishing... </p>"
-            google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(submitData);
-          }
-        } else if (formIsValid && formObject.submitted === "Unpublish") {
-          // console.log("valid form + unpublish")
-          loadingDiv.innerHTML = "<p class='gray'>Unpublishing " + documentType + " ...</p>"
-          var articleId = document.getElementById('article-id').value;
-          var selectedLocale = document.getElementById('article-locale').value;
-
-          // console.log("Unpublish", documentType, formIsValid, articleId, selectedLocale);
-          if (documentType === "page") {
-            google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublishPage(formObject);
-
-          } else {
-            google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublish(formObject);
-          }
-        } else {
-            
-          // console.log("invalid form")
-          if (errorMessage !== "") {
-            loadingDiv.innerHTML = "<p class='error'>" + errorMessage + "</p>"
-            try {
-              alertAirbrake(errorMessage);
-            } catch(e) {
-              console.error("Failed to log error with Airbrake:", e);
-            }
-          } else {
-            loadingDiv.innerHTML = "<p class='error'>Please make sure all required fields are filled in.</p>"
-          }
-          form.style.display = "block";
-        }
+      var selectedAuthors = $('#article-authors').select2('data');
+      var customByline = document.getElementById("article-custom-byline").value;
+      if ( (selectedAuthors === undefined || selectedAuthors.length <= 0) && ( customByline === null || customByline === undefined || customByline === "") ) {
+        // console.log("selectedAuthors:", selectedAuthors, "customByline:", customByline)
+        errorMessage += "<br>Author or custom byline is required.";
+        formIsValid = false;
       }
+      if (!category.value && documentType === 'article') {
+        errorMessage += "<br>Category/section is required.";
+        formIsValid = false;
+      } 
+    }
+    if (!headline.value) {
+      // console.log("headline is missing:", headline.value, typeof(headline.value));
+      errorMessage += "<br>Headline is required.";
+      formIsValid = false;
+    }
+    if (!searchTitle.value) {
+      // console.log("search title is missing:", searchTitle.value, typeof(searchTitle.value));
+      errorMessage += "<br>Search title is required.";
+      formIsValid = false;
+    }
+    if (!searchDescription.value) {
+      // console.log("searchDescription is missing:", searchDescription.value, typeof(searchDescription.value));
+      errorMessage += "<br>Search description is required.";
+      formIsValid = false;
+    }
+    
+    // assemble the data to submit - unfortunately we can't pass the form object with any additional data here
+    var submitData = {};
+    var elements = formObject.elements;
+    for (var i = 0, element; element = elements[i++];) {
+      var key = element.name;
+      var value = element.value;
+      if ( !(/source/).test(key) ) {
+        submitData[key] = value;
+      }
+    }
+    if (documentType === "article") {
+      var selectedTags = $('#article-tags').select2('data');
+      submitData["article-tags"] = [];
+      for (var i = 0, tag; tag = selectedTags[i++];) {
+        submitData["article-tags"].push(tag.text);
+      }
+      var formattedPubDate = toIsoString(publishedDate);
+      submitData["first-published-at"] = formattedPubDate;
+      // console.log('formattedPubDate:', formattedPubDate);
+      submitData["sources"] = sources;
+      submitData['article-authors'] = [];
+      for (var i = 0, author; author = selectedAuthors[i++];) {
+        submitData["article-authors"].push(author.id);
+      }
+    }
+    
+    if (formIsValid && formObject.submitted === "Preview") {
+      // console.log("valid form + preview")
+      loadingDiv.innerHTML = "<p class='gray'>Loading preview...</p>"
+      google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePreview(submitData);
+    } else if ( formIsValid && (formObject.submitted === "Publish" || formObject.submitted === "Re-publish") ) {
+      // console.log("valid form + ", formIsValid, formObject.submitted)
+      if (documentType === "article" && $.isEmptyObject(sources)) {
+        if (!window.confirm("You're trying to publish an article without any source tracking info: are you sure?")) { 
+          form.style.display = "block";
+          loadingDiv.innerHTML = "Please enter source tracking info, then try publishing again.";
+          const redrawCalendar = flatpickr('input[name="article-first-published-date"]', {
+            enableTime: true,
+            dateFormat: "Y-m-d h:i K",
+          });
+
+        } else {
+          loadingDiv.innerHTML = "<p class='gray'>Publishing without any sources... </p>"
+          google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(submitData);
+        }
+      } else {
+        loadingDiv.innerHTML = "<p class='gray'>Publishing... </p>"
+        google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandlePublish(submitData);
+      }
+    } else if (formIsValid && formObject.submitted === "Unpublish") {
+      // console.log("valid form + unpublish")
+      loadingDiv.innerHTML = "<p class='gray'>Unpublishing " + documentType + " ...</p>"
+
+      google.script.run.withSuccessHandler(onSuccessPreviewPublish).withFailureHandler(onFailure).hasuraHandleUnpublish(formObject);
+    
+    } else {
+        
+      // console.log("invalid form")
+      if (errorMessage !== "") {
+        loadingDiv.innerHTML = "<p class='error'>" + errorMessage + "</p>"
+      } else {
+        loadingDiv.innerHTML = "<p class='error'>Please make sure all required fields are filled in.</p>"
+      }
+      form.style.display = "block";
+    }
+  }
       window.onload = (function(){
         var form = document.getElementById('article-form');
         form.style.display = "none";
@@ -1423,13 +1189,6 @@
             <span class="small">
               Used as a general article description around the site in addition to search engine metadata.
             </span>
-          </div>
-
-          <div id="locale-container" class="block form-group hidden">
-            <label for="article-locale">
-              <b>Locale</b>
-            </label>
-            <select style="width: 100%" id="article-locale" name="article-locale"></select>
           </div>
 
           <div class="block form-group">

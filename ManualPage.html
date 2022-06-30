@@ -9,45 +9,9 @@
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/js/select2.min.js"></script>
 
     <script>
-      function toggleConfigForm() {
-        var scriptForm = document.getElementById('script-config-form')
-
-        // if the config form is being displayed, hide it
-        if (scriptForm.style.display === "block") {
-          hideConfigForm();
-          showSearchForm();
-
-        // otherwise, display it
-        } else {
-          getConfigAndDisplayForm();
-        }
-      }
-      function handleGetTranslationsForArticle(data) {
-        console.log("data:", data);
-        var articleId;
-        var localeCode;
-        
-        if (data && data.data && data.data.articles && data.data.articles[0]) {
-          articleId = data.data.articles[0].id;
-          if (
-            data.data.articles[0] && 
-            data.data.articles[0].article_google_documents && 
-            data.data.articles[0].article_google_documents[0] && 
-            data.data.articles[0].article_google_documents[0].google_document) {
-              localeCode = data.data.articles[0].article_google_documents[0].google_document.locale_code;
-            }
-        }
-        if (articleId && localeCode) {
-          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetTranslations(articleId, localeCode);
-        } else {
-          var div = document.getElementById('loading');
-          div.style.display = 'block';
-          div.innerHTML = data.message;
-        }
-      }
-
+    
       function handleGetArticle() {
-        google.script.run.withFailureHandler(onFailure).withSuccessHandler(handleGetTranslationsForArticle).hasuraGetArticle();
+        google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessGetArticle).hasuraGetArticle();
       }
 
       function onSuccessGetArticle(contents) {
@@ -60,80 +24,6 @@
         } else {
           div.innerHTML = '<p style="color: #48C774;">' + contents.message + "</p>";
         }
-      }
-
-      function onSuccessDelete(response) {
-        var div = document.getElementById('republish-info');
-        div.style.display = 'block';
-        if (response && !response.errors) {
-          div.innerHTML = "<p><b>Delete article result:</b><br/><ul>" + JSON.stringify(response) + "</ul></p>";
-        } else {
-          div.innerHTML = "<p><b>Delete article errors:</b><br/><ul>" + JSON.stringify(response.errors) + "</ul></p>";
-        }
-      }
-
-      function onSuccessRepublish(response) {
-        console.log(response.data[0].data.insert_articles.returning[0])
-        var div = document.getElementById('republish-info');
-        div.style.display = 'block';
-        var republishedArticleSlugs = response.data.map((d) => d.data.insert_articles.returning[0].slug);
-        
-        var slugListItems = republishedArticleSlugs.map( (slug) => {
-          return "<li>" + slug + "</li>";
-        }).join("\n");
-        div.innerHTML = "<p><b>Republished the following articles:</b><br/><ul>" + slugListItems + "</ul></p>";
-      }
-
-      function onSuccessSearch(contents) {
-
-        hideConfigForm();
-        hideLoading();
-
-        var div = document.getElementById('loading');
-        div.style.display = 'block';
-
-        if (contents.data.articles.length <= 0) {
-          div.innerHTML = "<p>No matching articles found. Try again, or perhaps you want to <a href='TODO'>publish this as a new article</a>?</p>";
-        } else {
-          var articleSelect = document.getElementById('article-id');
-
-          contents.data.articles.forEach(article => {
-            // first check if this option already exists; don't add dupes!
-            var selectorString = "#article-id option[value='" + article.id + "']";
-            if ( $(selectorString).length <= 0 ) {
-              var option = document.createElement("option");
-              if (article.article_translations && article.article_translations[0].headline) {
-                option.text = article.article_translations[0].headline;
-              } else {
-                option.text = "(BUG) unknown article headline";
-              }
-              option.value = article.id;
-
-              articleSelect.add(option);
-            }
-          })
-
-          var articleLocaleSelect = document.getElementById('article-locale');
-
-          contents.data.organization_locales.forEach(localeData => {
-            // first check if this option already exists; don't add dupes!
-            var selectorString = "#article-locale option[value='" + localeData.locale.code + "']";
-            if ( $(selectorString).length <= 0 ) {
-              var option = document.createElement("option");
-              if (localeData.locale.code) {
-                option.text = localeData.locale.code;
-              } else {
-                option.text = "(BUG) unknown locale";
-              }
-              option.value = localeData.locale.code;
-
-              articleLocaleSelect.add(option);
-            }
-          })
-
-          showArticleForm();
-        }
-
       }
 
       function onSuccess(contents) {
@@ -166,18 +56,20 @@
       function displayConfigFormMessage(text) {
         var configDiv = document.getElementById('loading');
         configDiv.innerHTML = JSON.stringify(text);
-
-        hideConfigForm();
-        showSearchForm();
+        configDiv.style.display = 'block';
       }
 
       function onSuccessConfigFormValues(data) {
         console.log("config form data:", data);
-        var accessToken = document.getElementById('access-token');
-        accessToken.value = data.accessToken ? data.accessToken : data['ACCESS_TOKEN'];
 
-        var contentApi = document.getElementById('content-api');
-        contentApi.value = data.contentApi ? data.contentApi : data['CONTENT_API'];
+        var site = document.getElementById('site');
+        site.value = data.site ? data.site : data['SITE'];
+
+        var apiToken = document.getElementById('document-api-token');
+        apiToken.value = data.apiToken ? data.apiToken : data['DOCUMENT_API_TOKEN'];
+
+        var documentApi = document.getElementById('document-api-url');
+        documentApi.value = data.documentApi ? data.documentApi : data['DOCUMENT_API_URL'];
 
         var editorUrl = document.getElementById('editor-url');
         editorUrl.value = data.editorUrl ? data.editorUrl : data['EDITOR_URL'];
@@ -185,40 +77,11 @@
         var publishUrl = document.getElementById('publish-url');
         publishUrl.value = data.publishUrl ? data.publishUrl : data['PUBLISH_URL'];
 
-        var previewUrl = document.getElementById('preview-url');
-        previewUrl.value = data.previewUrl ? data.previewUrl : data['PREVIEW_URL'];
-
-        var previewSecret = document.getElementById('preview-secret');
-        previewSecret.value = data.previewSecret ? data.previewSecret : data['PREVIEW_SECRET'];
-
-        var awsAccessKey = document.getElementById('aws-access-key');
-        awsAccessKey.value = data.awsAccessKey ? data.awsAccessKey : data['AWS_ACCESS_KEY_ID'];
-
-        var awsSecretKey = document.getElementById('aws-secret-key');
-        awsSecretKey.value = data.awsSecretKey ? data.awsSecretKey : data['AWS_SECRET_KEY'];
-
-        var awsBucket = document.getElementById('aws-bucket');
-        awsBucket.value = data.awsBucket ? data.awsBucket : data['AWS_BUCKET'];
-
-        var vercelWebhook = document.getElementById('vercel-webhook');
-        vercelWebhook.value = data.vercelWebhook ? data.vercelWebhook : data['VERCEL_WEBHOOK'];
-
         showConfigForm();
       }
 
       function getConfigAndDisplayForm() {
-        hideSearchForm();
         showConfigForm();
-      }
-
-      function showArticleForm() {
-        var scriptForm = document.getElementById('associate-article-form')
-        scriptForm.style.display = "block";
-      }
-
-      function hideArticleForm() {
-        var scriptForm = document.getElementById('associate-article-form')
-        scriptForm.style.display = "none";
       }
 
       function showConfigForm() {
@@ -241,24 +104,12 @@
         loadingDiv.style.display = "none";
       }
 
-      function showSearchForm() {
-        var form = document.getElementById('article-search-form')
-        form.style.display = "block";
-      }
-
-      function hideSearchForm() {
-        var form = document.getElementById('article-search-form')
-        form.style.display = "none";
-      }
-
       function onSuccessConfig(data) {
         hideLoading();
-        // var loadingDiv = document.getElementById('loading');
+        var loadingDiv = document.getElementById('loading');
         if (data !== null && data !== {} && Object.keys(data).length > 0) {
-          // loadingDiv.innerHTML = "<div class='success'>Configuration loaded.</div><hr/>"
+          loadingDiv.innerHTML = "<div class='success'>Configuration loaded.</div><hr/>"
           onSuccessConfigFormValues(data);
-          hideConfigForm();
-          showSearchForm();
         } else {
           showConfigForm();
           loadingDiv.innerHTML = "<div class='error'>No script config found. Fill in the form to use publishing tools.</div><hr/>"
@@ -268,6 +119,8 @@
       function onFailureConfig(error) {
         var configDiv = document.getElementById('loading');
         configDiv.innerHTML = "<p class='error'>An error occurred. This may be due to being logged into multiple google accounts at once. Try opening this doc in an incognito window.</p>";
+        configDiv.style.display = 'block';
+
       }
 
       // this assembles document properties and figures out the orgName based on folder hierarchy
@@ -283,59 +136,6 @@
         google.script.run.withSuccessHandler(displayConfigFormMessage).setScriptConfig(formObject);
       }
 
-
-      function handleSearch(formObject) {
-        // hideSearchForm();
-        hideConfigForm();
-        showLoading();
-
-        google.script.run.withSuccessHandler(onSuccessSearch).withFailureHandler(onFailure).hasuraSearchArticles(formObject);
-      }
-
-      function republishArticles() {
-        if (window.confirm("This will process all published article google docs and republish to the web: are you sure?")) { 
-          var div = document.getElementById('republish-info');
-          div.style.display = 'block';
-          div.innerHTML = "<p><i>Republishing all articles now, this may take a few minutes...</i></p>";
-          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessRepublish).republishArticles();
-        } else {
-          console.log("cancelled republish all")
-        }
-      }
-      function deleteArticle() {
-        if (window.confirm("Are you sure that you want to completely delete this article? There is no undo!")) { 
-          var articleIdEl = document.getElementById('current-data-id');
-          var articleId = articleIdEl.innerText;
-          var div = document.getElementById('republish-info');
-          div.style.display = 'block';
-          div.innerHTML = "<p><i>Removing article data...</i></p>";
-          google.script.run.withFailureHandler(onFailure).withSuccessHandler(onSuccessDelete).hasuraDeleteArticle(articleId);
-        } else {
-          console.log("cancelled delete article")
-        }
-      }
-
-      function handleAssociate(formObject) {
-        if (window.confirm("Are you sure you want to do this? Any content in the linked article in this locale will be replaced by your document!")) { 
-          hideLoading();
-
-          hideConfigForm();
-
-          showLoading();
-          google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).hasuraAssociateArticle(formObject);
-        }
-      }
-
-      function setPublishedFlag(value) {
-        var isPublishedSpan = document.getElementById('is-published');
-        var isPublishedYesNo = "no";
-
-        if (value === "true" || value === true) { // 😭 javascript + JSON + boolean `published: true` or `published: false` as string
-          isPublishedYesNo = "yes";
-        }
-        isPublishedSpan.innerHTML = isPublishedYesNo;
-      }
-
       // Prevent forms from submitting.
       function preventFormSubmit() {
         var forms = document.querySelectorAll('form');
@@ -348,10 +148,6 @@
       window.addEventListener('load', preventFormSubmit);
 
       window.onload = (function(){
-        hideSearchForm();
-        hideArticleForm();
-        hideConfigForm();
-        
         handleScriptConfig();
         handleGetArticle();
       });
@@ -368,7 +164,7 @@
       .button, button, input[type="button"] {
         min-width: 0 !important;
       }
-      </style>
+    </style>
 
   </head>
   <body>
@@ -381,119 +177,41 @@
       <div id="script-config-form-output" class="block secondary"></div>
       <form id="script-config-form" onsubmit="handleScriptConfigSubmit(this)">
         <div class="block form-group">
-          <label for="access-token">
-            <b>Content API Access Token</b>
+          <label for="document-api-token">
+            <b>Site</b>
           </label>
-          <input id="access-token" name="ACCESS_TOKEN" type="text" />
+          <input id="site" name="SITE" type="text" />
         </div>
         <div class="block form-group">
-          <label for="content-api">
-            <b>Content API URL</b>
+          <label for="document-api-token">
+            <b>Document API Token</b>
           </label>
-          <input id="content-api" name="CONTENT_API" type="text" />
+          <input id="document-api-token" name="DOCUMENT_API_TOKEN" type="text" />
         </div>
-
+        <div class="block form-group">
+          <label for="document-api-url">
+            <b>Document API URL</b>
+          </label>
+          <input id="document-api-url" name="DOCUMENT_API_URL" type="text" />
+        </div>
         <div class="block form-group">
           <label for="editor-url">
             <b>Homepage Editor URL</b>
           </label>
-          <input id="editor-url" name="EDITOR_URL" type="text" placeholder="http://localhost:3000/tinycms/homepage" />
+          <input id="editor-url" name="EDITOR_URL" type="text" placeholder="http://next-tinynewsdemo.localhost:3000/tinycms/homepage" />
         </div>
 
         <div class="block form-group">
           <label for="publish-url">
             <b>Publish Host URL</b>
           </label>
-          <input id="publish-url" name="PUBLISH_URL" type="text" placeholder="http://localhost:3000" />
+          <input id="publish-url" name="PUBLISH_URL" type="text" placeholder="http://next-tinynewsdemo.localhost:3000" />
         </div>
-        <div class="block form-group">
-          <label for="preview-url">
-            <b>Preview Host URL</b>
-          </label>
-          <input id="preview-url" name="PREVIEW_URL" type="text" placeholder="http://localhost:3000/api/preview" />
-        </div>
-        <div class="block form-group">
-          <label for="preview-secret">
-            <b>Preview Secret Param</b>
-          </label>
-          <input id="preview-secret" name="PREVIEW_SECRET" type="text" />
-        </div>
-        <div class="block form-group">
-          <label for="aws-access-key">
-            <b>AWS Access Key ID</b>
-          </label>
-          <input id="aws-access-key" name="AWS_ACCESS_KEY_ID" type="text" />
-        </div>
-        <div class="block form-group">
-          <label for="aws-secret-key">
-            <b>AWS Secret Key</b>
-          </label>
-          <input id="aws-secret-key" name="AWS_SECRET_KEY" type="text" />
-        </div>
-        <div class="block form-group">
-          <label for="aws-bucket">
-            <b>AWS Bucket</b>
-          </label>
-          <input id="aws-bucket" name="AWS_BUCKET" type="text" />
-        </div>
-        <div class="block form-group">
-          <label for="vercel-webhook">
-            <b>Vercel Webhook</b>
-          </label>
-          <input id="vercel-webhook" name="VERCEL_WEBHOOK" type="text" />
-        </div>
+
         <div class="block">
           <button class="blue">Save Config</button>
         </div>
       </form>
-
-      <div id="article-search-form" class="block">
-        <h2>Link Doc with Existing Article</h2>
-        <form onsubmit="handleSearch(this)">
-          <div class="block form-group">
-            <label for="article-headline">
-              <b>Find an article by headline</b>
-            </label>
-            <input id="article-search" name="article-search" type="text" />
-          </div>
-          <div class="block">
-            <input type="submit" name="search" id="search-button" class="blue" value="Search" />
-          </div>
-        </form>
-      </div>
-
-      <div id="associate-article-form" class="block">
-        <form onsubmit="handleAssociate(this)">
-          <div class="block form-group">
-            <label for="article-id">
-              <b>Select article</b>
-            </label>
-            <div id="search-results" class="block"></div>
-            <select style="width: 100%" id="article-id" name="article-id"></select>
-          </div>
-          <div class="block form-group">
-            <label for="article-locale">
-              <b>Select locale</b>
-            </label>
-            <select style="width: 100%" id="article-locale" name="article-locale"></select>
-            <!-- <div id="locale-results" class="block"></div> -->
-          </div>
-          <div class="block">
-            <input type="submit" name="link" id="link-button" class="blue" value="Link" />
-          </div>
-        </form>
-      </div>
-
-
-      <div class="block">
-        <hr/>
-        <button onclick="toggleConfigForm()">Toggle Config Form</button>
-        <hr/>
-        <button onclick="republishArticles()">Republish All</button>
-        <div id="republish-info"></div>
-        <hr/>
-        <button onclick="deleteArticle()">Delete Article</button>
-      </div>
     </div>
 
     <div class="sidebar bottom">
